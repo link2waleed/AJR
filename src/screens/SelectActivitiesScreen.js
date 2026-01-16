@@ -90,9 +90,9 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
     };
 
     const handleContinue = () => {
-        // Navigate to main app or next onboarding step
         console.log('Selected activities:', selections);
-        // navigation.navigate('Home', { ...route?.params, activities: selections });
+        // Navigate to activity setup flow
+        navigation.navigate('PrayerSetup', { activities: selections });
     };
 
     return (
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: borderRadius.md,
-        backgroundColor: 'rgba(122, 158, 127, 0.15)',
+        backgroundColor: colors.accent.icon,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: spacing.md,

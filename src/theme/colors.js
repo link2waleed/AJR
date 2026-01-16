@@ -42,6 +42,7 @@ export const colors = {
   accent: {
     coral: '#E57373',
     link: '#D4635C',
+    icon: '#D8EAD7',
   },
 
   // Input and button colors
@@ -52,7 +53,7 @@ export const colors = {
 
   // Button colors
   button: {
-    primary: 'rgba(122, 158, 127, 0.8)',
+    primary: '#7C8E7B',
     social: 'rgba(255, 255, 255, 0.9)',
   },
 };

@@ -1,0 +1,390 @@
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Switch,
+    ScrollView,
+    Dimensions,
+    Image
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../components';
+import { colors, typography, spacing, borderRadius } from '../theme';
+import volumeImage from '../../assets/images/volume.png';
+import fajrIcon from '../../assets/images/fajr.png';
+import duhurIcon from '../../assets/images/duhur.png';
+import asrIcon from '../../assets/images/asr.png';
+import mughribIcon from '../../assets/images/mughrib.png';
+import ishaIcon from '../../assets/images/isha.png';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const isSmallDevice = screenWidth < 375;
+const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
+
+const prayers = [
+    { id: 'fajr', name: 'Fajr', icon: fajrIcon },
+    { id: 'duhur', name: 'Duhur', icon: duhurIcon },
+    { id: 'asr', name: 'Asr', icon: asrIcon },
+    { id: 'mughrib', name: 'Mughrib', icon: mughribIcon },
+    { id: 'isha', name: 'Isha', icon: ishaIcon },
+];
+
+const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingChange }) => {
+    return (
+        <View style={styles.prayerCard}>
+            <TouchableOpacity
+                style={styles.prayerHeader}
+                onPress={() => onToggleExpand(prayer.id)}
+                activeOpacity={0.7}
+            >
+                <Image
+                    source={prayer.icon}
+                    style={styles.prayerIcon}
+                    resizeMode="contain"
+                />
+
+                <Text style={styles.prayerName}>{prayer.name}</Text>
+                <View style={styles.prayerControls}>
+                    {isExpanded && (
+                        <TouchableOpacity style={styles.soundButton}>
+                            <Image
+                                source={volumeImage}
+                                style={styles.volumeIcon}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                    )}
+                    <Switch
+                        value={settings.enabled}
+                        onValueChange={(value) => onSettingChange(prayer.id, 'enabled', value)}
+                        trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
+                        thumbColor="#FFFFFF"
+                        ios_backgroundColor="#E0E0E0"
+                    />
+                </View>
+            </TouchableOpacity>
+
+            {isExpanded && settings.enabled && (
+                <View style={styles.prayerDetails}>
+                    <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>Athan at the start of {prayer.name}</Text>
+                        <Switch
+                            value={settings.athanEnabled}
+                            onValueChange={(value) => onSettingChange(prayer.id, 'athanEnabled', value)}
+                            trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
+                            thumbColor="#FFFFFF"
+                            ios_backgroundColor="#E0E0E0"
+                        />
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingTextContainer}>
+                            <Text style={styles.settingLabel}>End-Time Reminder</Text>
+                            <Text style={styles.settingSubtext}>
+                                Get a reminder 20 minutes before the prayer window closes
+                            </Text>
+                        </View>
+                        <Switch
+                            value={settings.reminderEnabled}
+                            onValueChange={(value) => onSettingChange(prayer.id, 'reminderEnabled', value)}
+                            trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
+                            thumbColor="#FFFFFF"
+                            ios_backgroundColor="#E0E0E0"
+                        />
+                    </View>
+
+                    <View style={styles.soundModeContainer}>
+                        <Text style={styles.soundModeTitle}>Current sound mode: Athan</Text>
+                        <Text style={styles.soundModeSubtext}>Tap the sound icon to cycle through options</Text>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+};
+
+const PrayerSetupScreen = ({ navigation }) => {
+    const [expandedPrayer, setExpandedPrayer] = useState('fajr');
+    const [prayerSettings, setPrayerSettings] = useState({
+        fajr: { enabled: true, athanEnabled: true, reminderEnabled: true },
+        duhur: { enabled: false, athanEnabled: true, reminderEnabled: true },
+        asr: { enabled: false, athanEnabled: true, reminderEnabled: true },
+        mughrib: { enabled: false, athanEnabled: true, reminderEnabled: true },
+        isha: { enabled: false, athanEnabled: true, reminderEnabled: true },
+    });
+    const [trackPrayers, setTrackPrayers] = useState(true);
+
+    const handleToggleExpand = (prayerId) => {
+        setExpandedPrayer(expandedPrayer === prayerId ? null : prayerId);
+    };
+
+    const handleSettingChange = (prayerId, setting, value) => {
+        setPrayerSettings(prev => ({
+            ...prev,
+            [prayerId]: { ...prev[prayerId], [setting]: value }
+        }));
+    };
+
+    const handleContinue = () => {
+        navigation.navigate('QuranGoal');
+    };
+
+    const handleSkip = () => {
+        navigation.navigate('QuranGoal');
+    };
+
+    return (
+        <View style={styles.container}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Header */}
+                <Text style={styles.title}>Prayer Activity Setup</Text>
+                <Text style={styles.subtitle}>
+                    Choose when you'd like to receive Athan notifications and reminders
+                </Text>
+
+                {/* Prayer Cards */}
+                <View style={styles.cardsContainer}>
+                    {prayers.map((prayer) => (
+                        <PrayerCard
+                            key={prayer.id}
+                            prayer={prayer}
+                            isExpanded={expandedPrayer === prayer.id}
+                            onToggleExpand={handleToggleExpand}
+                            settings={prayerSettings[prayer.id]}
+                            onSettingChange={handleSettingChange}
+                        />
+                    ))}
+                </View>
+
+                {/* Prayer Activity Setup Section */}
+                <View style={styles.activitySection}>
+                    <Text style={styles.activityTitle}>Prayer Activity Setup</Text>
+                    <Text style={styles.activitySubtext}>
+                        Tracking helps visualize consistency and daily prayer goals. Add prayers to your dashboard activity rings.
+                    </Text>
+                    <View style={styles.yesNoContainer}>
+                        <TouchableOpacity
+                            style={styles.radioOption}
+                            onPress={() => setTrackPrayers(true)}
+                        >
+                            <Text style={styles.radioLabel}>Yes</Text>
+                            <View style={[styles.radioOuter, trackPrayers && styles.radioOuterSelected]}>
+                                {trackPrayers && <View style={styles.radioInner} />}
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.radioOption}
+                            onPress={() => setTrackPrayers(false)}
+                        >
+                            <Text style={styles.radioLabel}>No</Text>
+                            <View style={[styles.radioOuter, !trackPrayers && styles.radioOuterSelected]}>
+                                {!trackPrayers && <View style={styles.radioInner} />}
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
+
+            {/* Bottom Buttons */}
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                    <Text style={styles.skipText}>Skip</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
+                </TouchableOpacity>
+                <Button
+                    title="Continue"
+                    onPress={handleContinue}
+                    icon="arrow-forward"
+                    style={styles.continueButton}
+                />
+            </View>
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.primary.light,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: horizontalPadding,
+        paddingTop: screenHeight * 0.06,
+        paddingBottom: spacing.md,
+    },
+    title: {
+        fontSize: isSmallDevice ? 22 : 26,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+        textAlign: 'center',
+        marginBottom: spacing.sm,
+    },
+    subtitle: {
+        fontSize: isSmallDevice ? 14 : 16,
+        color: colors.text.grey,
+        textAlign: 'center',
+        marginBottom: spacing.xl,
+        paddingHorizontal: spacing.md,
+    },
+    cardsContainer: {
+        marginBottom: spacing.lg,
+    },
+    prayerCard: {
+        backgroundColor: 'rgba(255,255,255,0.62)',
+        borderWidth: 1,
+        borderColor: '#ffffff',
+        borderRadius: borderRadius.lg,
+        marginBottom: spacing.sm,
+        overflow: 'hidden',
+    },
+    prayerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+    },
+    prayerIcon: {
+        width: 36,
+        height: 36,
+        marginRight: spacing.md,
+    },
+    prayerName: {
+        flex: 1,
+        fontSize: isSmallDevice ? 14 : 16,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+    },
+    prayerControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    soundButton: {
+        marginRight: spacing.sm,
+    },
+    prayerDetails: {
+        paddingHorizontal: spacing.md,
+        paddingBottom: spacing.md,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: spacing.sm,
+    },
+    settingTextContainer: {
+        flex: 1,
+        marginRight: spacing.sm,
+    },
+    settingLabel: {
+        fontSize: isSmallDevice ? 13 : 14,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+    },
+    settingSubtext: {
+        fontSize: isSmallDevice ? 11 : 12,
+        color: colors.text.grey,
+        marginTop: 2,
+    },
+    volumeIcon: {
+        width: 30,
+        height: 30,
+    },
+    soundModeContainer: {
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginTop: spacing.sm,
+    },
+    soundModeTitle: {
+        fontSize: isSmallDevice ? 13 : 14,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+    },
+    soundModeSubtext: {
+        fontSize: isSmallDevice ? 11 : 12,
+        color: colors.text.grey,
+        marginTop: 2,
+    },
+    activitySection: {
+        marginTop: spacing.md,
+    },
+    activityTitle: {
+        fontSize: isSmallDevice ? 16 : 18,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+        marginBottom: spacing.xs,
+    },
+    activitySubtext: {
+        fontSize: isSmallDevice ? 12 : 14,
+        color: colors.text.grey,
+        marginBottom: spacing.md,
+    },
+    yesNoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    radioOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: spacing.lg,
+    },
+    radioLabel: {
+        fontSize: isSmallDevice ? 13 : 14,
+        color: colors.text.black,
+        marginRight: spacing.xs,
+    },
+    radioOuter: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: '#D0D0D0',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    radioOuterSelected: {
+        borderColor: colors.primary.sage,
+    },
+    radioInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: colors.primary.sage,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: horizontalPadding,
+        paddingBottom: spacing.xxl,
+        paddingTop: spacing.md,
+        justifyContent: 'space-between',
+    },
+    skipButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xxl,
+        borderRadius: borderRadius.lg,
+        borderWidth: 1,
+        borderColor: '#ffffff',
+        backgroundColor: 'rgba(255,255,255,0.8)',
+    },
+    skipText: {
+        fontSize: isSmallDevice ? 14 : 16,
+        color: colors.text.black,
+        marginRight: spacing.xs,
+    },
+    continueButton: {
+        flex: 1,
+        marginLeft: spacing.xxxl,
+    },
+});
+
+export default PrayerSetupScreen;
