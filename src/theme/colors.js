@@ -7,7 +7,7 @@ export const colors = {
     sage: '#7A9E7F',
     gold: '#C4B896',
     darkSage: '#5A7A5F',
-    light: '#F1F5F1'
+    light: 'rgba(241, 245, 241, 0.62);' //#F1F5F1
   },
 
   // Gradient colors for backgrounds
@@ -15,6 +15,12 @@ export const colors = {
     start: '#7A9E7F',   // Sage green (top-left)
     middle: '#9AAF8F',  // Blend
     end: '#C4B896',     // Muted gold (bottom-right)
+  },
+
+  // Home screen gradient
+  homeGradient: {
+    top: '#BEE5E3',     // Light teal (70% at top)
+    bottom: '#FBE3C0',  // Light peach/gold (30% at bottom)
   },
 
   // Feature card colors (Welcome screen)
@@ -45,6 +51,15 @@ export const colors = {
     icon: '#D8EAD7',
   },
 
+  // AJR Ring colors (circular progress) - matching exact design
+  rings: {
+    layer1: '#8FAF9A',      // First layer (outer) - sage green
+    layer2: '#E3C27A',      // Second layer - gold
+    layer3: '#D1AD73',      // Third layer - darker gold
+    innerCircle: '#9ECED1', // Inner circle - teal
+    separator: '#F3EEDE',   // Between layers - cream
+  },
+
   // Input and button colors
   input: {
     background: 'rgba(255, 255, 255, 0.85)',
@@ -55,6 +70,13 @@ export const colors = {
   button: {
     primary: '#7C8E7B',
     social: 'rgba(255, 255, 255, 0.9)',
+    prayer: '#134B43',    // Dark teal for Next Prayer button
+  },
+
+  // Border colors
+  border: {
+    grey: '#E0E0E0',
+    light: '#F0F0F0',
   },
 };
 

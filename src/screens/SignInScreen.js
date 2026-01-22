@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Platform,
     Image,
     Dimensions,
+    Alert,
 } from 'react-native';
 import {
     GradientBackground,
@@ -18,6 +19,8 @@ import {
     Checkbox,
 } from '../components';
 import { colors, typography, spacing } from '../theme';
+import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -36,27 +39,112 @@ const SignInScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const handleSignIn = () => {
-        console.log('Sign in:', { email, password, rememberMe });
-        // Navigate to onboarding flow after sign in
-        navigation.navigate('Name');
+    useEffect(() => {
+        // Configure Google Sign-In
+        GoogleSignin.configure({
+            webClientId: '6867275830-tpr0c9h43d8m3rl3u8fpu2akt19vhekb.apps.googleusercontent.com',
+            offlineAccess: true,
+            scopes: ['profile', 'email'],
+        });
+    }, []);
+
+    const handleSignIn = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter email and password');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userCredential = await auth().signInWithEmailAndPassword(email, password);
+            console.log('User signed in:', userCredential.user);
+            // Navigate to onboarding flow after sign in
+            navigation.navigate('MainApp');
+        } catch (error) {
+            console.error('Sign in error:', error);
+            let errorMessage = 'Failed to sign in';
+
+            if (error.code === 'auth/invalid-email') {
+                errorMessage = 'Invalid email address';
+            } else if (error.code === 'auth/user-disabled') {
+                errorMessage = 'This account has been disabled';
+            } else if (error.code === 'auth/user-not-found') {
+                errorMessage = 'No account found with this email';
+            } else if (error.code === 'auth/wrong-password') {
+                errorMessage = 'Incorrect password';
+            } else if (error.code === 'auth/invalid-credential') {
+                errorMessage = 'Invalid email or password';
+            }
+
+            Alert.alert('Sign In Error', errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSignUp = () => {
         navigation.navigate('SignUp');
     };
 
-    const handleForgotPassword = () => {
-        console.log('Forgot password');
-    };
 
-    const handleAppleSignIn = () => {
-        console.log('Apple sign in');
-    };
 
-    const handleGoogleSignIn = () => {
-        console.log('Google sign in');
+    const handleGoogleSignIn = async () => {
+        setLoading(true);
+        try {
+            // Sign out from Google to clear cached account and show account picker
+            await GoogleSignin.signOut();
+
+            // Check if your device supports Google Play
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+            // Get user info - now with account picker
+            const userInfo = await GoogleSignin.signIn();
+
+            console.log('Full user info:', JSON.stringify(userInfo, null, 2));
+
+            // Try to get idToken from different possible locations
+            const idToken = userInfo.idToken || userInfo?.data?.idToken;
+
+            if (!idToken) {
+                console.error('User info structure:', userInfo);
+                throw new Error('No ID token received from Google Sign-In');
+            }
+
+            console.log('Got idToken:', idToken);
+
+            // Create a Google credential with the token
+            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+            // Sign-in the user with the credential
+            const userCredential = await auth().signInWithCredential(googleCredential);
+            console.log('User signed in with Google:', userCredential.user.email);
+
+            // Navigate to onboarding flow after sign in
+            navigation.navigate('MainApp');
+            Alert.alert('Success', `Signed in with Google: ${userCredential.user.email}`);
+        } catch (error) {
+            console.error('Google sign in error:', error);
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+
+            let errorMessage = 'Failed to sign in with Google';
+
+            if (error.code === 'sign_in_cancelled') {
+                return; // User cancelled, don't show error
+            } else if (error.code === 'in_progress') {
+                errorMessage = 'Sign in is already in progress';
+            } else if (error.code === 'play_services_not_available') {
+                errorMessage = 'Google Play Services not available';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            Alert.alert('Google Sign In Error', errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -97,6 +185,7 @@ const SignInScreen = ({ navigation }) => {
                             iconName="mail-outline"
                             keyboardType="email-address"
                             autoCapitalize="none"
+                            editable={!loading}
                         />
 
                         <Text style={[styles.label, styles.labelSpacing]}>Password</Text>
@@ -106,27 +195,19 @@ const SignInScreen = ({ navigation }) => {
                             placeholder="Enter Password"
                             iconName="lock-closed-outline"
                             secureTextEntry
+                            editable={!loading}
                         />
 
-                        {/* Remember Me & Forgot Password */}
-                        <View style={styles.optionsRow}>
-                            <Checkbox
-                                checked={rememberMe}
-                                onToggle={() => setRememberMe(!rememberMe)}
-                                label="Remember Me"
-                            />
-                            <TouchableOpacity onPress={handleForgotPassword}>
-                                <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                            </TouchableOpacity>
-                        </View>
+
                     </View>
 
                     {/* Sign In Button */}
                     <Button
-                        title="Sign In"
+                        title={loading ? "Signing In..." : "Sign In"}
                         onPress={handleSignIn}
                         icon="arrow-forward"
                         style={styles.actionButton}
+                        disabled={loading}
                     />
 
                     {/* Divider */}
@@ -137,23 +218,19 @@ const SignInScreen = ({ navigation }) => {
                     </View>
 
                     {/* Social Buttons */}
-                    <SocialButton
-                        provider="apple"
-                        onPress={handleAppleSignIn}
-                        isSignIn={true}
-                        style={styles.socialButton}
-                    />
+
                     <SocialButton
                         provider="google"
                         onPress={handleGoogleSignIn}
                         isSignIn={true}
                         style={styles.socialButton}
+                        disabled={loading}
                     />
 
                     {/* Sign Up Link */}
                     <View style={styles.linkContainer}>
                         <Text style={styles.linkText}>Don't have an account? </Text>
-                        <TouchableOpacity onPress={handleSignUp}>
+                        <TouchableOpacity onPress={handleSignUp} disabled={loading}>
                             <Text style={styles.linkAction}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>

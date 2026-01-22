@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import auth from '@react-native-firebase/auth';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -38,25 +39,63 @@ const SectionHeader = ({ title }) => (
 const ProfileScreen = ({ navigation }) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+    const [userData, setUserData] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // Placeholder user data
-    const userData = {
-        name: 'Abdullah',
-        email: 'abdullah@example.com',
-        avatarInitials: 'AB',
-        memberSince: 'January 2026',
-        streak: 15,
-        totalDays: 45,
-    };
+    useEffect(() => {
+        const unsubscribe = auth().onAuthStateChanged(user => {
+            if (user) {
+                // Extract first and last name from display name, or use email
+                const displayName = user.displayName || user.email.split('@')[0];
+                const nameParts = displayName.split(' ');
+                const firstName = nameParts[0];
+                const lastName = nameParts[1] || '';
+
+                // Create initials
+                const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+                setUserData({
+                    name: displayName,
+                    email: user.email,
+                    avatarInitials: initials.length > 0 ? initials : 'U',
+                    memberSince: 'January 2026',
+                    streak: 15,
+                    totalDays: 45,
+                });
+            } else {
+                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+            }
+            setLoading(false);
+        });
+
+        return unsubscribe;
+    }, [navigation]);
 
     const handleEditProfile = () => {
         console.log('Edit Profile');
     };
 
     const handleLogout = () => {
-        console.log('Logout');
-        // Navigate back to auth flow
-        // navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', onPress: () => { }, style: 'cancel' },
+                {
+                    text: 'Log Out',
+                    onPress: async () => {
+                        try {
+                            await auth().signOut();
+                            navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                        } catch (error) {
+                            console.error('Logout error:', error);
+                            Alert.alert('Error', 'Failed to log out');
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ]
+        );
     };
 
     return (
@@ -72,28 +111,27 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
 
                 {/* Profile Card */}
-                <View style={styles.profileCard}>
-                    <View style={styles.avatarContainer}>
-                        <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{userData.avatarInitials}</Text>
+                {userData ? (
+                    <View style={styles.profileCard}>
+                        <View style={styles.avatarContainer}>
+                            <View style={styles.avatar}>
+                                <Text style={styles.avatarText}>{userData.avatarInitials}</Text>
+                            </View>
                         </View>
-                        <TouchableOpacity style={styles.editAvatarButton}>
-                            <Ionicons name="camera-outline" size={16} color={colors.primary.sage} />
+                        <View style={styles.profileInfo}>
+                            <Text style={styles.profileName}>{userData.name}</Text>
+                            <Text style={styles.profileEmail}>{userData.email}</Text>
+                            <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
+                            <Ionicons name="create-outline" size={18} color={colors.primary.sage} />
+                            <Text style={styles.editProfileText}>Edit</Text>
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.profileInfo}>
-                        <Text style={styles.profileName}>{userData.name}</Text>
-                        <Text style={styles.profileEmail}>{userData.email}</Text>
-                        <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
-                    </View>
-                    <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-                        <Ionicons name="create-outline" size={18} color={colors.primary.sage} />
-                        <Text style={styles.editProfileText}>Edit</Text>
-                    </TouchableOpacity>
-                </View>
+                ) : null}
 
                 {/* Stats Section */}
-                <View style={styles.statsContainer}>
+                {/* <View style={styles.statsContainer}>
                     <View style={styles.statCard}>
                         <View style={styles.statIconContainer}>
                             <Ionicons name="flame-outline" size={24} color="#FF6B6B" />
@@ -108,7 +146,7 @@ const ProfileScreen = ({ navigation }) => {
                         <Text style={styles.statValue}>{userData.totalDays}</Text>
                         <Text style={styles.statLabel}>Total Days</Text>
                     </View>
-                </View>
+                </View> */}
 
                 {/* Spiritual Journey Section */}
                 <SectionHeader title="Spiritual Journey" />
@@ -155,7 +193,7 @@ const ProfileScreen = ({ navigation }) => {
                         icon="location-outline"
                         title="Location Settings"
                         subtitle="For accurate prayer times"
-                        onPress={() => console.log('Location')}
+                        onPress={() => navigation.navigate('LocationPermission', { fromSettings: true })}
                     />
                     <SettingItem
                         icon="moon-outline"

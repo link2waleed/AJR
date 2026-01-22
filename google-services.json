@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "6867275830",
+    "project_id": "ajrapp-8398a",
+    "storage_bucket": "ajrapp-8398a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6867275830:android:0ec75d2da287890f0d0897",
+        "android_client_info": {
+          "package_name": "com.my.AJR"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "6867275830-0of4ij77jvgatlc5dc0h00gbfu4ncf3q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.my.AJR",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "6867275830-tpr0c9h43d8m3rl3u8fpu2akt19vhekb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoh4sqt7sPcOd44uhipHGcG1WaUipKnJ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "6867275830-tpr0c9h43d8m3rl3u8fpu2akt19vhekb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "6867275830-b4cph9mo7ckvju6nnvg95nnhn3au83ct.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.my.AJR"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
