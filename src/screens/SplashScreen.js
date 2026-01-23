@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { GradientBackground } from '../components';
 import { spacing } from '../theme';
+import auth from '@react-native-firebase/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -85,9 +86,16 @@ const SplashScreen = ({ navigation }) => {
             useNativeDriver: true,
         }).start();
 
-        // Navigate to Welcome screen after animation completes
+        // Check auth state and navigate after animation completes
         const timer = setTimeout(() => {
-            navigation.replace('Welcome');
+            const currentUser = auth().currentUser;
+            if (currentUser) {
+                // User is logged in - navigate to MainApp (home screen)
+                navigation.replace('MainApp');
+            } else {
+                // User is not logged in - navigate to Welcome screen
+                navigation.replace('Welcome');
+            }
         }, 3500);
 
         return () => clearTimeout(timer);
