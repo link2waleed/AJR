@@ -16,6 +16,7 @@ import {
     MyCircleSetupScreen,
     SubscriptionScreen,
     FinalSetupScreen,
+    DailyGrowthScreen,
 } from '../screens';
 import BottomTabNavigator from './BottomTabNavigator';
 
@@ -61,6 +62,9 @@ const AppNavigator = () => {
                         gestureEnabled: false,
                     }}
                 />
+
+                {/* Overlay Screens accessible from Main App */}
+                <Stack.Screen name="DailyGrowth" component={DailyGrowthScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

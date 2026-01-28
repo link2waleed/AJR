@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, G } from 'react-native-svg';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useTheme } from '../context';
+import auth from '@react-native-firebase/auth';
 import whiteClock from '../../assets/images/white-clock.png';
 import heart from '../../assets/images/heart.png';
 import notifications from '../../assets/images/notification-bing.png';
@@ -154,10 +155,21 @@ const HomeScreen = ({ navigation }) => {
     const [adhkarExpanded, setAdhkarExpanded] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showPermissionMessage, setShowPermissionMessage] = useState(false);
+    const [userName, setUserName] = useState('');
     const hasAlertShownRef = useRef(false);
 
     // Use theme context for dynamic Day/Evening switching, prayer data, city, and weather
     const { isEvening, isLoading, isLocationEnabled, hasNoData, location, maghribTime, prayerData, cityName, weather, isManualPreview, refreshTheme, toggleThemePreview } = useTheme();
+
+    // Fetch real user name from Firebase Auth
+    useEffect(() => {
+        const user = auth().currentUser;
+        if (user) {
+            // Use display name if available, otherwise use email prefix
+            const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+            setUserName(displayName);
+        }
+    }, []);
 
     /**
      * Show alert after 3 seconds if location is disabled and no cached data
@@ -200,7 +212,7 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const displayData = {
-        name: 'Anne Shaen', // This would come from user profile in real app
+        name: userName || 'User',
         city: displayCity,
         temperature: displayTemperature,
         hijriDate: prayerData?.hijriDate || (showPermissionMessage ? '--' : '--'),
@@ -387,8 +399,12 @@ const HomeScreen = ({ navigation }) => {
                 )}
             </View>
 
-            {/* AJR Rings */}
-            <View style={[styles.ringsCard, { backgroundColor: isEvening ? 'rgba(241, 245, 241, 0.85)' : colors.primary.light }]}>
+            {/* AJR Rings - Tap to open Daily Growth */}
+            <TouchableOpacity
+                style={[styles.ringsCard, { backgroundColor: isEvening ? 'rgba(241, 245, 241, 0.85)' : colors.primary.light }]}
+                onPress={() => navigation.navigate('DailyGrowth')}
+                activeOpacity={0.8}
+            >
                 <Text style={styles.ringsSectionTitle}>AJR Rings</Text>
                 <View style={styles.ringsDivider} />
 
@@ -418,7 +434,7 @@ const HomeScreen = ({ navigation }) => {
                         />
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         </ScrollView>
     );
 

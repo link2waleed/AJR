@@ -279,9 +279,9 @@ const LocationPermissionScreen = ({ navigation, route }) => {
                         </View>
                         <View style={styles.cardContent}>
                             <Text style={styles.cardTitle}>Allow location while using the app</Text>
-                            <TouchableOpacity>
+                            {/* <TouchableOpacity>
                                 <Text style={styles.learnMore}>Learn more</Text>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
                         <Switch
                             value={locationEnabled}
@@ -301,9 +301,9 @@ const LocationPermissionScreen = ({ navigation, route }) => {
                             </View>
                             <View style={styles.cardContent}>
                                 <Text style={styles.cardTitle}>Allow Notifications & reminders</Text>
-                                <TouchableOpacity>
+                                {/* <TouchableOpacity>
                                     <Text style={styles.learnMore}>Learn more</Text>
-                                </TouchableOpacity>
+                                </TouchableOpacity> */}
                             </View>
                             <Switch
                                 value={notificationsEnabled}

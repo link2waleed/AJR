@@ -18,17 +18,18 @@ const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const SubscriptionScreen = ({ navigation }) => {
 
-    const handleSupport = () => {
+    const handleSupportMonthly = () => {
         console.log('Support AJR - $4.99/month');
         navigation.navigate('FinalSetup');
     };
 
-    const handleContinueFree = () => {
+    const handleSupportYearly = () => {
+        console.log('Support AJR - $29.99/year');
         navigation.navigate('FinalSetup');
     };
 
     const handleTryFree = () => {
-        console.log('Try free for 7 days');
+        console.log('Try free for 3 days');
         navigation.navigate('FinalSetup');
     };
 
@@ -53,36 +54,37 @@ const SubscriptionScreen = ({ navigation }) => {
                 </View>
 
                 {/* Title */}
-                <Text style={styles.title}>Support AJR if you're able</Text>
+                <Text style={styles.title}>Support AJR</Text>
 
-                {/* Description 1 */}
+                {/* Description */}
                 <Text style={styles.description}>
-                    We believe spiritual tools should be accessible. If you're unable to pay right now, tap below.
+                    Thank you for supporting AJR.{'\n'}
+                    Your support helps us keep this space intentional,{'\n'}
+                    ad-free, and growing.
                 </Text>
+
+                {/* Blessing Text */}
                 <Text style={styles.highlightText}>
-                    And may Allah enrich you with ease.
+                    May Allah place barakah in your time, intentions,{'\n'}and actions.
                 </Text>
 
-                {/* Description 2 */}
-                <Text style={styles.description}>
-                    If you're able to support AJR with a subscription, your generosity helps us keep this app ad-free and available for those who cannot afford it.
-                </Text>
-
-                {/* Support Button */}
-                <TouchableOpacity style={styles.supportButton} onPress={handleSupport}>
+                {/* Monthly Support Button */}
+                <TouchableOpacity style={styles.supportButton} onPress={handleSupportMonthly}>
                     <Text style={styles.supportButtonText}>Support AJR — $4.99/month</Text>
                     <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
 
-                {/* Continue for Free Button */}
-                <TouchableOpacity style={styles.freeButton} onPress={handleContinueFree}>
-                    <Text style={styles.freeButtonText}>Continue for free</Text>
+                {/* Yearly Support Button */}
+                <TouchableOpacity style={styles.yearlyButton} onPress={handleSupportYearly}>
+                    <Text style={styles.yearlyButtonText}>
+                        Support AJR -  $29.99 / year (just $2.49/month)
+                    </Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
 
                 {/* Try Free Link */}
                 <TouchableOpacity style={styles.tryFreeLink} onPress={handleTryFree}>
-                    <Text style={styles.tryFreeText}>Try free for 7 days</Text>
+                    <Text style={styles.tryFreeText}>Try free for 3 days</Text>
                 </TouchableOpacity>
 
                 {/* Cancel Anytime */}
@@ -130,6 +132,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 24,
         paddingHorizontal: spacing.sm,
+        marginBottom: spacing.xl
     },
     highlightText: {
         fontSize: isSmallDevice ? 14 : 16,
@@ -156,7 +159,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         marginRight: spacing.sm,
     },
-    freeButton: {
+    yearlyButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -165,12 +168,12 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E0E0E0',
         paddingVertical: spacing.md + 4,
-        paddingHorizontal: spacing.xl,
+        paddingHorizontal: spacing.lg,
         width: '100%',
         marginBottom: spacing.lg,
     },
-    freeButtonText: {
-        fontSize: isSmallDevice ? 15 : 17,
+    yearlyButtonText: {
+        fontSize: isSmallDevice ? 13 : 15,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
         marginRight: spacing.sm,

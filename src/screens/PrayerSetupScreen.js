@@ -31,7 +31,38 @@ const prayers = [
     { id: 'isha', name: 'Isha', icon: ishaIcon },
 ];
 
-const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingChange }) => {
+/**
+ * Sound mode options for prayer notifications
+ * Each mode determines how the app notifies the user at prayer time
+ * 
+ * TODO: Future integration for each mode:
+ * - 'athan': Play the selected Athan audio file
+ * - 'beep': Play a short notification beep sound
+ * - 'vibration': Trigger device vibration pattern
+ * - 'silent': No sound or vibration, only visual notification
+ */
+const SOUND_MODES = [
+    { id: 'athan', label: 'Athan', icon: 'volume-high-outline', description: 'Full Athan call to prayer' },
+    { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short notification sound' },
+    { id: 'vibration', label: 'Vibration', icon: 'phone-portrait-outline', description: 'Vibration only, no sound' },
+    { id: 'silent', label: 'Silent', icon: 'volume-mute-outline', description: 'Visual notification only' },
+];
+
+const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingChange, onSoundModeChange }) => {
+    // Get current sound mode details
+    const currentSoundMode = SOUND_MODES.find(mode => mode.id === settings.soundMode) || SOUND_MODES[0];
+
+    /**
+     * Cycle to next sound mode
+     * TODO: Add haptic feedback when cycling modes
+     * TODO: Play preview sound for audio modes (athan, beep)
+     */
+    const handleSoundModePress = () => {
+        const currentIndex = SOUND_MODES.findIndex(mode => mode.id === settings.soundMode);
+        const nextIndex = (currentIndex + 1) % SOUND_MODES.length;
+        onSoundModeChange(prayer.id, SOUND_MODES[nextIndex].id);
+    };
+
     return (
         <View style={styles.prayerCard}>
             <TouchableOpacity
@@ -47,13 +78,19 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
 
                 <Text style={styles.prayerName}>{prayer.name}</Text>
                 <View style={styles.prayerControls}>
-                    {isExpanded && (
-                        <TouchableOpacity style={styles.soundButton}>
-                            <Image
-                                source={volumeImage}
-                                style={styles.volumeIcon}
-                                resizeMode="contain"
-                            />
+                    {isExpanded && settings.enabled && (
+                        <TouchableOpacity
+                            style={styles.soundButton}
+                            onPress={handleSoundModePress}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.soundIconBackground}>
+                                <Ionicons
+                                    name={currentSoundMode.icon}
+                                    size={19}
+                                    color="#FFFFFF"
+                                />
+                            </View>
                         </TouchableOpacity>
                     )}
                     <Switch
@@ -69,7 +106,7 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
             {isExpanded && settings.enabled && (
                 <View style={styles.prayerDetails}>
                     <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Athan at the start of {prayer.name}</Text>
+                        <Text style={styles.settingLabel}>Notification at the start of {prayer.name}</Text>
                         <Switch
                             value={settings.athanEnabled}
                             onValueChange={(value) => onSettingChange(prayer.id, 'athanEnabled', value)}
@@ -95,8 +132,9 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
                         />
                     </View>
 
+                    {/* Sound Mode Display - Tap the icon above to cycle */}
                     <View style={styles.soundModeContainer}>
-                        <Text style={styles.soundModeTitle}>Current sound mode: Athan</Text>
+                        <Text style={styles.soundModeTitle}>Current sound mode: {currentSoundMode.label}</Text>
                         <Text style={styles.soundModeSubtext}>Tap the sound icon to cycle through options</Text>
                     </View>
                 </View>
@@ -106,13 +144,13 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
 };
 
 const PrayerSetupScreen = ({ navigation }) => {
-    const [expandedPrayer, setExpandedPrayer] = useState('fajr');
+    const [expandedPrayer, setExpandedPrayer] = useState(null);
     const [prayerSettings, setPrayerSettings] = useState({
-        fajr: { enabled: true, athanEnabled: true, reminderEnabled: true },
-        duhur: { enabled: false, athanEnabled: true, reminderEnabled: true },
-        asr: { enabled: false, athanEnabled: true, reminderEnabled: true },
-        mughrib: { enabled: false, athanEnabled: true, reminderEnabled: true },
-        isha: { enabled: false, athanEnabled: true, reminderEnabled: true },
+        fajr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        duhur: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        asr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        mughrib: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        isha: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
 
@@ -124,6 +162,27 @@ const PrayerSetupScreen = ({ navigation }) => {
         setPrayerSettings(prev => ({
             ...prev,
             [prayerId]: { ...prev[prayerId], [setting]: value }
+        }));
+
+        // Auto-expand when prayer is enabled
+        if (setting === 'enabled' && value === true) {
+            setExpandedPrayer(prayerId);
+        }
+    };
+
+    /**
+     * Handle sound mode change for a specific prayer
+     * Cycles through: Athan -> Beep -> Vibration -> Silent -> Athan...
+     * 
+     * TODO: Future integration:
+     * - Store selected sound mode in persistent storage
+     * - Configure notification sound based on mode
+     * - Add haptic feedback on mode change
+     */
+    const handleSoundModeChange = (prayerId, newMode) => {
+        setPrayerSettings(prev => ({
+            ...prev,
+            [prayerId]: { ...prev[prayerId], soundMode: newMode }
         }));
     };
 
@@ -158,12 +217,13 @@ const PrayerSetupScreen = ({ navigation }) => {
                             onToggleExpand={handleToggleExpand}
                             settings={prayerSettings[prayer.id]}
                             onSettingChange={handleSettingChange}
+                            onSoundModeChange={handleSoundModeChange}
                         />
                     ))}
                 </View>
 
                 {/* Prayer Activity Setup Section */}
-                <View style={styles.activitySection}>
+                {/* <View style={styles.activitySection}>
                     <Text style={styles.activityTitle}>Prayer Activity Setup</Text>
                     <Text style={styles.activitySubtext}>
                         Tracking helps visualize consistency and daily prayer goals. Add prayers to your dashboard activity rings.
@@ -188,7 +248,7 @@ const PrayerSetupScreen = ({ navigation }) => {
                             </View>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </View> */}
             </ScrollView>
 
             {/* Bottom Buttons */}
@@ -269,6 +329,13 @@ const styles = StyleSheet.create({
     soundButton: {
         marginRight: spacing.sm,
     },
+    soundIconBackground: {
+        backgroundColor: colors.primary.sage,
+        borderRadius: borderRadius.sm,
+        padding: spacing.xs,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     prayerDetails: {
         paddingHorizontal: spacing.md,
         paddingBottom: spacing.md,
@@ -305,13 +372,13 @@ const styles = StyleSheet.create({
     },
     soundModeTitle: {
         fontSize: isSmallDevice ? 13 : 14,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
+        marginBottom: spacing.xs,
     },
     soundModeSubtext: {
         fontSize: isSmallDevice ? 11 : 12,
         color: colors.text.grey,
-        marginTop: 2,
     },
     activitySection: {
         marginTop: spacing.md,

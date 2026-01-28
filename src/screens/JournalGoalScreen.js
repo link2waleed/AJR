@@ -21,10 +21,8 @@ const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const promptOptions = [
-    { id: 'morning', label: 'Morning prompts', icon: morningIcon },
-    { id: 'evening', label: 'Evening prompts', icon: eveningIcon },
-    { id: 'both', label: 'Both', icon: bothIcon },
-    { id: 'none', label: 'No prompts', icon: noPromptIcon },
+    { id: 'yes', label: 'prompts', icon: morningIcon },
+    { id: 'no', label: 'No prompts', icon: noPromptIcon },
 ];
 
 const JournalGoalScreen = ({ navigation }) => {

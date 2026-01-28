@@ -61,7 +61,7 @@ const SignUpScreen = ({ navigation }) => {
         }
 
         if (!agreeToTerms) {
-            Alert.alert('Error', 'Please agree to the Terms & Privacy Policy');
+            Alert.alert('Agreement Required', 'Please review and accept the Terms of Service and Privacy Policy to continue.');
             return;
         }
 
@@ -104,7 +104,7 @@ const SignUpScreen = ({ navigation }) => {
 
     const handleGoogleSignUp = async () => {
         if (!agreeToTerms) {
-            Alert.alert('Error', 'Please agree to the Terms & Privacy Policy');
+            Alert.alert('Agreement Required', 'Please review and accept the Terms of Service and Privacy Policy to continue.');
             return;
         }
 

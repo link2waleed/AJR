@@ -17,3 +17,4 @@ export { default as HomeScreen } from './HomeScreen';
 export { default as MyCircleScreen } from './MyCircleScreen';
 export { default as MyHubScreen } from './MyHubScreen';
 export { default as ProfileScreen } from './ProfileScreen';
+export { default as DailyGrowthScreen } from './DailyGrowthScreen';

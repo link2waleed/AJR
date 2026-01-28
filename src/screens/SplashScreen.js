@@ -13,78 +13,86 @@ import auth from '@react-native-firebase/auth';
 const { width } = Dimensions.get('window');
 
 const SplashScreen = ({ navigation }) => {
-    // Animation values for text fade (faint to dark)
-    const letterAOpacity = useRef(new Animated.Value(0.15)).current;
-    const letterJOpacity = useRef(new Animated.Value(0.15)).current;
-    const letterROpacity = useRef(new Animated.Value(0.15)).current;
-    const brandTextOpacity = useRef(new Animated.Value(0.15)).current;
+    // Animation values for AJR letters
+    const letterAOpacity = useRef(new Animated.Value(0)).current;
+    const letterJOpacity = useRef(new Animated.Value(0)).current;
+    const letterROpacity = useRef(new Animated.Value(0)).current;
 
     // Animation values for moon
-    const moonOpacity = useRef(new Animated.Value(0.15)).current;
+    const moonOpacity = useRef(new Animated.Value(0)).current;
 
-    // Animation values for leaf growing from crescent
+    // Animation values for "Water your soul" text
+    const brandTextOpacity = useRef(new Animated.Value(0)).current;
+
+    // Animation values for leaf growing from crescent (appears last)
     const leafScale = useRef(new Animated.Value(0)).current;
     const leafOpacity = useRef(new Animated.Value(0)).current;
-    const leafTranslateY = useRef(new Animated.Value(15)).current;
+    const leafTranslateY = useRef(new Animated.Value(20)).current;
 
     useEffect(() => {
-        // Sequence of animations
+        // Calmer, sequential animation flow
         Animated.sequence([
-            // Phase 1: Moon fades in first (0.3s)
-            Animated.timing(moonOpacity, {
+            // Phase 1: Moon and AJR letters fade in together (1s)
+            Animated.parallel([
+                // Moon fades in
+                Animated.timing(moonOpacity, {
+                    toValue: 1,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+                // AJR letters appear with slight stagger
+                Animated.stagger(120, [
+                    Animated.timing(letterAOpacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(letterJOpacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(letterROpacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ]),
+            ]),
+
+            // Small pause for calm effect
+            Animated.delay(400),
+
+            // Phase 2: "Water your soul" text fades in (0.8s)
+            Animated.timing(brandTextOpacity, {
                 toValue: 1,
-                duration: 600,
+                duration: 800,
                 useNativeDriver: true,
             }),
 
-            // Phase 2: Leaf grows from the crescent (0.8s)
+            // Small pause before leaf appears
+            Animated.delay(300),
+
+            // Phase 3: Leaf grows and blooms from the crescent (last, 1s)
             Animated.parallel([
                 Animated.timing(leafOpacity, {
                     toValue: 1,
-                    duration: 400,
+                    duration: 500,
                     useNativeDriver: true,
                 }),
                 Animated.spring(leafScale, {
                     toValue: 1,
-                    tension: 60,
-                    friction: 8,
+                    tension: 50,
+                    friction: 7,
                     useNativeDriver: true,
                 }),
                 Animated.timing(leafTranslateY, {
                     toValue: 0,
-                    duration: 600,
+                    duration: 700,
                     useNativeDriver: true,
                 }),
             ]),
         ]).start();
-
-        // Phase 3: Letters fade from faint to dark (staggered)
-        Animated.stagger(150, [
-            Animated.timing(letterAOpacity, {
-                toValue: 1,
-                duration: 800,
-                delay: 400,
-                useNativeDriver: true,
-            }),
-            Animated.timing(letterJOpacity, {
-                toValue: 1,
-                duration: 800,
-                useNativeDriver: true,
-            }),
-            Animated.timing(letterROpacity, {
-                toValue: 1,
-                duration: 800,
-                useNativeDriver: true,
-            }),
-        ]).start();
-
-        // Phase 4: Brand text fades in
-        Animated.timing(brandTextOpacity, {
-            toValue: 1,
-            duration: 800,
-            delay: 1200,
-            useNativeDriver: true,
-        }).start();
 
         // Check auth state and navigate after animation completes
         const timer = setTimeout(() => {
@@ -96,7 +104,7 @@ const SplashScreen = ({ navigation }) => {
                 // User is not logged in - navigate to Welcome screen
                 navigation.replace('Welcome');
             }
-        }, 3500);
+        }, 4000);
 
         return () => clearTimeout(timer);
     }, [

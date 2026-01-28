@@ -58,6 +58,7 @@ export const colors = {
     layer3: '#D1AD73',      // Third layer - darker gold
     innerCircle: '#9ECED1', // Inner circle - teal
     separator: '#F3EEDE',   // Between layers - cream
+    separator2: '#BEE5E3'
   },
 
   // Input and button colors
