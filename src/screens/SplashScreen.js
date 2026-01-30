@@ -9,6 +9,7 @@ import {
 import { GradientBackground } from '../components';
 import { spacing } from '../theme';
 import auth from '@react-native-firebase/auth';
+import FirebaseService from '../services/FirebaseService';
 
 const { width } = Dimensions.get('window');
 
@@ -98,8 +99,22 @@ const SplashScreen = ({ navigation }) => {
         const timer = setTimeout(() => {
             const currentUser = auth().currentUser;
             if (currentUser) {
-                // User is logged in - navigate to MainApp (home screen)
-                navigation.replace('MainApp');
+                // User is logged in - check onboarding-process flag
+                FirebaseService.getUserRootData()
+                    .then((userData) => {
+                        if (userData['onboarding-process'] === true) {
+                            // Onboarding is incomplete - resume from Name screen
+                            navigation.replace('Name');
+                        } else {
+                            // Onboarding is complete - go to MainApp
+                            navigation.replace('MainApp');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error checking onboarding status:', error);
+                        // Default to MainApp on error
+                        navigation.replace('MainApp');
+                    });
             } else {
                 // User is not logged in - navigate to Welcome screen
                 navigation.replace('Welcome');

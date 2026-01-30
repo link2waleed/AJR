@@ -7,11 +7,13 @@ import {
     Switch,
     ScrollView,
     Dimensions,
-    Image
+    Image,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import FirebaseService from '../services/FirebaseService';
 import volumeImage from '../../assets/images/volume.png';
 import fajrIcon from '../../assets/images/fajr.png';
 import duhurIcon from '../../assets/images/duhur.png';
@@ -153,6 +155,7 @@ const PrayerSetupScreen = ({ navigation }) => {
         isha: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
+    const [loading, setLoading] = useState(false);
 
     const handleToggleExpand = (prayerId) => {
         setExpandedPrayer(expandedPrayer === prayerId ? null : prayerId);
@@ -186,16 +189,57 @@ const PrayerSetupScreen = ({ navigation }) => {
         }));
     };
 
-    const handleContinue = () => {
-        navigation.navigate('QuranGoal');
+    const handleContinue = async () => {
+        setLoading(true);
+        try {
+            // Save prayer settings to Firebase
+            await FirebaseService.savePrayerSettings({
+                fajr: prayerSettings.fajr.enabled,
+                dhuhr: prayerSettings.duhur.enabled,
+                asr: prayerSettings.asr.enabled,
+                maghrib: prayerSettings.mughrib.enabled,
+                isha: prayerSettings.isha.enabled,
+                soundMode: prayerSettings.fajr.soundMode,
+            });
+            navigation.navigate('QuranGoal');
+        } catch (error) {
+            console.error('Error saving prayer settings:', error);
+            Alert.alert('Error', 'Failed to save prayer settings. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSkip = () => {
         navigation.navigate('QuranGoal');
     };
 
+    const handleBack = () => {
+        Alert.alert(
+            'Go Back',
+            'Are you sure? You will lose your prayer settings.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Go Back',
+                    onPress: () => navigation.goBack(),
+                    style: 'destructive',
+                },
+            ]
+        );
+    };
+
     return (
         <View style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={loading}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -221,47 +265,24 @@ const PrayerSetupScreen = ({ navigation }) => {
                         />
                     ))}
                 </View>
-
-                {/* Prayer Activity Setup Section */}
-                {/* <View style={styles.activitySection}>
-                    <Text style={styles.activityTitle}>Prayer Activity Setup</Text>
-                    <Text style={styles.activitySubtext}>
-                        Tracking helps visualize consistency and daily prayer goals. Add prayers to your dashboard activity rings.
-                    </Text>
-                    <View style={styles.yesNoContainer}>
-                        <TouchableOpacity
-                            style={styles.radioOption}
-                            onPress={() => setTrackPrayers(true)}
-                        >
-                            <Text style={styles.radioLabel}>Yes</Text>
-                            <View style={[styles.radioOuter, trackPrayers && styles.radioOuterSelected]}>
-                                {trackPrayers && <View style={styles.radioInner} />}
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.radioOption}
-                            onPress={() => setTrackPrayers(false)}
-                        >
-                            <Text style={styles.radioLabel}>No</Text>
-                            <View style={[styles.radioOuter, !trackPrayers && styles.radioOuterSelected]}>
-                                {!trackPrayers && <View style={styles.radioInner} />}
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                </View> */}
             </ScrollView>
 
             {/* Bottom Buttons */}
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                <TouchableOpacity 
+                    style={styles.skipButton} 
+                    onPress={handleSkip}
+                    disabled={loading}
+                >
                     <Text style={styles.skipText}>Skip</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
                 <Button
-                    title="Continue"
+                    title={loading ? "Saving..." : "Continue"}
                     onPress={handleContinue}
                     icon="arrow-forward"
                     style={styles.continueButton}
+                    disabled={loading}
                 />
             </View>
         </View>
@@ -272,6 +293,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.primary.light,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,

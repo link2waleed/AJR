@@ -6,9 +6,13 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
+    TouchableOpacity,
+    Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GradientBackground, Button, Input } from '../components';
 import { colors, typography, spacing } from '../theme';
+import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -18,11 +22,29 @@ const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const NameScreen = ({ navigation }) => {
     const [name, setName] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleContinue = () => {
-        if (name.trim()) {
-            navigation.navigate('LocationPermission', { userName: name });
+    const handleContinue = async () => {
+        if (!name.trim()) {
+            Alert.alert('Error', 'Please enter your name');
+            return;
         }
+
+        setLoading(true);
+        try {
+            // Initialize Firebase user profile with name
+            await FirebaseService.initializeUserProfile(name.trim());
+            navigation.navigate('LocationPermission', { userName: name });
+        } catch (error) {
+            console.error('Error saving name:', error);
+            Alert.alert('Error', 'Failed to save your name. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        navigation.goBack();
     };
 
     return (
@@ -31,6 +53,15 @@ const NameScreen = ({ navigation }) => {
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
+                {/* Back Button */}
+                {/* <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={handleBack}
+                    disabled={loading}
+                >
+                    <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+                </TouchableOpacity> */}
+
                 <View style={[styles.content, { paddingHorizontal: horizontalPadding }]}>
                     {/* Greeting Text */}
                     <View style={styles.greetingContainer}>
@@ -47,16 +78,17 @@ const NameScreen = ({ navigation }) => {
                             placeholder="James Islam"
                             iconName="person-outline"
                             autoCapitalize="words"
+                            editable={!loading}
                         />
                     </View>
 
                     {/* Continue Button */}
                     <Button
-                        title="Continue"
+                        title={loading ? "Saving..." : "Continue"}
                         onPress={handleContinue}
                         icon="arrow-forward"
                         style={styles.button}
-                        disabled={!name.trim()}
+                        disabled={!name.trim() || loading}
                     />
                 </View>
             </KeyboardAvoidingView>
@@ -67,6 +99,13 @@ const NameScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     content: {
         flex: 1,

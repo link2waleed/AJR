@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import auth from '@react-native-firebase/auth';
+import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -44,25 +45,56 @@ const ProfileScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = auth().onAuthStateChanged(user => {
+        const unsubscribe = auth().onAuthStateChanged(async (user) => {
             if (user) {
-                // Extract first and last name from display name, or use email
-                const displayName = user.displayName || user.email.split('@')[0];
-                const nameParts = displayName.split(' ');
-                const firstName = nameParts[0];
-                const lastName = nameParts[1] || '';
+                try {
+                    // Fetch user data from Firestore
+                    const firestoreData = await FirebaseService.getUserRootData();
+                    
+                    // Extract name from Firestore or Firebase Auth
+                    const displayName = firestoreData.name || user.displayName || user.email.split('@')[0];
+                    const nameParts = displayName.split(' ');
+                    const firstName = nameParts[0];
+                    const lastName = nameParts[1] || '';
 
-                // Create initials
-                const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+                    // Create initials
+                    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
 
-                setUserData({
-                    name: displayName,
-                    email: user.email,
-                    avatarInitials: initials.length > 0 ? initials : 'U',
-                    memberSince: 'January 2026',
-                    streak: 15,
-                    totalDays: 45,
-                });
+                    // Calculate days since member
+                    const createdAt = firestoreData.createdAt?.toDate ? firestoreData.createdAt.toDate() : new Date();
+                    const now = new Date();
+                    const daysSince = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+                    const monthYear = createdAt.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+                    // Calculate streak (for now, basic calculation - can be enhanced)
+                    const streak = Math.min(daysSince, 30); // Max 30 day streak display
+
+                    setUserData({
+                        name: displayName,
+                        email: user.email,
+                        avatarInitials: initials.length > 0 ? initials : 'U',
+                        memberSince: monthYear,
+                        streak: streak,
+                        totalDays: daysSince,
+                    });
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                    // Fallback to basic info if Firestore fails
+                    const displayName = user.displayName || user.email.split('@')[0];
+                    const nameParts = displayName.split(' ');
+                    const firstName = nameParts[0];
+                    const lastName = nameParts[1] || '';
+                    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+                    setUserData({
+                        name: displayName,
+                        email: user.email,
+                        avatarInitials: initials.length > 0 ? initials : 'U',
+                        memberSince: 'January 2026',
+                        streak: 15,
+                        totalDays: 45,
+                    });
+                }
             } else {
                 navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
             }
@@ -72,9 +104,7 @@ const ProfileScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
-    const handleEditProfile = () => {
-        console.log('Edit Profile');
-    };
+    
 
     const handleLogout = () => {
         Alert.alert(
@@ -124,10 +154,7 @@ const ProfileScreen = ({ navigation }) => {
                             <Text style={styles.profileEmail}>{userData.email}</Text>
                             <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
                         </View>
-                        <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-                            <Ionicons name="create-outline" size={18} color={colors.primary.sage} />
-                            <Text style={styles.editProfileText}>Edit</Text>
-                        </TouchableOpacity>
+                       
                     </View>
                 ) : null}
 

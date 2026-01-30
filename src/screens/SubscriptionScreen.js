@@ -39,6 +39,13 @@ const SubscriptionScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+             {/* Back Button */}
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+                </TouchableOpacity>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -101,6 +108,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, G } from 'react-native-svg';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import auth from '@react-native-firebase/auth';
+import FirebaseService from '../services/FirebaseService';
+import AJRRings from '../components/AJRRings';
 
 // Icons
 import prayerIcon from '../../assets/images/habits.png';
@@ -25,182 +26,6 @@ import note from '../../assets/images/inspiration.png';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
-
-/**
- * Progress Ring Component - Same design as HomeScreen AJR Rings
- * Shows circular progress with percentage, matching exact theme colors
- */
-const ProgressRings = ({ progress = 68 }) => {
-    const size = isSmallDevice ? 195 : 215;
-    const center = size / 2;
-
-    // Ring configuration matching exact design from HomeScreen
-    const strokeWidth = isSmallDevice ? 8 : 10;
-    const separatorWidth = isSmallDevice ? 6 : 8;
-
-    // Calculate radii for 4 layers with separators
-    const layer1Radius = center - strokeWidth / 2;
-    const layer2Radius = layer1Radius - strokeWidth - separatorWidth;
-    const layer3Radius = layer2Radius - strokeWidth - separatorWidth;
-    const layer4Radius = layer3Radius - strokeWidth - separatorWidth;
-    const innerCircleRadius = layer4Radius - strokeWidth - separatorWidth / 2;
-
-    // Calculate circumference and stroke dash for progress
-    const getCircumference = (radius) => 2 * Math.PI * radius;
-    const getStrokeDashoffset = (radius, progressPercent) => {
-        const circumference = getCircumference(radius);
-        return circumference - (progressPercent / 100) * circumference;
-    };
-
-    return (
-        <View style={styles.ringsContainer}>
-            <Svg width={size} height={size}>
-                <G rotation="-90" origin={`${center}, ${center}`}>
-                    {/* Layer 1 - Outer (Sage Green) - Background */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer1Radius}
-                        stroke="transparent"
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                    />
-                    {/* Layer 1 - Outer (Sage Green) - Progress */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer1Radius}
-                        stroke={colors.rings.layer1}
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={getCircumference(layer1Radius)}
-                        strokeDashoffset={getStrokeDashoffset(layer1Radius, progress)}
-                    />
-
-                    {/* Separator 1 */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer1Radius - strokeWidth / 2 - separatorWidth / 2}
-                        stroke="transparent"
-                        strokeWidth={separatorWidth}
-                        fill="none"
-                    />
-
-                    {/* Layer 2 (Gold) - Background */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer2Radius}
-                        stroke="transparent"
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                    />
-                    {/* Layer 2 (Gold) - Progress */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer2Radius}
-                        stroke={colors.rings.layer2}
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={getCircumference(layer2Radius)}
-                        strokeDashoffset={getStrokeDashoffset(layer2Radius, progress)}
-                    />
-
-                    {/* Separator 2 */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer2Radius - strokeWidth / 2 - separatorWidth / 2}
-                        stroke="transparent"
-                        strokeWidth={separatorWidth}
-                        fill="none"
-                    />
-
-                    {/* Layer 3 (Darker Gold) - Background */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer3Radius}
-                        stroke="transparent"
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                    />
-                    {/* Layer 3 (Darker Gold) - Progress */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer3Radius}
-                        stroke={colors.rings.layer3}
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={getCircumference(layer3Radius)}
-                        strokeDashoffset={getStrokeDashoffset(layer3Radius, progress)}
-                    />
-
-                    {/* Separator 3 */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer3Radius - strokeWidth / 2 - separatorWidth / 2}
-                        stroke="transparent"
-                        strokeWidth={separatorWidth}
-                        fill="none"
-                    />
-
-                    {/* Layer 4 (Teal/Inner Circle Color) - Background */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer4Radius}
-                        stroke="transparent"
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                    />
-                    {/* Layer 4 (Teal/Inner Circle Color) - Progress */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer4Radius}
-                        stroke={colors.rings.innerCircle}
-                        strokeWidth={strokeWidth}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={getCircumference(layer4Radius)}
-                        strokeDashoffset={getStrokeDashoffset(layer4Radius, progress)}
-                    />
-
-                    {/* Separator 4 (before inner transparent area) */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={layer4Radius - strokeWidth / 2 - separatorWidth / 2}
-                        stroke="transparent"
-                        strokeWidth={separatorWidth}
-                        fill="none"
-                    />
-
-                    {/* Inner Circle - Transparent */}
-                    <Circle
-                        cx={center}
-                        cy={center}
-                        r={innerCircleRadius}
-                        fill="transparent"
-                    />
-                </G>
-            </Svg>
-            {/* Center text */}
-            <View style={styles.ringsCenterText}>
-                <Text style={styles.ringsPercentage}>{progress}%</Text>
-                <Text style={styles.ringsLabel}>Complete</Text>
-            </View>
-        </View>
-    );
-};
 
 /**
  * Activity Card Component
@@ -257,8 +82,63 @@ const DailyGrowthScreen = ({ navigation }) => {
     const user = auth().currentUser;
     const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Friend';
 
-    // Overall progress (calculated from all activities)
-    const overallProgress = 25;
+    // State for activity data
+    const [selectedActivities, setSelectedActivities] = useState({
+        prayers: false,
+        quran: false,
+        dhikr: false,
+        journaling: false,
+    });
+    const [activityCompletion, setActivityCompletion] = useState({
+        prayers: false,
+        quran: false,
+        dhikr: false,
+        journaling: false,
+    });
+
+    // Calculate overall progress
+    const calculateProgressPercentage = () => {
+        const selectedCount = Object.values(selectedActivities).filter(v => v).length;
+        if (selectedCount === 0) return 0;
+
+        const completedCount = Object.entries(activityCompletion)
+            .filter(([activity, completed]) => selectedActivities[activity] && completed)
+            .length;
+
+        return Math.round((completedCount / selectedCount) * 100);
+    };
+
+    const overallProgress = calculateProgressPercentage();
+
+    // Fetch activity data from Firebase
+    useEffect(() => {
+        // Listen to onboarding-info for selected activities
+        const unsubscribeOnboarding = FirebaseService.listenToOnboardingInfo(
+            (data) => {
+                if (data.selectedActivities) {
+                    setSelectedActivities(data.selectedActivities);
+                }
+            },
+            (error) => {
+                console.error('Error listening to onboarding info:', error);
+            }
+        );
+
+        // Listen to activity progress for real-time completion updates
+        const unsubscribeProgress = FirebaseService.listenToActivityProgress(
+            (progress) => {
+                setActivityCompletion(progress);
+            },
+            (error) => {
+                console.error('Error listening to activity progress:', error);
+            }
+        );
+
+        return () => {
+            unsubscribeOnboarding();
+            unsubscribeProgress();
+        };
+    }, []);
 
     // Activity data - in real app, this would come from context/storage
     const activities = [
@@ -331,7 +211,7 @@ const DailyGrowthScreen = ({ navigation }) => {
             >
                 {/* Progress Rings */}
                 <View style={styles.ringsSection}>
-                    <ProgressRings progress={overallProgress} />
+                    <AJRRings progress={overallProgress} />
                 </View>
 
                 {/* Activity Cards */}

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import './src/services/FirebaseInit'; // Initialize Firebase first
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider } from './src/context';
 

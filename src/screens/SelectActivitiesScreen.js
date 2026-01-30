@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,9 +7,13 @@ import {
     Dimensions,
     ScrollView,
     Image,
+    Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GradientBackground, Button } from '../components';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import FirebaseService from '../services/FirebaseService';
+import auth from '@react-native-firebase/auth';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -84,19 +88,62 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
         quran: 'yes',
         journaling: 'yes',
     });
+    const [loading, setLoading] = useState(false);
+    const [userName, setUserName] = useState('User');
+
+    useEffect(() => {
+        const user = auth().currentUser;
+        if (user) {
+            const displayName = user.email?.split('@')[0] || 'User';
+            setUserName(displayName);
+        }
+    }, []);
 
     const handleSelect = (activityId, value) => {
         setSelections(prev => ({ ...prev, [activityId]: value }));
     };
 
-    const handleContinue = () => {
-        console.log('Selected activities:', selections);
-        // Navigate to activity setup flow
-        navigation.navigate('PrayerSetup', { activities: selections });
+    const handleContinue = async () => {
+        setLoading(true);
+        try {
+            // Save selected activities to Firebase
+            await FirebaseService.updateSelectedActivities(selections);
+            // Navigate to activity setup flow
+            navigation.navigate('PrayerSetup', { activities: selections });
+        } catch (error) {
+            console.error('Error saving activities:', error);
+            Alert.alert('Error', 'Failed to save your activity selection. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        Alert.alert(
+            'Go Back',
+            'Are you sure? You will lose your activity selection.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Go Back',
+                    onPress: () => navigation.goBack(),
+                    style: 'destructive',
+                },
+            ]
+        );
     };
 
     return (
         <View style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={loading}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -129,9 +176,10 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
             {/* Continue Button */}
             <View style={styles.buttonContainer}>
                 <Button
-                    title="Continue"
+                    title={loading ? "Saving..." : "Continue"}
                     onPress={handleContinue}
                     icon="arrow-forward"
+                    disabled={loading}
                 />
             </View>
         </View>
@@ -143,6 +191,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,

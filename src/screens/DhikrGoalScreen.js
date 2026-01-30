@@ -9,11 +9,13 @@ import {
     Dimensions,
     Modal,
     FlatList,
-    Image
+    Image,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import FirebaseService from '../services/FirebaseService';
 import noteIcon2 from '../../assets/images/note-2.png';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -29,22 +31,85 @@ const DhikrGoalScreen = ({ navigation }) => {
     const [selectedDhikr, setSelectedDhikr] = useState('');
     const [customDhikr, setCustomDhikr] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const handleContinue = () => {
-        navigation.navigate('JournalGoal');
+    /**
+     * Validate custom goal: numbers only, max 1000
+     */
+    const validateCustomGoal = (value) => {
+        const validated = value.replace(/[^0-9]/g, '');
+        if (validated === '' || parseInt(validated, 10) <= 1000) {
+            return validated;
+        }
+        Alert.alert('Invalid Input', 'Custom goal must not exceed 1000');
+        return customGoal;
+    };
+
+    const handleSelectDhikr = (dhikr) => {
+        setSelectedDhikr(dhikr);
+        setCustomDhikr(''); // Clear custom dhikr when predefined is selected
+        setShowDropdown(false);
+    };
+
+    const handleCustomDhikrChange = (value) => {
+        setCustomDhikr(value);
+        setSelectedDhikr(''); // Clear predefined dhikr when custom is entered
+    };
+
+    const handleContinue = async () => {
+        // Validate inputs
+        if (selectedGoal === 'Custom') {
+            const num = parseInt(customGoal, 10);
+            if (!customGoal || isNaN(num) || num < 1 || num > 1000) {
+                Alert.alert('Invalid Input', 'Custom goal must be a number between 1 and 1000');
+                return;
+            }
+        }
+
+        // Validate mutual exclusivity
+        if (selectedDhikr && customDhikr.trim()) {
+            Alert.alert(
+                'Invalid Selection',
+                'You cannot select both a predefined dhikr and enter a custom dhikr. Choose one.'
+            );
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const counter = selectedGoal === 'Custom' ? parseInt(customGoal, 10) : parseInt(selectedGoal, 10);
+            const word = selectedDhikr || customDhikr.trim() || null;
+
+            // Save to Firebase
+            await FirebaseService.saveDhikrGoals(counter, word);
+            navigation.navigate('JournalGoal');
+        } catch (error) {
+            console.error('Error saving Dhikr goals:', error);
+            Alert.alert('Error', error.message || 'Failed to save Dhikr goals. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSkip = () => {
         navigation.navigate('JournalGoal');
     };
 
-    const handleSelectDhikr = (dhikr) => {
-        setSelectedDhikr(dhikr);
-        setShowDropdown(false);
+    const handleBack = () => {
+        navigation.goBack();
     };
 
     return (
         <View style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={loading}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -66,7 +131,13 @@ const DhikrGoalScreen = ({ navigation }) => {
                                 styles.goalButton,
                                 selectedGoal === goal && styles.goalButtonSelected,
                             ]}
-                            onPress={() => setSelectedGoal(goal)}
+                            onPress={() => {
+                                setSelectedGoal(goal);
+                                if (goal !== 'Custom') {
+                                    setCustomGoal('');
+                                }
+                            }}
+                            disabled={loading}
                         >
                             <Text style={[
                                 styles.goalButtonText,
@@ -81,23 +152,27 @@ const DhikrGoalScreen = ({ navigation }) => {
                 {/* Custom Goal Input (if Custom selected) */}
                 {selectedGoal === 'Custom' && (
                     <View style={styles.customInputSection}>
+                        <Text style={styles.label}>Custom Goal (1-1000)</Text>
                         <TextInput
                             style={styles.customInput}
                             value={customGoal}
-                            onChangeText={setCustomGoal}
+                            onChangeText={(value) => setCustomGoal(validateCustomGoal(value))}
                             placeholder="Enter custom goal"
                             placeholderTextColor={colors.text.grey}
-                            keyboardType="numeric"
+                            keyboardType="number-pad"
+                            editable={!loading}
+                            maxLength={4}
                         />
                     </View>
                 )}
 
                 {/* Dhikr Dropdown */}
                 <View style={styles.dropdownSection}>
-                    <Text style={styles.label}>Dhikr</Text>
+                    <Text style={styles.label}>Select Dhikr (or add custom)</Text>
                     <TouchableOpacity
                         style={styles.dropdownButton}
                         onPress={() => setShowDropdown(!showDropdown)}
+                        disabled={loading}
                     >
                         <Image
                             source={noteIcon2}
@@ -130,35 +205,59 @@ const DhikrGoalScreen = ({ navigation }) => {
                     )}
                 </View>
 
+                {/* Selected Dhikr Info */}
+                {selectedDhikr && (
+                    <View style={styles.selectedDhikrInfo}>
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary.sage} />
+                        <Text style={styles.selectedDhikrText}>{selectedDhikr}</Text>
+                    </View>
+                )}
+
                 {/* Custom Dhikr Input */}
                 <View style={styles.customDhikrSection}>
-                    <Text style={styles.label}>Custom Dhikr (Optional)</Text>
+                    <Text style={styles.label}>Custom Dhikr (Optional - if not selecting predefined)</Text>
                     <View style={styles.textAreaWrapper}>
                         <TextInput
                             style={styles.textArea}
                             value={customDhikr}
-                            onChangeText={setCustomDhikr}
-                            placeholder="Write Something...."
+                            onChangeText={handleCustomDhikrChange}
+                            placeholder="Write your own dhikr..."
                             placeholderTextColor={colors.text.grey}
                             multiline
                             numberOfLines={4}
                             textAlignVertical="top"
+                            editable={!loading}
                         />
                     </View>
                 </View>
+
+                {/* Validation Message */}
+                {selectedDhikr && customDhikr.trim() && (
+                    <View style={styles.warningBox}>
+                        <Ionicons name="alert-circle" size={16} color="#E57373" />
+                        <Text style={styles.warningText}>
+                            You cannot select both predefined and custom dhikr. Please choose one.
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
 
             {/* Bottom Buttons */}
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                <TouchableOpacity 
+                    style={styles.skipButton} 
+                    onPress={handleSkip}
+                    disabled={loading}
+                >
                     <Text style={styles.skipText}>Skip</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
                 <Button
-                    title="Continue"
+                    title={loading ? "Saving..." : "Continue"}
                     onPress={handleContinue}
                     icon="arrow-forward"
                     style={styles.continueButton}
+                    disabled={loading}
                 />
             </View>
         </View>
@@ -170,6 +269,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,
@@ -293,6 +399,7 @@ const styles = StyleSheet.create({
     },
     customDhikrSection: {
         marginTop: spacing.md,
+        marginBottom: spacing.lg,
     },
     textAreaWrapper: {
         backgroundColor: 'rgba(255,255,255,0.85)',
@@ -307,6 +414,38 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.md,
         color: colors.text.black,
         minHeight: 100,
+    },
+    selectedDhikrInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(124, 142, 123, 0.1)',
+        borderRadius: borderRadius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        marginBottom: spacing.lg,
+    },
+    selectedDhikrText: {
+        marginLeft: spacing.sm,
+        fontSize: typography.fontSize.md,
+        color: colors.primary.sage,
+        fontWeight: typography.fontWeight.medium,
+    },
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFE8E8',
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: '#E57373',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        marginBottom: spacing.lg,
+    },
+    warningText: {
+        marginLeft: spacing.sm,
+        fontSize: typography.fontSize.sm,
+        color: '#C62828',
+        flex: 1,
     },
     buttonContainer: {
         flexDirection: 'row',

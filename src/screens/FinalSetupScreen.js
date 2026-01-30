@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -6,10 +6,13 @@ import {
     TouchableOpacity,
     Dimensions,
     Animated,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import FirebaseService from '../services/FirebaseService';
+import auth from '@react-native-firebase/auth';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -27,6 +30,17 @@ const FinalSetupScreen = ({ navigation }) => {
     // Animation values for text and button
     const textOpacity = useRef(new Animated.Value(0)).current;
     const buttonOpacity = useRef(new Animated.Value(0)).current;
+
+    const [completing, setCompleting] = useState(false);
+    const [userName, setUserName] = useState('User');
+
+    useEffect(() => {
+        const user = auth().currentUser;
+        if (user) {
+            const displayName = user.email?.split('@')[0] || 'User';
+            setUserName(displayName);
+        }
+    }, []);
 
     useEffect(() => {
         // Sequence of animations
@@ -76,12 +90,25 @@ const FinalSetupScreen = ({ navigation }) => {
         }).start();
     }, [moonOpacity, leafScale, leafOpacity, leafTranslateY, textOpacity, buttonOpacity]);
 
-    const handleEnterSpace = () => {
-        // Navigate to main app with bottom tabs and reset stack so user can't go back
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'MainApp' }],
-        });
+    const handleEnterSpace = async () => {
+        setCompleting(true);
+        try {
+            // Mark onboarding as complete in Firebase
+            await FirebaseService.completeOnboarding();
+
+            // Initialize journals document for future entries
+            await FirebaseService.initializeJournals();
+
+            // Navigate to main app with bottom tabs and reset stack so user can't go back
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainApp' }],
+            });
+        } catch (error) {
+            console.error('Error completing onboarding:', error);
+            Alert.alert('Error', 'Failed to complete setup. Please try again.');
+            setCompleting(false);
+        }
     };
 
     return (
@@ -92,6 +119,15 @@ const FinalSetupScreen = ({ navigation }) => {
             style={styles.container}
         >
             <View style={styles.content}>
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                    navigation.goBack();
+                }}
+                
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
                 {/* Logo Container - Moon and Leaf */}
                 <View style={styles.logoContainer}>
                     {/* Moon (Crescent) */}
@@ -120,18 +156,24 @@ const FinalSetupScreen = ({ navigation }) => {
 
                 {/* Title */}
                 <Animated.Text style={[styles.title, { opacity: textOpacity }]}>
-                    Your digital space should be built with intention
+                    Grounded in intention
                 </Animated.Text>
 
                 {/* Subtitle */}
                 <Animated.Text style={[styles.subtitle, { opacity: textOpacity }]}>
-                    We're happy you choose us to help
+                    Built to support consistency and purpose
                 </Animated.Text>
 
                 {/* Enter Button */}
                 <Animated.View style={[styles.buttonWrapper, { opacity: buttonOpacity }]}>
-                    <TouchableOpacity style={styles.enterButton} onPress={handleEnterSpace}>
-                        <Text style={styles.enterButtonText}>Enter Your Space</Text>
+                    <TouchableOpacity 
+                        style={styles.enterButton} 
+                        onPress={handleEnterSpace}
+                        disabled={completing}
+                    >
+                        <Text style={styles.enterButtonText}>
+                            {completing ? 'Completing...' : 'Enter Your Space'}
+                        </Text>
                         <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                     </TouchableOpacity>
                 </Animated.View>
@@ -150,6 +192,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingHorizontal: horizontalPadding,
         paddingBottom: screenHeight * 0.1,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     logoContainer: {
         width: 180,

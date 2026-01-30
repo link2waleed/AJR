@@ -6,38 +6,60 @@ import {
     TouchableOpacity,
     ScrollView,
     Dimensions,
-    Image
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
 import { colors, typography, spacing, borderRadius } from '../theme';
-import morningIcon from '../../assets/images/fajr.png';
-import eveningIcon from '../../assets/images/isha.png';
-import bothIcon from '../../assets/images/both.png';
-import noPromptIcon from '../../assets/images/no-prompts.png';
+import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const promptOptions = [
-    { id: 'yes', label: 'prompts', icon: morningIcon },
-    { id: 'no', label: 'No prompts', icon: noPromptIcon },
+    { id: 'enabled', label: 'Enable Prompts', icon: 'notifications', description: 'Receive prompts to reflect throughout the day' },
+    { id: 'disabled', label: 'Disable Prompts', icon: 'notifications-off', description: 'Skip prompts and reflect on your own' },
 ];
 
 const JournalGoalScreen = ({ navigation }) => {
-    const [selectedPrompt, setSelectedPrompt] = useState('morning');
+    const [selectedPrompt, setSelectedPrompt] = useState('enabled');
+    const [loading, setLoading] = useState(false);
 
-    const handleContinue = () => {
-        navigation.navigate('MyCircleSetup');
+    const handleContinue = async () => {
+        setLoading(true);
+        try {
+            // Save journaling goal to Firebase (true for enabled, false for disabled)
+            const enablePrompts = selectedPrompt === 'enabled';
+            await FirebaseService.saveJournalingGoals(enablePrompts);
+            navigation.navigate('MyCircleSetup');
+        } catch (error) {
+            console.error('Error saving journaling goal:', error);
+            Alert.alert('Error', 'Failed to save journaling goal. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSkip = () => {
         navigation.navigate('MyCircleSetup');
     };
 
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
     return (
         <View style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={loading}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -54,16 +76,25 @@ const JournalGoalScreen = ({ navigation }) => {
                     {promptOptions.map((option) => (
                         <TouchableOpacity
                             key={option.id}
-                            style={styles.optionCard}
+                            style={[
+                                styles.optionCard,
+                                selectedPrompt === option.id && styles.optionCardSelected,
+                            ]}
                             onPress={() => setSelectedPrompt(option.id)}
                             activeOpacity={0.7}
+                            disabled={loading}
                         >
-                            <Image
-                                source={option.icon}
-                                style={styles.optionIcon}
-                                resizeMode="contain"
-                            />
-                            <Text style={styles.optionLabel}>{option.label}</Text>
+                            <View style={styles.optionContent}>
+                                <Ionicons 
+                                    name={option.icon} 
+                                    size={32} 
+                                    color={selectedPrompt === option.id ? colors.primary.dark : colors.text.gray} 
+                                />
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={styles.optionLabel}>{option.label}</Text>
+                                    <Text style={styles.optionDescription}>{option.description}</Text>
+                                </View>
+                            </View>
                             <View style={[styles.radioOuter, selectedPrompt === option.id && styles.radioOuterSelected]}>
                                 {selectedPrompt === option.id && <View style={styles.radioInner} />}
                             </View>
@@ -74,15 +105,20 @@ const JournalGoalScreen = ({ navigation }) => {
 
             {/* Bottom Buttons */}
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                <TouchableOpacity 
+                    style={styles.skipButton} 
+                    onPress={handleSkip}
+                    disabled={loading}
+                >
                     <Text style={styles.skipText}>Skip</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
                 <Button
-                    title="Continue"
+                    title={loading ? "Saving..." : "Continue"}
                     onPress={handleContinue}
                     icon="arrow-forward"
                     style={styles.continueButton}
+                    disabled={loading}
                 />
             </View>
         </View>
@@ -94,6 +130,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,
@@ -127,19 +170,32 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ffffff',
         borderRadius: borderRadius.lg,
-        padding: spacing.md,
-        marginBottom: spacing.sm,
+        padding: spacing.lg,
+        marginBottom: spacing.md,
     },
-    optionIcon: {
-        width: 36,
-        height: 36,
-        marginRight: spacing.md,
+    optionCardSelected: {
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderColor: colors.primary.sage,
+    },
+    optionContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    optionTextContainer: {
+        flex: 1,
+        marginLeft: spacing.md,
     },
     optionLabel: {
-        flex: 1,
-        fontSize: isSmallDevice ? 14 : 16,
+        fontSize: isSmallDevice ? 16 : 18,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
+        marginBottom: spacing.xs,
+    },
+    optionDescription: {
+        fontSize: isSmallDevice ? 13 : 14,
+        color: colors.text.grey,
+        lineHeight: 18,
     },
     radioOuter: {
         width: 22,
@@ -149,6 +205,7 @@ const styles = StyleSheet.create({
         borderColor: '#D0D0D0',
         alignItems: 'center',
         justifyContent: 'center',
+        marginLeft: spacing.md,
     },
     radioOuterSelected: {
         borderColor: colors.primary.sage,

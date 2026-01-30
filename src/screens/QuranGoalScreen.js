@@ -7,11 +7,13 @@ import {
     TextInput,
     ScrollView,
     Dimensions,
-    Image
+    Image,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import FirebaseService from '../services/FirebaseService';
 import noteIcon from '../../assets/images/note.png';
 import noteIcon2 from '../../assets/images/note-2.png';
 import clockIcon from '../../assets/images/clock.png';
@@ -24,17 +26,85 @@ const QuranGoalScreen = ({ navigation }) => {
     const [pagesPerDay, setPagesPerDay] = useState('');
     const [versePerDay, setVersePerDay] = useState('');
     const [minutesPerDay, setMinutesPerDay] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleContinue = () => {
-        navigation.navigate('DhikrGoal');
+    /**
+     * Validate input: only numbers, max 500
+     */
+    const validateInput = (value) => {
+        return value.replace(/[^0-9]/g, '');
+    };
+
+    const handleInputChange = (value, setter) => {
+        const validated = validateInput(value);
+        if (validated === '' || parseInt(validated, 10) <= 500) {
+            setter(validated);
+        } else {
+            Alert.alert('Invalid Input', 'Value must not exceed 500');
+        }
+    };
+
+    const validateAllInputs = () => {
+        const fields = [
+            { value: pagesPerDay, name: 'Pages Per Day' },
+            { value: versePerDay, name: 'Verse Per Day' },
+            { value: minutesPerDay, name: 'Minutes Per Day' },
+        ];
+
+        for (const field of fields) {
+            if (field.value !== '') {
+                const num = parseInt(field.value, 10);
+                if (isNaN(num) || num < 1 || num > 500) {
+                    Alert.alert(
+                        'Invalid Input',
+                        `${field.name} must be a number between 1 and 500`
+                    );
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
+    const handleContinue = async () => {
+        if (!validateAllInputs()) return;
+
+        setLoading(true);
+        try {
+            // Save Quran goals to Firebase
+            await FirebaseService.saveQuranGoals(
+                pagesPerDay || null,
+                versePerDay || null,
+                minutesPerDay || null
+            );
+            navigation.navigate('DhikrGoal');
+        } catch (error) {
+            console.error('Error saving Quran goals:', error);
+            Alert.alert('Error', error.message || 'Failed to save Quran goals. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSkip = () => {
         navigation.navigate('DhikrGoal');
     };
 
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
     return (
         <View style={styles.container}>
+            {/* Back Button */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBack}
+                disabled={loading}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -51,7 +121,7 @@ const QuranGoalScreen = ({ navigation }) => {
                 <View style={styles.inputsContainer}>
                     {/* Pages Per Day */}
                     <View style={styles.inputSection}>
-                        <Text style={styles.label}>Pages Per Day</Text>
+                        <Text style={styles.label}>Pages Per Day (1-500)</Text>
                         <View style={styles.inputWrapper}>
                             <Image
                                 source={noteIcon}
@@ -61,17 +131,19 @@ const QuranGoalScreen = ({ navigation }) => {
                             <TextInput
                                 style={styles.input}
                                 value={pagesPerDay}
-                                onChangeText={setPagesPerDay}
+                                onChangeText={(value) => handleInputChange(value, setPagesPerDay)}
                                 placeholder="Enter Pages Per Day"
                                 placeholderTextColor={colors.text.grey}
-                                keyboardType="numeric"
+                                keyboardType="number-pad"
+                                editable={!loading}
+                                maxLength={3}
                             />
                         </View>
                     </View>
 
                     {/* Verse Per Day */}
                     <View style={styles.inputSection}>
-                        <Text style={styles.label}>Verse Per Day</Text>
+                        <Text style={styles.label}>Verse Per Day (1-500)</Text>
                         <View style={styles.inputWrapper}>
                             <Image
                                 source={noteIcon2}
@@ -81,17 +153,19 @@ const QuranGoalScreen = ({ navigation }) => {
                             <TextInput
                                 style={styles.input}
                                 value={versePerDay}
-                                onChangeText={setVersePerDay}
+                                onChangeText={(value) => handleInputChange(value, setVersePerDay)}
                                 placeholder="Enter Verse Per Day"
                                 placeholderTextColor={colors.text.grey}
-                                keyboardType="numeric"
+                                keyboardType="number-pad"
+                                editable={!loading}
+                                maxLength={3}
                             />
                         </View>
                     </View>
 
                     {/* Minutes Per Day */}
                     <View style={styles.inputSection}>
-                        <Text style={styles.label}>Minutes Per Day</Text>
+                        <Text style={styles.label}>Minutes Per Day (1-500)</Text>
                         <View style={styles.inputWrapper}>
                             <Image
                                 source={clockIcon}
@@ -101,10 +175,12 @@ const QuranGoalScreen = ({ navigation }) => {
                             <TextInput
                                 style={styles.input}
                                 value={minutesPerDay}
-                                onChangeText={setMinutesPerDay}
+                                onChangeText={(value) => handleInputChange(value, setMinutesPerDay)}
                                 placeholder="Enter Minutes Per Day"
                                 placeholderTextColor={colors.text.grey}
-                                keyboardType="numeric"
+                                keyboardType="number-pad"
+                                editable={!loading}
+                                maxLength={3}
                             />
                         </View>
                     </View>
@@ -113,15 +189,20 @@ const QuranGoalScreen = ({ navigation }) => {
 
             {/* Bottom Buttons */}
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                <TouchableOpacity 
+                    style={styles.skipButton} 
+                    onPress={handleSkip}
+                    disabled={loading}
+                >
                     <Text style={styles.skipText}>Skip</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
                 <Button
-                    title="Continue"
+                    title={loading ? "Saving..." : "Continue"}
                     onPress={handleContinue}
                     icon="arrow-forward"
                     style={styles.continueButton}
+                    disabled={loading}
                 />
             </View>
         </View>
@@ -133,6 +214,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md,
+    },
+    backButton: {
+        position: 'absolute',
+        top: spacing.lg,
+        left: spacing.md,
+        padding: spacing.sm,
+        zIndex: 10,
     },
     scrollView: {
         flex: 1,

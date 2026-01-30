@@ -235,20 +235,22 @@ const LocationPermissionScreen = ({ navigation, route }) => {
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.primary.light }}>
+            {/* Back Button - Always show for onboarding flow */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                    navigation.goBack();
+                }}
+                disabled={isRequestingPermission}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
+
             <ScrollView
                 style={styles.container}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Back button when opened from settings */}
-                {isFromSettings && (
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="arrow-back" size={24} color={colors.text.black} />
-                    </TouchableOpacity>
-                )}
 
                 {/* Location Pin Icon */}
                 <View style={styles.iconContainer}>
@@ -349,9 +351,10 @@ const styles = StyleSheet.create({
     },
     backButton: {
         position: 'absolute',
-        top: -spacing.xl,
-        left: 0,
+        top: spacing.lg,
+        left: spacing.md,
         padding: spacing.sm,
+        zIndex: 10,
     },
     iconContainer: {
         alignItems: 'center',
