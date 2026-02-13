@@ -1,0 +1,264 @@
+{
+    "daily_themes": [
+        {
+            "day": 1,
+            "title": "Presence with Allah",
+            "description": "This week is about living with awareness that Allah sees you in every moment. Presence begins when the heart slows down and remembers Who it stands before."
+        },
+        {
+            "day": 2,
+            "title": "Gratitude",
+            "description": "Gratitude softens the heart and increases blessings. Noticing Allah's favors trains the soul to see abundance instead of lack."
+        },
+        {
+            "day": 3,
+            "title": "Tawheed",
+            "description": "True peace comes from knowing that Allah alone controls benefit and harm. This week strengthens reliance on Him alone."
+        },
+        {
+            "day": 4,
+            "title": "Tawakkul",
+            "description": "Tawakkul is doing what you can, then trusting Allah with the outcome. Let go of the need to control what is not yours."
+        },
+        {
+            "day": 5,
+            "title": "Sabr",
+            "description": "Patience is restraint for Allah's sake. It is choosing calm over reaction and faith over frustration."
+        },
+        {
+            "day": 6,
+            "title": "Shukr Through Action",
+            "description": "True gratitude is shown through obedience and restraint from sin, not words alone."
+        },
+        {
+            "day": 7,
+            "title": "Seeking Forgiveness",
+            "description": "Returning to Allah cleans the heart and restores closeness, no matter how many times you return."
+        },
+        {
+            "day": 8,
+            "title": "Hope in Allah",
+            "description": "Allah's mercy is greater than your mistakes. Hope protects the heart from despair."
+        },
+        {
+            "day": 9,
+            "title": "Taqwa",
+            "description": "Taqwa is being mindful of Allah before choices, words, and actions."
+        },
+        {
+            "day": 10,
+            "title": "Sincerity (Ikhlas)",
+            "description": "Worship is accepted when it is done for Allah alone, not for people or recognition."
+        },
+        {
+            "day": 11,
+            "title": "Love of Allah",
+            "description": "Love grows through obedience and remembrance, not emotion alone."
+        },
+        {
+            "day": 12,
+            "title": "Mindful Dhikr",
+            "description": "Dhikr with presence shapes the heart more than rushed repetition."
+        },
+        {
+            "day": 13,
+            "title": "Reflection Before Reaction",
+            "description": "Pausing before reacting allows wisdom to lead instead of emotion."
+        },
+        {
+            "day": 14,
+            "title": "Patience with People",
+            "description": "Patience with people tests restraint, humility, and trust in Allah's justice."
+        },
+        {
+            "day": 15,
+            "title": "Gentleness",
+            "description": "Gentleness beautifies speech and action."
+        },
+        {
+            "day": 16,
+            "title": "Humility",
+            "description": "Humility grows when the servant recognizes dependence on Allah in every success."
+        },
+        {
+            "day": 17,
+            "title": "Forgiveness",
+            "description": "Forgiveness frees the heart before it frees others."
+        },
+        {
+            "day": 18,
+            "title": "Self-Control",
+            "description": "Restraint strengthens the soul."
+        },
+        {
+            "day": 19,
+            "title": "Truthfulness",
+            "description": "Truthfulness aligns the tongue with the heart and strengthens sincerity."
+        },
+        {
+            "day": 20,
+            "title": "Kindness",
+            "description": "Small acts done sincerely carry great weight with Allah."
+        },
+        {
+            "day": 21,
+            "title": "Lowering the Gaze",
+            "description": "Lowering the gaze is the first defense of the heart."
+        },
+        {
+            "day": 22,
+            "title": "Contentment",
+            "description": "Contentment brings peace to the heart."
+        },
+        {
+            "day": 23,
+            "title": "Silence with Wisdom",
+            "description": "Silence becomes worship when it prevents harm and unnecessary speech."
+        },
+        {
+            "day": 24,
+            "title": "Good Assumptions",
+            "description": "Good assumptions purify the heart from suspicion and arrogance."
+        },
+        {
+            "day": 25,
+            "title": "Avoiding Sinful Habits",
+            "description": "Leaving sin opens doors to closeness with Allah."
+        },
+        {
+            "day": 26,
+            "title": "Consistency",
+            "description": "Allah loves consistent deeds, even if small."
+        },
+        {
+            "day": 27,
+            "title": "Khushu in Salah",
+            "description": "Khushu increases when prayer is slowed and honored."
+        },
+        {
+            "day": 28,
+            "title": "Longer Sujood",
+            "description": "Sujood is where the servant is closest to Allah."
+        },
+        {
+            "day": 29,
+            "title": "Dua with Certainty",
+            "description": "Allah hears every sincere dua."
+        },
+        {
+            "day": 30,
+            "title": "Quran as Guidance",
+            "description": "The Quran was revealed to be lived."
+        },
+        {
+            "day": 31,
+            "title": "Morning Barakah",
+            "description": "Early hours carry blessings."
+        },
+        {
+            "day": 32,
+            "title": "Night Reflection",
+            "description": "Ending the day with Allah brings peace."
+        },
+        {
+            "day": 33,
+            "title": "Voluntary Salah",
+            "description": "Extra prayers bring closeness."
+        },
+        {
+            "day": 34,
+            "title": "Listening to Quran",
+            "description": "The Quran softens hearts when listened to attentively."
+        },
+        {
+            "day": 35,
+            "title": "Allah's Names",
+            "description": "Calling Allah by His Names deepens dua."
+        },
+        {
+            "day": 36,
+            "title": "Istighfar Lifestyle",
+            "description": "Seeking forgiveness keeps the heart clean."
+        },
+        {
+            "day": 37,
+            "title": "Salawat",
+            "description": "Sending salawat connects the heart to the Prophet \ufdfa."
+        },
+        {
+            "day": 38,
+            "title": "Witr with Presence",
+            "description": "Witr seals the night with sincerity."
+        },
+        {
+            "day": 39,
+            "title": "Balance in Worship",
+            "description": "Balance preserves sincerity and prevents burnout."
+        },
+        {
+            "day": 40,
+            "title": "Seeing Allah in Creation",
+            "description": "Creation points back to the Creator."
+        },
+        {
+            "day": 41,
+            "title": "Mindful Walking",
+            "description": "Movement can awaken spiritual awareness."
+        },
+        {
+            "day": 42,
+            "title": "Honoring the Body",
+            "description": "The body is an amanah from Allah."
+        },
+        {
+            "day": 43,
+            "title": "Protecting Your Time",
+            "description": "Time is a trust that disappears quickly."
+        },
+        {
+            "day": 44,
+            "title": "Intentional Living",
+            "description": "Actions are judged by intentions."
+        },
+        {
+            "day": 45,
+            "title": "Serving Without Being Seen",
+            "description": "Hidden good deeds purify sincerity."
+        },
+        {
+            "day": 46,
+            "title": "Dua for Loved Ones",
+            "description": "Dua strengthens bonds beyond words."
+        },
+        {
+            "day": 47,
+            "title": "Healing the Heart",
+            "description": "Hearts heal when turned toward Allah consistently."
+        },
+        {
+            "day": 48,
+            "title": "Letting Go of Control",
+            "description": "Surrender brings peace where control creates anxiety."
+        },
+        {
+            "day": 49,
+            "title": "Remembering the Akhirah",
+            "description": "The Hereafter clarifies priorities."
+        },
+        {
+            "day": 50,
+            "title": "Living with Purpose",
+            "description": "Purpose comes from aligning life with faith."
+        },
+        {
+            "day": 51,
+            "title": "Review and Repentance",
+            "description": "Repentance is a return, not a punishment."
+        },
+        {
+            "day": 52,
+            "title": "Renewal and Intention",
+            "description": "Every return to Allah is a new beginning."
+        }
+    ]
+}
