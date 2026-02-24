@@ -78,7 +78,22 @@ const PrayerTimeService = {
      */
     fetchLondonPrayerTimes: async (school = DEFAULT_SCHOOL) => {
         try {
-            const response = await fetch(LONDON_API);
+            // Get today's date in London timezone
+            const londonDate = new Date().toLocaleDateString('en-GB', { 
+                timeZone: 'Europe/London',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            
+            // Convert DD/MM/YYYY to YYYY-MM-DD
+            const [day, month, year] = londonDate.split('/');
+            const formattedDate = `${year}-${month}-${day}`;
+            
+            const apiUrl = `${LONDON_API}&date=${formattedDate}`;
+            
+            console.log('Fetching London prayer times for:', formattedDate);
+            const response = await fetch(apiUrl);
 
             if (!response.ok) {
                 throw new Error(`London API error: ${response.status}`);

@@ -44,7 +44,7 @@ const PrayerTimesScreen = ({ navigation }) => {
                 await loadPrayerTimes(new Date(), 1);
             }
         };
-        
+
         initializeScreen();
     }, []);
 
@@ -437,14 +437,14 @@ const PrayerTimesScreen = ({ navigation }) => {
                                 </TouchableOpacity>
                                 <View style={styles.dateTextContainer}>
                                     <Text style={styles.dateGregorian}>
-                                        {selectedDate.toLocaleDateString('en-GB', {
+                                        {prayerData.gregorianDate || selectedDate.toLocaleDateString('en-GB', {
                                             day: 'numeric',
                                             month: 'long',
                                             year: 'numeric'
                                         })}
                                     </Text>
                                     <Text style={styles.dateHijri}>
-                                        {prayerData.hijriDate ? `${prayerData.hijriDate} AH *` : 'Hijri Date *'}
+                                        {prayerData.hijriDate ? `${prayerData.hijriDate} AH` : 'Hijri Date'}
                                     </Text>
                                 </View>
                                 <TouchableOpacity style={styles.dateArrow} onPress={handleNextDay}>
@@ -452,6 +452,7 @@ const PrayerTimesScreen = ({ navigation }) => {
                                 </TouchableOpacity>
                             </View>
                         )}
+
 
                         {/* Hijri Note */}
                         {/* <Text style={styles.hijriNote}>
