@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { useSpeech } from '../../hooks/useSpeech';
@@ -7,6 +7,7 @@ import GradientBackground from '../../components/GradientBackground';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 import auth from '@react-native-firebase/auth'; // Keep auth if used
+import notificationImg from '../../../assets/images/notification-bing.png';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.65;
@@ -161,8 +162,10 @@ const DhikrScreen = ({ navigation }) => {
                     let totalGoal = 0;
                     let totalCompleted = 0;
                     userDhikrs.forEach(item => {
-                        totalGoal += (item.counter || 33);
-                        totalCompleted += (dhikrCounts[item.word] || 0);
+                        const goal = item.counter || 33;
+                        totalGoal += goal;
+                        // Cap each dhikr's count at its own target to prevent overflow
+                        totalCompleted += Math.min(dhikrCounts[item.word] || 0, goal);
                     });
 
                     if (totalCompleted >= totalGoal) {
@@ -212,10 +215,9 @@ const DhikrScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Dhikr</Text>
-                        <TouchableOpacity style={styles.headerIcon}>
-                            <View style={styles.bellContainer}>
-                                <Ionicons name="notifications" size={24} color={colors.primary.darkSage} />
-                                <View style={styles.notificationDot} />
+                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
+                            <View style={styles.notificationBadge}>
+                                <Image source={notificationImg} style={styles.notificationIcon} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -306,12 +308,12 @@ const DhikrScreen = ({ navigation }) => {
                                 <Text style={styles.actionBtnText}>Reset</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.actionBtn} onPress={handleReadAloud}>
+                            {/* <TouchableOpacity style={styles.actionBtn} onPress={handleReadAloud}>
                                 <View style={styles.iconCircle}>
                                     <Ionicons name="volume-medium" size={18} color="#7A9181" />
                                 </View>
                                 <Text style={styles.actionBtnText}>Read aloud</Text>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
 
                             {/* <TouchableOpacity style={styles.actionBtn} onPress={handleResetToday}>
                                 <Text style={styles.actionBtnText}>Reset Today</Text>
@@ -342,22 +344,17 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    bellContainer: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        padding: 6,
+    notificationBadge: {
+        width: 40,
+        height: 40,
         borderRadius: 20,
-        position: 'relative',
+        backgroundColor: colors.primary.sage,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    notificationDot: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        width: 8,
-        height: 8,
-        backgroundColor: colors.accent.coral,
-        borderRadius: 4,
-        borderWidth: 1.5,
-        borderColor: '#FFFFFF',
+    notificationIcon: {
+        width: 20,
+        height: 20,
     },
     mainCard: {
         backgroundColor: 'rgba(255, 255, 255, 0.65)',
@@ -441,7 +438,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.6)', // Less opaque, matches the reference image look
         borderRadius: 20,
         height: 55,
-        width: '92%',
+        width: "auto",
         alignItems: 'center',
         justifyContent: 'space-around',
         paddingHorizontal: 15,

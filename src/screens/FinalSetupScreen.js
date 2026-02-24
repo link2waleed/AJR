@@ -165,15 +165,15 @@ const FinalSetupScreen = ({ navigation }) => {
             style={styles.container}
         >
             <View style={styles.content}>
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => {
-                    navigation.goBack();
-                }}
-                
-            >
-                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
-            </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => {
+                        navigation.goBack();
+                    }}
+
+                >
+                    <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+                </TouchableOpacity>
                 {/* Logo Container - Moon and Leaf */}
                 <View style={styles.logoContainer}>
                     {/* Moon (Crescent) */}
@@ -201,10 +201,13 @@ const FinalSetupScreen = ({ navigation }) => {
                 </View>
 
                 {/* Title */}
-                <Animated.Text style={[styles.title, { opacity: textOpacity }]}>
+                <Animated.Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={[styles.title, { opacity: textOpacity }]}
+                >
                     Grounded in intention
                 </Animated.Text>
-
                 {/* Subtitle */}
                 <Animated.Text style={[styles.subtitle, { opacity: textOpacity }]}>
                     Built to support consistency and purpose
@@ -212,8 +215,8 @@ const FinalSetupScreen = ({ navigation }) => {
 
                 {/* Enter Button */}
                 <Animated.View style={[styles.buttonWrapper, { opacity: buttonOpacity }]}>
-                    <TouchableOpacity 
-                        style={styles.enterButton} 
+                    <TouchableOpacity
+                        style={styles.enterButton}
                         onPress={handleEnterSpace}
                         disabled={completing}
                     >
@@ -271,13 +274,13 @@ const styles = StyleSheet.create({
         tintColor: 'rgba(255, 255, 255, 0.9)',
     },
     title: {
-        fontSize: isSmallDevice ? 24 : 28,
-        fontWeight: typography.fontWeight.semibold,
+        fontSize: isSmallDevice ? 24 : 24,
+        fontWeight: typography.fontWeight.medium,
         color: '#FFFFFF',
         textAlign: 'center',
         marginBottom: spacing.md,
         lineHeight: isSmallDevice ? 32 : 38,
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: spacing.sm,
     },
     subtitle: {
         fontSize: isSmallDevice ? 14 : 16,

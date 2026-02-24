@@ -19,20 +19,8 @@ const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 const SubscriptionScreen = ({ navigation }) => {
 
     const handleSupportMonthly = () => {
-
-    };
-
-    const handleSupportYearly = () => {
-        
-
-    };
-
-    const handleTryFree = () => {
         navigation.navigate('FinalSetup');
-    };
 
-    const handleCancel = () => {
- 
     };
 
     return (
@@ -59,43 +47,23 @@ const SubscriptionScreen = ({ navigation }) => {
                 </View>
 
                 {/* Title */}
-                <Text style={styles.title}>Support AJR</Text>
+                <Text style={styles.title}>A Ramadan Gift 🌙</Text>
 
                 {/* Description */}
                 <Text style={styles.description}>
-                    Thank you for supporting AJR.{'\n'}
-                    Your support helps us keep this space intentional,{'\n'}
-                    ad-free, and growing.
+                    AJR is free for everyone this Ramadan so you can focus fully on your worship, reflection, and routines together.
                 </Text>
 
                 {/* Blessing Text */}
-                <Text style={styles.highlightText}>
-                    May Allah place barakah in your time, intentions,{'\n'}and actions.
-                </Text>
+
 
                 {/* Monthly Support Button */}
                 <TouchableOpacity style={styles.supportButton} onPress={handleSupportMonthly}>
-                    <Text style={styles.supportButtonText}>Support AJR — $4.99/month</Text>
+                    <Text style={styles.supportButtonText}>Try free for 30 days</Text>
                     <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
 
-                {/* Yearly Support Button */}
-                <TouchableOpacity style={styles.yearlyButton} onPress={handleSupportYearly}>
-                    <Text style={styles.yearlyButtonText}>
-                        Support AJR -  $29.99 / year (just $2.49/month)
-                    </Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
-                </TouchableOpacity>
-
-                {/* Try Free Link */}
-                <TouchableOpacity style={styles.tryFreeLink} onPress={handleTryFree}>
-                    <Text style={styles.tryFreeText}>Try free for This Ramadan</Text>
-                </TouchableOpacity>
-
-                {/* Cancel Anytime */}
-                <TouchableOpacity style={styles.cancelLink} onPress={handleCancel}>
-                    <Text style={styles.cancelText}>Cancel anytime</Text>
-                </TouchableOpacity>
+                
             </ScrollView>
         </View>
     );
@@ -116,13 +84,15 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+
     },
     scrollContent: {
-        paddingHorizontal: horizontalPadding,
-        paddingTop: screenHeight * 0.06,
-        paddingBottom: spacing.xxl,
-        alignItems: 'center',
-    },
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: horizontalPadding,
+    paddingBottom: spacing.md,
+},
     imageContainer: {
         alignItems: 'center',
         marginBottom: spacing.xl,
@@ -167,7 +137,7 @@ const styles = StyleSheet.create({
     },
     supportButtonText: {
         fontSize: isSmallDevice ? 15 : 17,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.regular,
         color: '#FFFFFF',
         marginRight: spacing.sm,
     },

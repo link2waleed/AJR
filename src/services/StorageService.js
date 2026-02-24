@@ -1,40 +1,15 @@
-/**
- * StorageService.js
- * AsyncStorage wrapper for persisting location and prayer time data
- * 
- * FUTURE: Replace AsyncStorage calls with database API calls when backend is connected.
- * The interface methods should remain the same for seamless migration.
- */
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Storage keys
 const STORAGE_KEYS = {
     LOCATION: '@ajr_user_location',
     PRAYER_TIMES: '@ajr_prayer_times',
+    FULL_TIMINGS: '@ajr_full_timings',       // all prayer times (Fajr, Dhuhr, Asr, Maghrib, Isha)
     PERMISSION_STATUS: '@ajr_location_permission',
-    LOCATION_ENABLED: '@ajr_location_enabled', // User preference to use location
+    LOCATION_ENABLED: '@ajr_location_enabled',
     DHIKR_OFFSETS: '@ajr_dhikr_offsets',
-    SCHOOL_PREFERENCE: '@ajr_school_preference', // Prayer school preference (0 = Shafi, 1 = Hanafi)
+    SCHOOL_PREFERENCE: '@ajr_school_preference',
 };
-
-/**
- * Location data structure:
- * {
- *   latitude: number,
- *   longitude: number,
- *   lastUpdated: string (ISO timestamp)
- * }
- */
-
-/**
- * Prayer times data structure:
- * {
- *   maghrib: string (HH:MM format),
- *   date: string (YYYY-MM-DD),
- *   locationHash: string (rounded lat/lng for cache invalidation)
- * }
- */
 
 // Helper to create location hash for cache invalidation
 const createLocationHash = (latitude, longitude) => {
@@ -51,12 +26,7 @@ const getTodayDateString = () => {
 };
 
 const StorageService = {
-    // ============ LOCATION ============
 
-    /**
-     * Save user location to storage
-     * FUTURE: POST to /api/user/location
-     */
     saveLocation: async (latitude, longitude) => {
         try {
             const locationData = {
@@ -120,10 +90,34 @@ const StorageService = {
         }
     },
 
-    /**
-     * Get cached prayer times if valid (same day, same location)
-     * FUTURE: GET from /api/prayer-times/cache with validation
-     */
+    saveFullTimings: async (timings, date) => {
+        try {
+            const data = {
+                timings,
+                date: date || getTodayDateString(),
+            };
+            await AsyncStorage.setItem(STORAGE_KEYS.FULL_TIMINGS, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving full timings:', error);
+            return false;
+        }
+    },
+
+    getFullTimings: async () => {
+        try {
+            const raw = await AsyncStorage.getItem(STORAGE_KEYS.FULL_TIMINGS);
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            // Only return if from today
+            if (data.date !== getTodayDateString()) return null;
+            return data.timings;
+        } catch (error) {
+            console.error('StorageService: Error getting full timings:', error);
+            return null;
+        }
+    },
+
     getPrayerTimes: async (latitude, longitude) => {
         try {
             const data = await AsyncStorage.getItem(STORAGE_KEYS.PRAYER_TIMES);
@@ -148,11 +142,6 @@ const StorageService = {
             return null;
         }
     },
-
-    /**
-     * Get raw cached prayer times WITHOUT validation (for fallback when location is disabled)
-     * Returns whatever is cached, even if stale
-     */
     getRawPrayerTimes: async () => {
         try {
             const data = await AsyncStorage.getItem(STORAGE_KEYS.PRAYER_TIMES);
@@ -164,12 +153,6 @@ const StorageService = {
         }
     },
 
-    // ============ PERMISSION STATUS ============
-
-    /**
-     * Save location permission status
-     * FUTURE: POST to /api/user/preferences
-     */
     savePermissionStatus: async (status) => {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.PERMISSION_STATUS, status);
@@ -180,10 +163,7 @@ const StorageService = {
         }
     },
 
-    /**
-     * Get stored permission status
-     * FUTURE: GET from /api/user/preferences
-     */
+
     getPermissionStatus: async () => {
         try {
             const status = await AsyncStorage.getItem(STORAGE_KEYS.PERMISSION_STATUS);
@@ -194,12 +174,7 @@ const StorageService = {
         }
     },
 
-    // ============ LOCATION ENABLED PREFERENCE ============
 
-    /**
-     * Save user preference to enable/disable location usage
-     * This is separate from system permission - user can disable even if permitted
-     */
     saveLocationEnabled: async (enabled) => {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_ENABLED, JSON.stringify(enabled));

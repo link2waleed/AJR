@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Switch, ActivityIndicator, FlatList, Modal, ToastAndroid, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Switch, ActivityIndicator, FlatList, Modal, ToastAndroid, Platform, TextInput, Image } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
@@ -12,6 +12,7 @@ import { useTafsir } from '../../hooks/useTafsir';
 import { useSurahInfo } from '../../hooks/useSurahInfo';
 import { useReadingTimer } from '../../hooks/useReadingTimer';
 import FirebaseService from '../../services/FirebaseService';
+import notificationImg from '../../../assets/images/notification-bing.png';
 
 const SurahDetailScreen = ({ navigation, route }) => {
     const { surah, juz, initialTab } = route.params;
@@ -536,10 +537,9 @@ const SurahDetailScreen = ({ navigation, route }) => {
                         <View style={{ alignItems: 'center' }}>
                             <Text style={styles.headerTitle}>{headerTitle}</Text>
                         </View>
-                        <TouchableOpacity style={styles.headerIcon}>
-                            <View style={styles.bellContainer}>
-                                <Ionicons name="notifications" size={24} color={colors.primary.darkSage} />
-                                <View style={styles.notificationDot} />
+                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
+                            <View style={styles.notificationBadge}>
+                                <Image source={notificationImg} style={styles.notificationIcon} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -947,7 +947,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
 
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </GradientBackground >
     );
 };
 

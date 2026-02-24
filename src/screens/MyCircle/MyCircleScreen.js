@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,10 +9,13 @@ import {
     Image,
     Modal,
     TextInput,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import FirebaseService from '../../services/FirebaseService';
 
 // Import notification icon
 import notifications from '../../../assets/images/notification-bing.png';
@@ -21,84 +24,24 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
-// Mock data for circles (replace with Firebase data later)
-const mockCircles = [
-    {
-        id: '1',
-        name: 'Morning Prayer',
-        members: 7,
-        streak: 42,
-        progress: 80,
-    },
-    {
-        id: '2',
-        name: 'Quran Study Group',
-        members: 12,
-        streak: 18,
-        progress: 50,
-    },
-    {
-        id: '3',
-        name: 'Daily Dhikr',
-        members: 8,
-        streak: 75,
-        progress: 60,
-    },
-    {
-        id: '4',
-        name: 'Morning Routine',
-        members: 12,
-        streak: 28,
-        progress: 80,
-    },
-];
-
-const mockCollectiveStats = {
-    peoplePrayed: 12,
-    quranSessions: 7,
-    dhikrMoments: 18,
-};
-
-const mockEncouragements = [
-    { id: '1', message: "You're doing amazing", sender: 'Sarah' },
-    { id: '2', message: 'May Allah accept', sender: 'Ahmed' },
-    { id: '3', message: 'Almost there, keep going', sender: 'Fatima' },
-];
-
-const mockChallenges = [
-    { id: '1', title: 'Read Quran for 5 minutes', progress: 50 },
-    { id: '2', title: 'Send 10 salawat', progress: 85 },
-    { id: '3', title: 'Make dua for someone', progress: 50 },
-];
-
-const mockFeaturedCircle = {
-    name: 'Morning Motivation',
-    description: 'This circle has been consistent for 12 days.',
-    admin: 'MashaAllah',
-};
 
 // Circle Card Component
 const CircleCard = ({ circle, onPress }) => (
     <TouchableOpacity style={styles.circleCard} onPress={onPress} activeOpacity={0.7}>
         <View style={styles.circleCardHeader}>
             <Text style={styles.circleCardTitle}>{circle.name}</Text>
-            <View style={styles.streakBadge}>
-                <Ionicons name="flame-outline" size={14} color={colors.text.dark} />
-                <Text style={styles.streakText}>{circle.streak} Day Streak</Text>
-            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.text.grey} />
         </View>
-        <View style={styles.circleCardRow}>
+        <View style={styles.circleCardDivider} />
+        <View style={styles.circleCardFooter}>
             <View style={styles.membersRow}>
                 <Ionicons name="people-outline" size={14} color={colors.text.grey} />
                 <Text style={styles.membersText}>{circle.members} Members</Text>
             </View>
-        </View>
-        <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>Progress</Text>
-            <Text style={styles.progressPercent}>{circle.progress}% complete</Text>
-        </View>
-        <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: `${circle.progress}%` }]} />
+            <View style={styles.streakBadge}>
+                <Ionicons name="flame-outline" size={14} color={colors.text.dark} />
+                <Text style={styles.streakText}>{circle.streak} Day Streak</Text>
+            </View>
         </View>
     </TouchableOpacity>
 );
@@ -142,30 +85,56 @@ const ChallengeCard = ({ challenge }) => (
 
 const MyCircleScreen = ({ navigation }) => {
     // State to track if user has circles
-    const [hasCircles, setHasCircles] = useState(true); // Set to false to test empty state
-    const [circles, setCircles] = useState(mockCircles);
-    const [collectiveStats, setCollectiveStats] = useState(mockCollectiveStats);
-    const [encouragements, setEncouragements] = useState(mockEncouragements);
-    const [challenges, setChallenges] = useState(mockChallenges);
-    const [featuredCircle, setFeaturedCircle] = useState(mockFeaturedCircle);
+    const [hasCircles, setHasCircles] = useState(false);
+    const [circles, setCircles] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     // Join Circle Modal state
     const [showJoinModal, setShowJoinModal] = useState(false);
     const [joinCode, setJoinCode] = useState('');
+    const [joining, setJoining] = useState(false);
 
-    const handleJoinCircle = () => {
-        // TODO: Implement join circle logic with Firebase
-        console.log('Joining circle with code:', joinCode);
-        setShowJoinModal(false);
-        setJoinCode('');
-    };
-
-    // TODO: Replace with actual Firebase fetch
-    useEffect(() => {
-        // Fetch circles from Firebase
-        // If circles exist, setHasCircles(true) and setCircles(data)
-        // If no circles, setHasCircles(false)
+    const fetchCircles = useCallback(async () => {
+        try {
+            setLoading(true);
+            const userCircles = await FirebaseService.getUserCircles();
+            setCircles(userCircles);
+            setHasCircles(userCircles.length > 0);
+        } catch (error) {
+            console.error('Error fetching circles:', error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Fetch circles on mount and when screen comes into focus
+    useEffect(() => {
+        fetchCircles();
+    }, [fetchCircles]);
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            fetchCircles();
+        });
+        return unsubscribe;
+    }, [navigation, fetchCircles]);
+
+    const handleJoinCircle = async () => {
+        if (!joinCode.trim()) return;
+        setJoining(true);
+        try {
+            const result = await FirebaseService.joinCircle(joinCode.trim());
+            setShowJoinModal(false);
+            setJoinCode('');
+            // Refresh circles list
+            await fetchCircles();
+            Alert.alert('Success', `You joined "${result.circleName}"!`);
+        } catch (error) {
+            Alert.alert('Error', error.message || 'Failed to join circle. Please try again.');
+        } finally {
+            setJoining(false);
+        }
+    };
 
     // Render Empty State (No Circles)
     const renderEmptyState = () => (
@@ -185,7 +154,7 @@ const MyCircleScreen = ({ navigation }) => {
 
                 <Text style={styles.headerTitle}>My Circle</Text>
 
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
                     <View style={styles.notificationBadge}>
                         <Image source={notifications} style={styles.notificationIcon} />
                     </View>
@@ -217,9 +186,9 @@ const MyCircleScreen = ({ navigation }) => {
                             <Ionicons name="add" size={18} color={colors.text.primary} style={styles.buttonIcon} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.inviteFriendsButton}>
-                            <Text style={styles.inviteFriendsButtonText}>Invite Friends</Text>
-                            <Ionicons name="share-social-outline" size={16} color={colors.text.dark} style={styles.buttonIcon} />
+                        <TouchableOpacity style={styles.inviteFriendsButton} onPress={() => setShowJoinModal(true)}>
+                            <Text style={styles.inviteFriendsButtonText}>Join Circle</Text>
+                            <Ionicons name="arrow-forward" size={16} color={colors.text.dark} style={styles.buttonIcon} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -245,7 +214,7 @@ const MyCircleScreen = ({ navigation }) => {
 
                 <Text style={styles.headerTitle}>My Circle</Text>
 
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
                     <View style={styles.notificationBadge}>
                         <Image source={notifications} style={styles.notificationIcon} />
                     </View>
@@ -259,7 +228,7 @@ const MyCircleScreen = ({ navigation }) => {
                     <CircleCard
                         key={circle.id}
                         circle={circle}
-                        onPress={() => navigation.navigate('CircleDetail', { circle })}
+                        onPress={() => navigation.navigate('CircleDetail', { circleId: circle.id })}
                     />
                 ))}
             </View>
@@ -279,55 +248,6 @@ const MyCircleScreen = ({ navigation }) => {
                     <Ionicons name="arrow-forward" size={18} color={colors.text.dark} />
                 </TouchableOpacity>
             </View>
-
-            {/* Join Circle Modal */}
-            <Modal
-                visible={showJoinModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowJoinModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>Join a Circle</Text>
-                        <Text style={styles.modalSubtitle}>Enter the invite code you received</Text>
-
-                        <Text style={styles.modalInputLabel}>Code</Text>
-                        <View style={styles.modalInputContainer}>
-                            <Ionicons name="copy-outline" size={18} color={colors.text.grey} />
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="GRW-2K9X"
-                                placeholderTextColor={colors.text.grey}
-                                value={joinCode}
-                                onChangeText={setJoinCode}
-                                autoCapitalize="characters"
-                            />
-                        </View>
-
-                        <View style={styles.modalButtonsContainer}>
-                            <TouchableOpacity
-                                style={styles.modalCancelButton}
-                                onPress={() => {
-                                    setShowJoinModal(false);
-                                    setJoinCode('');
-                                }}
-                            >
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                                <Ionicons name="arrow-forward" size={16} color={colors.text.dark} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.modalJoinButton}
-                                onPress={handleJoinCircle}
-                            >
-                                <Text style={styles.modalJoinText}>Join</Text>
-                                <Ionicons name="arrow-forward" size={16} color={colors.text.primary} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
 
             {/* Today's Collective AJR */}
             {/* <View style={styles.section}>
@@ -403,7 +323,60 @@ const MyCircleScreen = ({ navigation }) => {
             locations={[0, 0.7, 1]}
             style={styles.container}
         >
-            {hasCircles ? renderCirclesState() : renderEmptyState()}
+            {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={colors.primary.sage} />
+                </View>
+            ) : hasCircles ? renderCirclesState() : renderEmptyState()}
+
+            {/* Join Circle Modal */}
+            <Modal
+                visible={showJoinModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowJoinModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Join a Circle</Text>
+                        <Text style={styles.modalSubtitle}>Enter the invite code you received</Text>
+
+                        <Text style={styles.modalInputLabel}>Code</Text>
+                        <View style={styles.modalInputContainer}>
+                            <Ionicons name="copy-outline" size={18} color={colors.text.grey} />
+                            <TextInput
+                                style={styles.modalInput}
+                                placeholder="GRW-2K9X"
+                                placeholderTextColor={colors.text.grey}
+                                value={joinCode}
+                                onChangeText={setJoinCode}
+                                autoCapitalize="characters"
+                            />
+                        </View>
+
+                        <View style={styles.modalButtonsContainer}>
+                            <TouchableOpacity
+                                style={styles.modalCancelButton}
+                                onPress={() => {
+                                    setShowJoinModal(false);
+                                    setJoinCode('');
+                                }}
+                            >
+                                <Text style={styles.modalCancelText}>Cancel</Text>
+                                <Ionicons name="arrow-forward" size={16} color={colors.text.dark} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.modalJoinButton}
+                                onPress={handleJoinCircle}
+                            >
+                                <Text style={styles.modalJoinText}>Join</Text>
+                                <Ionicons name="arrow-forward" size={16} color={colors.text.primary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </LinearGradient>
     );
 };
@@ -467,6 +440,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
         marginBottom: spacing.md,
+        marginLeft: spacing.xxs
     },
     // Your Circles
     circleCard: {
@@ -482,26 +456,37 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: spacing.xs,
+        marginBottom: spacing.sm,
     },
     circleCardTitle: {
-        fontSize: isSmallDevice ? 14 : 16,
+        fontSize: isSmallDevice ? 15 : 17,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
+        flex: 1,
+    },
+    circleCardDivider: {
+        height: 1,
+        backgroundColor: colors.border.grey,
+        marginBottom: spacing.sm,
+    },
+    circleCardFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     streakBadge: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: colors.cards.mint,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xxs,
+        borderRadius: borderRadius.sm,
     },
     streakText: {
         fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.medium,
         color: colors.text.dark,
         marginLeft: 4,
-    },
-    circleCardRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
     },
     membersRow: {
         flexDirection: 'row',
@@ -511,32 +496,6 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.xs,
         color: colors.text.grey,
         marginLeft: 4,
-    },
-    progressRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xxs,
-    },
-    progressLabel: {
-        fontSize: typography.fontSize.xs,
-        color: colors.text.grey,
-        marginBottom: spacing.xxs,
-    },
-    progressPercent: {
-        fontSize: typography.fontSize.xs,
-        color: colors.text.grey,
-    },
-    progressBarContainer: {
-        height: 6,
-        backgroundColor: colors.border.light,
-        borderRadius: 3,
-        overflow: 'hidden',
-    },
-    progressBar: {
-        height: '100%',
-        backgroundColor: colors.primary.sage,
-        borderRadius: 3,
     },
     // Action Buttons
     actionButtonsContainer: {
@@ -775,6 +734,7 @@ const styles = StyleSheet.create({
         color: colors.text.black,
         marginBottom: spacing.lg,
         textAlign: 'center',
+        
     },
     // Buttons
     buttonContainer: {
@@ -805,11 +765,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: 'transparent',
         paddingVertical: spacing.md,
-        paddingHorizontal: spacing.lg,
+        paddingHorizontal: spacing.sm,
         borderRadius: borderRadius.sm,
         borderWidth: 1.5,
         borderColor: colors.border.grey,
         flex: 1,
+        flexWrap: 'nowrap',
     },
     inviteFriendsButtonText: {
         fontSize: typography.fontSize.sm,

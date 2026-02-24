@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,11 +8,20 @@ import {
     Dimensions,
     Image,
     Modal,
+    Alert,
+    ActivityIndicator,
+    LayoutAnimation,
+    Platform,
+    UIManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import FirebaseService from '../../services/FirebaseService';
+import * as Clipboard from 'expo-clipboard';
 import AJRRings from '../../components/AJRRings';
+import auth from '@react-native-firebase/auth';
+import challengesData from '../../data/challanges.json';
 
 // Import notification icon
 import notifications from '../../../assets/images/notification-bing.png';
@@ -32,11 +41,45 @@ const StatCard = ({ icon, value, label }) => (
     </View>
 );
 
-// Group Stat Item Component
-const GroupStatItem = ({ icon, text, iconColor = colors.primary.sage }) => (
-    <View style={styles.groupStatItem}>
-        <Ionicons name={icon} size={18} color={iconColor} />
-        <Text style={styles.groupStatText}>{text}</Text>
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Expandable Group Stat Item Component
+const ExpandableGroupStatItem = ({ icon, text, iconColor = colors.primary.sage, count, members, expanded, onToggle, isNamed }) => (
+    <View>
+        <TouchableOpacity
+            style={styles.groupStatItem}
+            onPress={isNamed && members?.length > 0 ? onToggle : undefined}
+            activeOpacity={isNamed && members?.length > 0 ? 0.7 : 1}
+            disabled={!isNamed || !members?.length}
+        >
+            <View style={[styles.groupStatIconCircle, { backgroundColor: iconColor + '20' }]}>
+                <Ionicons name={icon} size={16} color={iconColor} />
+            </View>
+            <View style={styles.groupStatTextContainer}>
+                <Text style={styles.groupStatCount}>{count}</Text>
+                <Text style={styles.groupStatText}>{text}</Text>
+            </View>
+            {isNamed && members?.length > 0 && (
+                <Ionicons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.text.grey}
+                />
+            )}
+        </TouchableOpacity>
+        {expanded && isNamed && members?.length > 0 && (
+            <View style={styles.expandedMemberList}>
+                {members.map((member, idx) => (
+                    <View key={member.userId || idx} style={styles.expandedMemberRow}>
+                        <View style={styles.expandedMemberDot} />
+                        <Text style={styles.expandedMemberName}>{member.name}</Text>
+                    </View>
+                ))}
+            </View>
+        )}
     </View>
 );
 
@@ -70,23 +113,125 @@ const MemberRow = ({ name }) => (
 );
 
 // Legend Item Component - Tickable like HomeScreen
-const LegendItem = ({ color, label, completed = true }) => (
-    <View style={styles.legendItem}>
+const LegendItem = ({ color, label, completed = false, activity, onToggle, disabled }) => (
+    <TouchableOpacity
+        style={styles.legendItem}
+        onPress={() => onToggle && onToggle(activity)}
+        activeOpacity={0.7}
+        disabled={disabled}
+    >
         <View style={[styles.legendCheck, { borderColor: color, backgroundColor: completed ? color : 'transparent' }]}>
             {completed && <Ionicons name="checkmark" size={12} color="white" />}
         </View>
         <Text style={[styles.legendText, !completed && styles.legendTextInactive]}>{label}</Text>
-    </View>
+    </TouchableOpacity>
 );
 
 const CircleDetailScreen = ({ navigation, route }) => {
-    // Get circle data from route params or use defaults
-    const circle = route?.params?.circle || {
-        id: '1',
-        name: 'Morning Prayer',
-        members: 11,
-        streak: 14,
-        progress: 82,
+    const circleId = route?.params?.circleId;
+
+    // State
+    const [circleData, setCircleData] = useState(null);
+    const [members, setMembers] = useState([]);
+    const [streak, setStreak] = useState(0);
+    const [inviteCode, setInviteCode] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    // Group activity stats state
+    const [memberActivityStats, setMemberActivityStats] = useState(null);
+
+    // Weekly Challenge state
+    const [challengeParticipants, setChallengeParticipants] = useState([]);
+    const [joiningChallenge, setJoiningChallenge] = useState(false);
+    const currentUserId = auth().currentUser?.uid;
+
+    // Calculate which week's challenge to show (every 7 days of streak = next week, wrapping at 52)
+    const currentChallengeWeek = useMemo(() => {
+        const weekIndex = Math.floor(streak / 7) % challengesData.length;
+        return weekIndex;
+    }, [streak]);
+
+    const currentChallenge = challengesData[currentChallengeWeek];
+    const hasJoinedChallenge = challengeParticipants.includes(currentUserId);
+    const totalMembers = members.length || 1;
+    const challengeProgress = Math.round((challengeParticipants.length / totalMembers) * 100);
+    const [expandedStat, setExpandedStat] = useState(null);
+
+    // === AJR Rings State (same logic as HomeScreen) ===
+    const [selectedActivities, setSelectedActivities] = useState({
+        prayers: false,
+        quran: false,
+        dhikr: false,
+        journaling: false,
+    });
+    const [quranStats, setQuranStats] = useState({ seconds: 0, goalMinutes: 15 });
+    const [prayerStats, setPrayerStats] = useState({ completed: 0, total: 5 });
+    const [dhikrStats, setDhikrStats] = useState({ totalGoal: 0, totalCompleted: 0 });
+    const [journalStats, setJournalStats] = useState({ completedToday: false });
+    const [activityCompletion, setActivityCompletion] = useState({
+        prayers: false,
+        quran: false,
+        dhikr: false,
+        journaling: false,
+    });
+    const [togglingActivity, setTogglingActivity] = useState(null);
+
+    // Derived completion status (same as HomeScreen)
+    const isPrayerCompleted = activityCompletion.prayers || (prayerStats.completed >= 5);
+    const isQuranCompleted = activityCompletion.quran || (quranStats.seconds >= ((quranStats.goalMinutes || 15) * 60) && quranStats.seconds > 0);
+    const isDhikrCompleted = activityCompletion.dhikr || (dhikrStats.totalGoal > 0 && dhikrStats.totalCompleted >= dhikrStats.totalGoal);
+    const isJournalCompleted = activityCompletion.journaling || journalStats.completedToday;
+
+    const getQuranPercentage = () => {
+        const goalSeconds = (quranStats.goalMinutes || 15) * 60;
+        const percentage = goalSeconds > 0 ? Math.min(Math.round((quranStats.seconds / goalSeconds) * 100), 100) : 0;
+        return activityCompletion.quran ? 100 : percentage;
+    };
+
+    const getDhikrPercentage = () => {
+        if (dhikrStats.totalGoal === 0) return 0;
+        const percentage = Math.min(Math.round((dhikrStats.totalCompleted / dhikrStats.totalGoal) * 100), 100);
+        return activityCompletion.dhikr ? 100 : percentage;
+    };
+
+    const getJournalingPercentage = () => {
+        return activityCompletion.journaling ? 100 : (journalStats.completedToday ? 100 : 0);
+    };
+
+    const getPrayerPercentage = () => {
+        const completed = prayerStats.completed || 0;
+        const actualPercentage = Math.round((completed / 5) * 100);
+        return activityCompletion.prayers ? 100 : actualPercentage;
+    };
+
+    const ajrProgress = useMemo(() => {
+        let totalPercent = 0;
+        let count = 0;
+        if (selectedActivities.prayers) { totalPercent += getPrayerPercentage(); count++; }
+        if (selectedActivities.quran) { totalPercent += getQuranPercentage(); count++; }
+        if (selectedActivities.dhikr) { totalPercent += getDhikrPercentage(); count++; }
+        if (selectedActivities.journaling) { totalPercent += getJournalingPercentage(); count++; }
+        if (count === 0) return 0;
+        return Math.round(totalPercent / count);
+    }, [selectedActivities, prayerStats, quranStats, dhikrStats, journalStats, activityCompletion]);
+
+    const handleToggleActivity = async (activity) => {
+        if (!selectedActivities[activity]) return;
+        setTogglingActivity(activity);
+        try {
+            const newStatus = !activityCompletion[activity];
+            await FirebaseService.updateActivityCompletion(activity, newStatus);
+            // Refresh group stats after toggling so UI updates immediately
+            if (circleId) {
+                FirebaseService.getCircleMemberActivityStats(circleId)
+                    .then(stats => setMemberActivityStats(stats))
+                    .catch(() => { });
+            }
+        } catch (error) {
+            console.error(`Error toggling ${activity}:`, error);
+        } finally {
+            setTogglingActivity(null);
+        }
     };
 
     // State for intentions
@@ -94,33 +239,139 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
     // State for invite modal
     const [showInviteModal, setShowInviteModal] = useState(false);
-    const inviteCode = 'GRW-2K9X'; // This would come from Firebase in production
 
-    const handleCopyCode = () => {
-        // TODO: Implement clipboard copy
-        console.log('Copying code:', inviteCode);
-        // Could show a toast here
+    const toggleExpandStat = useCallback((statKey) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setExpandedStat(prev => prev === statKey ? null : statKey);
+    }, []);
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (!circleId) return;
+            try {
+                setLoading(true);
+                const [details, activityStats] = await Promise.all([
+                    FirebaseService.getCircleDetails(circleId),
+                    FirebaseService.getCircleMemberActivityStats(circleId),
+                ]);
+                setCircleData(details.circle);
+                setMembers(details.members);
+                setStreak(details.streak);
+                setInviteCode(details.circle.inviteCode || '');
+                setMemberActivityStats(activityStats);
+
+                // Initialize/fetch circle challenge doc and participants for current week
+                const weekIndex = Math.floor(details.streak / 7) % challengesData.length;
+                await FirebaseService.initOrGetCircleChallenge(circleId, weekIndex, details.members.length);
+                const participants = await FirebaseService.getChallengeParticipants(circleId, weekIndex);
+                setChallengeParticipants(participants);
+            } catch (error) {
+                console.error('Error fetching circle details:', error);
+                Alert.alert('Error', 'Failed to load circle details.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDetails();
+    }, [circleId]);
+
+    // === AJR Rings Firebase Listeners (same as HomeScreen) ===
+    useEffect(() => {
+        const unsubscribePrayer = FirebaseService.listenToPrayerCompletion(
+            (completion) => {
+                const completedCount = Object.values(completion).filter(v => v).length;
+                setPrayerStats({ completed: completedCount, total: 5 });
+            },
+            (error) => console.error(error)
+        );
+
+        const unsubscribeOnboarding = FirebaseService.listenToOnboardingInfo(
+            (data) => {
+                if (data.selectedActivities) {
+                    setSelectedActivities(data.selectedActivities);
+                }
+                if (data.quran) {
+                    setQuranStats(prev => ({ ...prev, goalMinutes: data.quran.minutesDay || 15 }));
+                }
+                if (data.dikar && Array.isArray(data.dikar)) {
+                    const totalGoal = data.dikar.reduce((sum, dhikr) => sum + (dhikr.counter || 0), 0);
+                    setDhikrStats(prev => ({ ...prev, totalGoal }));
+                    FirebaseService.getDhikrProgress()
+                        .then((dhikrProgress) => {
+                            // Cap each dhikr at its own target to prevent overflow counting
+                            const totalCompleted = data.dikar.reduce((sum, item) => {
+                                return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                            }, 0);
+                            setDhikrStats(prev => ({ ...prev, totalCompleted }));
+                        })
+                        .catch(e => setDhikrStats(prev => ({ ...prev, totalCompleted: 0 })));
+                }
+            },
+            (error) => console.error('Error listening to onboarding info:', error)
+        );
+
+        const unsubscribeQuran = FirebaseService.listenToDailyQuran((stats) => {
+            setQuranStats(prev => ({ ...prev, seconds: stats.seconds, streak: stats.streak }));
+        });
+
+        const unsubscribeJournal = FirebaseService.listenToDailyJournal((stats) => {
+            setJournalStats(stats);
+        });
+
+        const unsubscribeProgress = FirebaseService.listenToActivityProgress(
+            (progress) => setActivityCompletion(progress),
+            (error) => { }
+        );
+
+        return () => {
+            unsubscribeOnboarding();
+            unsubscribeQuran();
+            unsubscribeProgress();
+            unsubscribePrayer();
+            unsubscribeJournal();
+        };
+    }, []);
+
+    const handleCopyCode = async () => {
+        try {
+            await Clipboard.setStringAsync(inviteCode);
+            Alert.alert('Copied!', 'Invite code copied to clipboard.');
+        } catch (e) {
+            Alert.alert('Info', `Invite code: ${inviteCode}`);
+        }
     };
 
-    // Mock data
-    const groupStats = [
-        { icon: 'people-outline', text: `${circle.members} members prayed today` },
-        { icon: 'book-outline', text: '5 read Quran' },
-        { icon: 'people-outline', text: '8 members prayed today' },
-        { icon: 'checkmark-circle-outline', text: '140 dhikr recited' },
-    ];
+    const isNamedCircle = circleData?.type === 'named';
 
-    const encouragementActions = [
-        'MashaAllah',
-        "You're doing great",
-        'Keep going',
-        'Almost there',
-        'May Allah ease your heart',
+    // Activity stats config for Group Stats section
+    const activityStatsConfig = [
+        {
+            key: 'prayers',
+            icon: 'moon-outline',
+            label: 'prayed today',
+            iconColor: colors.rings.layer1 || '#4CAF50',
+        },
+        {
+            key: 'quran',
+            icon: 'book-outline',
+            label: 'read Quran',
+            iconColor: colors.rings.layer2 || '#2196F3',
+        },
+        {
+            key: 'dhikr',
+            icon: 'heart-outline',
+            label: 'recited Dhikr',
+            iconColor: colors.rings.layer3 || '#FF9800',
+        },
+        {
+            key: 'journaling',
+            icon: 'pencil-outline',
+            label: 'did Journaling',
+            iconColor: colors.rings.innerCircle || '#9C27B0',
+        },
     ];
 
     const intentions = ['Gratitude', 'Patience', 'Trust', 'Presence', 'Other'];
-
-    const members = ['Amira', 'Bilal', 'Hana', 'Omar', 'Zara'];
 
     const toggleIntention = (intention) => {
         if (selectedIntentions.includes(intention)) {
@@ -129,6 +380,20 @@ const CircleDetailScreen = ({ navigation, route }) => {
             setSelectedIntentions([...selectedIntentions, intention]);
         }
     };
+
+    if (loading) {
+        return (
+            <LinearGradient
+                colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
+                locations={[0, 0.7, 1]}
+                style={styles.container}
+            >
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={colors.primary.sage} />
+                </View>
+            </LinearGradient>
+        );
+    }
 
     return (
         <LinearGradient
@@ -152,7 +417,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
                     <Text style={styles.headerTitle}>My Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton}>
+                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
                         <View style={styles.notificationBadge}>
                             <Image source={notifications} style={styles.notificationIcon} />
                         </View>
@@ -161,33 +426,73 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
                 {/* Stats Row */}
                 <View style={styles.statsRow}>
-                    <StatCard icon="people-outline" value={circle.members} label="Members" />
-                    <StatCard icon="calendar-outline" value={circle.streak} label="Day Streak" />
+                    <StatCard icon="people-outline" value={circleData?.memberCount || members.length} label="Members" />
+                    <StatCard icon="calendar-outline" value={streak} label="Day Streak" />
                     {/* <StatCard icon="checkmark-circle-outline" value={`${circle.progress}%`} label="Complete" /> */}
                 </View>
 
                 {/* Today's Group Progress */}
                 <View style={styles.section}>
                     <View style={styles.progressCard}>
-                        <Text style={styles.sectionTitle}>Today's Group Progress</Text>
+                        <Text style={styles.progressSectionTitle}>Today's Group Progress</Text>
+                        <View style={styles.progressDivider} />
                         <View style={styles.progressContent}>
                             <AJRRings
-                                progress={45}
-                                // variant="detailed"
-                                layer1Visible={true}
-                                layer2Visible={true}
-                                layer3Visible={true}
-                                journalingVisible={true}
-                                layer1Progress={80}
-                                layer2Progress={60}
-                                layer3Progress={40}
-                                journalingProgress={20}
+                                variant="detailed"
+                                progress={ajrProgress}
+                                layer1Completed={isPrayerCompleted}
+                                layer2Completed={isQuranCompleted}
+                                layer3Completed={isDhikrCompleted}
+                                layer1Progress={getPrayerPercentage()}
+                                layer2Progress={getQuranPercentage()}
+                                layer3Progress={getDhikrPercentage()}
+                                journalingProgress={getJournalingPercentage()}
+                                layer1Visible={selectedActivities.prayers}
+                                layer2Visible={selectedActivities.quran}
+                                layer3Visible={selectedActivities.dhikr}
+                                journalingVisible={selectedActivities.journaling}
                             />
                             <View style={styles.legendContainer}>
-                                <LegendItem color={colors.rings.layer1} label="Prayers" />
-                                <LegendItem color={colors.rings.layer2} label="Quran reading" />
-                                <LegendItem color={colors.rings.layer3} label="Dhikr" />
-                                <LegendItem color={colors.rings.innerCircle} label="Journaling" />
+                                {selectedActivities.prayers && (
+                                    <LegendItem
+                                        color={colors.rings.layer1}
+                                        label="Prayers"
+                                        completed={isPrayerCompleted}
+                                        activity="prayers"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'prayers' || isPrayerCompleted}
+                                    />
+                                )}
+                                {selectedActivities.quran && (
+                                    <LegendItem
+                                        color={colors.rings.layer2}
+                                        label="Quran"
+                                        completed={isQuranCompleted}
+                                        activity="quran"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'quran' || isQuranCompleted}
+                                    />
+                                )}
+                                {selectedActivities.dhikr && (
+                                    <LegendItem
+                                        color={colors.rings.layer3}
+                                        label="Dhikr"
+                                        completed={isDhikrCompleted}
+                                        activity="dhikr"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
+                                    />
+                                )}
+                                {selectedActivities.journaling && (
+                                    <LegendItem
+                                        color={colors.rings.innerCircle}
+                                        label="Journal"
+                                        completed={isJournalCompleted}
+                                        activity="journaling"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'journaling' || isJournalCompleted}
+                                    />
+                                )}
                             </View>
                         </View>
                     </View>
@@ -197,18 +502,35 @@ const CircleDetailScreen = ({ navigation, route }) => {
                 <View style={styles.section}>
                     <View style={styles.groupStatsCard}>
                         <Text style={styles.sectionTitle}>Group Stats</Text>
-                        {groupStats.map((stat, index) => (
-                            <GroupStatItem
-                                key={index}
-                                icon={stat.icon}
-                                text={stat.text}
-                            />
-                        ))}
+                        {memberActivityStats ? (
+                            activityStatsConfig.map((config, index) => {
+                                const stat = memberActivityStats[config.key] || { count: 0, members: [] };
+                                const isLast = index === activityStatsConfig.length - 1;
+                                return (
+                                    <View key={config.key}>
+                                        <ExpandableGroupStatItem
+                                            icon={config.icon}
+                                            text={config.label}
+                                            iconColor={config.iconColor}
+                                            count={stat.count}
+                                            members={stat.members}
+                                            expanded={expandedStat === config.key}
+                                            onToggle={() => toggleExpandStat(config.key)}
+                                            isNamed={isNamedCircle}
+                                        />
+
+                                        {!isLast && <View style={styles.Divider} />}
+                                    </View>
+                                );
+                            })
+                        ) : (
+                            <ActivityIndicator size="small" color={colors.primary.sage} style={{ paddingVertical: spacing.md }} />
+                        )}
                     </View>
                 </View>
 
                 {/* Encouragement Actions */}
-                <View style={styles.section}>
+                {/* <View style={styles.section}>
                     <View style={styles.encouragementCard}>
                         <Text style={styles.sectionTitle}>Encouragement Actions</Text>
                         <View style={styles.chipsContainer}>
@@ -221,40 +543,82 @@ const CircleDetailScreen = ({ navigation, route }) => {
                             ))}
                         </View>
                     </View>
-                </View>
+                </View> */}
 
                 {/* Weekly Challenge */}
-                <View style={styles.section}>
-                    <View style={styles.challengeCard}>
-                        <Text style={styles.sectionTitle}>Weekly Challenge</Text>
-                        <View style={styles.challengeContent}>
-                            <View style={styles.challengeHeader}>
-                                <View style={styles.challengeIconContainer}>
-                                    <Ionicons name="book-outline" size={18} color={colors.primary.sage} />
-                                </View>
-                                <View style={styles.challengeInfo}>
-                                    <Text style={styles.challengeTitle}>Surah Al-Kahf Friday</Text>
-                                    <Text style={styles.challengeSubtitle}>Read completely before sunset</Text>
-                                </View>
+                {currentChallenge && (
+                    <View style={styles.section}>
+                        <View style={styles.challengeCard}>
+                            <View style={styles.challengeHeaderRow}>
+                                <Text style={styles.sectionTitle}>Weekly Challenge</Text>
                                 <View style={styles.activeBadge}>
                                     <Text style={styles.activeBadgeText}>Active</Text>
                                 </View>
                             </View>
-                            <View style={styles.challengeProgressRow}>
-                                <Text style={styles.challengeProgressPercent}>60%</Text>
+                            <View style={styles.Divider} />
+                            <View style={styles.challengeContent}>
+                                <View style={styles.challengeHeader}>
+                                    <View style={styles.challengeIconContainer}>
+                                        <Ionicons name="book-outline" size={18} color={colors.primary.sage} />
+                                    </View>
+                                    <View style={styles.challengeInfo}>
+                                        <Text style={styles.challengeTitle}>{currentChallenge.Title}</Text>
+                                        <Text style={styles.challengeWeekLabel}>Week {currentChallenge.Week}</Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.challengeGuidance}>{currentChallenge.Guidance}</Text>
+                                <View style={styles.challengeTextContainer}>
+                                    <Ionicons name="flag-outline" size={14} color={colors.primary.sage} style={{ marginTop: 2 }} />
+                                    <Text style={styles.challengeText}>{currentChallenge.Challenge}</Text>
+                                </View>
+                                <View style={styles.Divider} />
+                                <View style={styles.challengeProgressRow}>
+                                    <Text style={styles.challengeProgressLabel}>{challengeParticipants.length}/{totalMembers} joined</Text>
+                                    <Text style={styles.challengeProgressPercent}>{challengeProgress}%</Text>
+                                </View>
+                                <View style={styles.challengeProgressBarContainer}>
+                                    <View style={[styles.challengeProgressBar, { width: `${challengeProgress}%` }]} />
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.joinChallengeButton, hasJoinedChallenge && styles.joinedChallengeButton]}
+                                    onPress={async () => {
+                                        if (hasJoinedChallenge || joiningChallenge) return;
+                                        setJoiningChallenge(true);
+                                        try {
+                                            await FirebaseService.joinWeeklyChallenge(circleId, currentChallengeWeek);
+                                            setChallengeParticipants(prev => [...prev, currentUserId]);
+                                        } catch (e) {
+                                            console.error('Join challenge error:', e);
+                                            Alert.alert('Error', 'Failed to join challenge.');
+                                        } finally {
+                                            setJoiningChallenge(false);
+                                        }
+                                    }}
+                                    disabled={hasJoinedChallenge || joiningChallenge}
+                                    activeOpacity={0.7}
+                                >
+                                    {joiningChallenge ? (
+                                        <ActivityIndicator size="small" color={colors.text.dark} />
+                                    ) : (
+                                        <>
+                                            <Ionicons
+                                                name={hasJoinedChallenge ? 'checkmark-circle' : 'add-circle-outline'}
+                                                size={16}
+                                                color={hasJoinedChallenge ? '#11B468' : colors.text.dark}
+                                            />
+                                            <Text style={[styles.joinChallengeText, hasJoinedChallenge && styles.joinedChallengeText]}>
+                                                {hasJoinedChallenge ? 'Joined' : 'Join Challenge'}
+                                            </Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
                             </View>
-                            <View style={styles.challengeProgressBarContainer}>
-                                <View style={[styles.challengeProgressBar, { width: '60%' }]} />
-                            </View>
-                            <TouchableOpacity style={styles.joinChallengeButton}>
-                                <Text style={styles.joinChallengeText}>Join Challenge</Text>
-                            </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                )}
 
                 {/* What intention are you holding this week? */}
-                <View style={styles.section}>
+                {/* <View style={styles.section}>
                     <View style={styles.intentionCard}>
                         <Text style={styles.intentionTitle}>What intention are you holding this week?</Text>
                         <View style={styles.intentionChipsContainer}>
@@ -268,18 +632,21 @@ const CircleDetailScreen = ({ navigation, route }) => {
                             ))}
                         </View>
                     </View>
-                </View>
+                </View> */}
 
                 {/* Member List */}
                 <View style={styles.section}>
                     <View style={styles.memberCard}>
                         <Text style={styles.sectionTitle}>Member List</Text>
+                        <View style={styles.Divider} />
                         {members.map((member, index) => (
-                            <MemberRow key={index} name={member} />
+                            <MemberRow key={member.id || index} name={member.name} />
                         ))}
-                        <TouchableOpacity style={styles.showMoreButton}>
-                            <Text style={styles.showMoreText}>+ 5 others</Text>
-                        </TouchableOpacity>
+                        {members.length > 5 && (
+                            <TouchableOpacity style={styles.showMoreButton}>
+                                <Text style={styles.showMoreText}>+ {members.length - 5} others</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 
@@ -350,7 +717,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: horizontalPadding,
         paddingTop: screenHeight * 0.06,
-        paddingBottom: spacing.xxl * 2,
+        paddingBottom: spacing.xxl * 1.75,
     },
     // Header
     header: {
@@ -431,18 +798,45 @@ const styles = StyleSheet.create({
         borderColor: '#fff',
         padding: spacing.md,
     },
+    progressSectionTitle: {
+        fontSize: isSmallDevice ? 15 : 17,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+        paddingHorizontal: spacing.xs,
+    },
+    progressDivider: {
+        height: 1,
+        backgroundColor: colors.border.grey,
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+        marginHorizontal: spacing.xxs
+    },
+    Divider: {
+        height: 1,
+        backgroundColor: colors.border.grey,
+        marginBottom: spacing.sm,
+        marginHorizontal: spacing.xxs
+    },
     progressContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        paddingVertical: spacing.xs,
+        gap: spacing.md,
     },
     legendContainer: {
-        marginLeft: spacing.md,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        padding: spacing.md,
     },
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.sm,
+        paddingVertical: spacing.xs,
+        marginBottom: spacing.xxs,
+        flexWrap: 'wrap',
+        width: '100%',
     },
     legendCheck: {
         width: 18,
@@ -454,8 +848,9 @@ const styles = StyleSheet.create({
         marginRight: spacing.sm,
     },
     legendText: {
-        fontSize: typography.fontSize.sm,
+        fontSize: isSmallDevice ? 12 : 13,
         color: colors.text.dark,
+        flexShrink: 1,
     },
     legendTextInactive: {
         color: colors.text.grey,
@@ -471,14 +866,52 @@ const styles = StyleSheet.create({
     groupStatItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.light,
+        paddingVertical: spacing.sm + 2,
+        // borderBottomWidth: 1,
+        // borderBottomColor: colors.border.light,
+    },
+    groupStatIconCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.sm,
+    },
+    groupStatTextContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    groupStatCount: {
+        fontSize: isSmallDevice ? 15 : 17,
+        fontWeight: typography.fontWeight.bold,
+        color: colors.text.black,
     },
     groupStatText: {
         fontSize: typography.fontSize.sm,
         color: colors.text.dark,
-        marginLeft: spacing.sm,
+    },
+    expandedMemberList: {
+        paddingLeft: 44,
+        paddingBottom: spacing.sm,
+    },
+    expandedMemberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.xxs + 2,
+    },
+    expandedMemberDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.primary.sage,
+        marginRight: spacing.sm,
+    },
+    expandedMemberName: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.grey,
     },
     // Encouragement Card
     encouragementCard: {
@@ -514,11 +947,18 @@ const styles = StyleSheet.create({
         borderColor: '#fff',
         padding: spacing.md,
     },
-    challengeContent: {},
+    challengeHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    challengeContent: {
+        marginTop: spacing.xs,
+    },
     challengeHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.sm,
+        marginBottom: spacing.md,
     },
     challengeIconContainer: {
         width: 36,
@@ -533,13 +973,36 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     challengeTitle: {
-        fontSize: typography.fontSize.sm,
+        fontSize: isSmallDevice ? 14 : 16,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
+        marginBottom: 2,
     },
-    challengeSubtitle: {
+    challengeWeekLabel: {
         fontSize: typography.fontSize.xs,
         color: colors.text.grey,
+    },
+    challengeGuidance: {
+        fontSize: isSmallDevice ? 12 : 13,
+        color: colors.text.dark,
+        lineHeight: isSmallDevice ? 18 : 20,
+        marginBottom: spacing.md,
+    },
+    challengeTextContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: colors.cards.mint,
+        borderRadius: borderRadius.lg,
+        padding: spacing.sm,
+        marginBottom: spacing.md,
+        gap: spacing.xs,
+    },
+    challengeText: {
+        flex: 1,
+        fontSize: isSmallDevice ? 12 : 13,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+        lineHeight: isSmallDevice ? 18 : 20,
     },
     activeBadge: {
         backgroundColor: colors.cards.mint,
@@ -553,11 +1016,18 @@ const styles = StyleSheet.create({
         color: '#11B468',
     },
     challengeProgressRow: {
-        alignItems: 'flex-end',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: spacing.xs,
     },
+    challengeProgressLabel: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.grey,
+    },
     challengeProgressPercent: {
-        fontSize: typography.fontSize.sm,
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.medium,
         color: colors.text.grey,
     },
     challengeProgressBarContainer: {
@@ -573,17 +1043,27 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     joinChallengeButton: {
+        flexDirection: 'row',
         backgroundColor: colors.primary.light,
-        borderRadius: borderRadius.sm,
+        borderRadius: borderRadius.lg,
         borderWidth: 1.5,
         borderColor: colors.border.grey,
         paddingVertical: spacing.sm,
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+    },
+    joinedChallengeButton: {
+        borderColor: '#11B468',
+        backgroundColor: '#11B46810',
     },
     joinChallengeText: {
         fontSize: typography.fontSize.sm,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.dark,
+    },
+    joinedChallengeText: {
+        color: '#11B468',
     },
     // Intention Card
     intentionCard: {
@@ -627,7 +1107,7 @@ const styles = StyleSheet.create({
     },
     // Member Card
     memberCard: {
-        backgroundColor: colors.cards.cream,
+        backgroundColor: colors.primary.light,
         borderRadius: borderRadius.xl,
         borderWidth: 1.5,
         borderColor: '#fff',
@@ -668,7 +1148,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.button.primary,
         borderRadius: borderRadius.lg,
         paddingVertical: spacing.md,
-        marginBottom: spacing.lg,
+        marginBottom: spacing.xxl,
         gap: spacing.xs,
     },
     inviteButtonText: {

@@ -25,14 +25,14 @@ const AJRRings = ({
     journalingProgress,
     variant = 'default' // 'default' (Home) or 'detailed' (Daily Growth)
 }) => {
-    const baseSize = isSmallDevice ? 155 : 175;
-    // Increase size for detailed variant to fit percentage text better
-    const size = variant === 'detailed' ? (isSmallDevice ? 200 : 230) : baseSize;
+    const baseSize = isSmallDevice ? 130 : 150;
+    // Reduce size for detailed variant as well
+    const size = variant === 'detailed' ? (isSmallDevice ? 170 : 200) : baseSize;
     const center = size / 2;
 
     // Ring configuration matching exact design
-    const strokeWidth = isSmallDevice ? 8 : 10;
-    const separatorWidth = isSmallDevice ? 8 : 10;
+    const strokeWidth = isSmallDevice ? 7 : 9;
+    const separatorWidth = isSmallDevice ? 7 : 9;
 
     // Helper to determine progress value (0-100)
     const getProgress = (explicit, completed) => {
@@ -176,20 +176,25 @@ const styles = StyleSheet.create({
         position: 'absolute',
         alignItems: 'center',
         justifyContent: 'center',
+        width: isSmallDevice ? 65 : 85,
     },
     ringsPercentage: {
         fontSize: isSmallDevice ? 16 : 18,
         fontWeight: 'bold',
         color: colors.text.black,
+        textAlign: 'center',
+        numberOfLines: 1,
     },
     ringsLabel: {
         fontSize: isSmallDevice ? 9 : 10,
         color: colors.text.black,
+        textAlign: 'center',
+        numberOfLines: 1,
     },
     tickContainer: {
         position: 'absolute',
-        width: 14,
-        height: 14,
+        width: 12,
+        height: 12,
         borderRadius: 7,
         alignItems: 'center',
         justifyContent: 'center',

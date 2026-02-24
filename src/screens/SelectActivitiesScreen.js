@@ -118,10 +118,10 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
                 navigation.navigate('DhikrGoal', { activities: selections, fromSettings });
             } else if (selections.journaling === 'yes') {
                 await FirebaseService.saveJournalingGoals(true);
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities: selections, fromSettings });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities: selections, fromSettings });
             } else {
                 // If no activities selected, skip circle/subscription when from settings
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities: selections });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities: selections });
             }
         } catch (error) {
             console.error('Error saving activities:', error);

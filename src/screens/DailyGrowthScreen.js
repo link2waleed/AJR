@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
@@ -218,7 +218,10 @@ const DailyGrowthScreen = ({ navigation }) => {
                     // Fetch progress
                     try {
                         const dhikrProgress = await FirebaseService.getDhikrProgress();
-                        const totalCompleted = Object.values(dhikrProgress).reduce((sum, count) => sum + count, 0);
+                        // Cap each dhikr at its own target to prevent overflow counting
+                        const totalCompleted = data.dikar.reduce((sum, item) => {
+                            return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                        }, 0);
 
                         setDhikrStats({
                             totalGoal,
@@ -284,11 +287,34 @@ const DailyGrowthScreen = ({ navigation }) => {
     }, []);
 
     // DailyGrowthScreen displays real-time stats via Firebase listeners
-    // HomeScreen handles dailyProgress calculation and Firebase sync
-    // Removed redundant saveProgress() call - prevents duplicate API calls when opening screen from AJR rings
+    // Prayers & Quran are handled by real-time listeners above.
+    // Dhikr & Journal use one-shot fetches — re-run on focus so back-navigation
+    // from DhikrScreen or JournalScreen immediately reflects new progress.
+    useFocusEffect(
+        useCallback(() => {
+            const refreshOnFocus = async () => {
+                try {
+                    // Re-fetch dhikr progress
+                    const info = await FirebaseService.getOnboardingInfo();
+                    if (info?.dikar && Array.isArray(info.dikar)) {
+                        const totalGoal = info.dikar.reduce((sum, d) => sum + (d.counter || 0), 0);
+                        const dhikrProgress = await FirebaseService.getDhikrProgress();
+                        const totalCompleted = info.dikar.reduce((sum, item) => {
+                            return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                        }, 0);
+                        setDhikrStats({ totalGoal, totalCompleted, streak: 0 });
+                    }
 
-    // Stats are kept in sync via real-time listeners in useEffect above
-    // Removed redundant useFocusEffect API calls - listeners automatically sync when screen refocuses
+                    // Re-fetch journal stats
+                    const stats = await FirebaseService.getJournalStats();
+                    setJournalStats(stats);
+                } catch (err) {
+                    console.error('DailyGrowthScreen: refreshOnFocus error', err);
+                }
+            };
+            refreshOnFocus();
+        }, [])
+    );
 
     // Format seconds to readable string
     const formatReadingTime = (totalSeconds) => {
@@ -386,7 +412,10 @@ const DailyGrowthScreen = ({ navigation }) => {
                     <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Your Daily Growth</Text>
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity
+                    style={styles.notificationButton}
+                    onPress={() => navigation.navigate('Notifications')}
+                >
                     <Image source={notificationIcon} style={styles.notificationIcon} resizeMode="contain" />
                 </TouchableOpacity>
             </View>

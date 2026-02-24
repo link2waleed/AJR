@@ -22,6 +22,7 @@ import BrandLogo from '../components/BrandLogo';
 import { colors, typography, spacing } from '../theme';
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -50,6 +51,32 @@ const SignUpScreen = ({ navigation }) => {
         });
     }, []);
 
+    const navigateAfterAuth = async () => {
+        try {
+            const userData = await FirebaseService.getUserRootData();
+            if (userData['onboarding-process'] === true) {
+                // Onboarding not finished – resume from Name screen
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Name' }],
+                });
+            } else {
+                // Onboarding complete – go to main app
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainApp' }],
+                });
+            }
+        } catch (error) {
+            console.error('Post-auth navigation error (sign up):', error);
+            // If user root document does not exist yet, treat as new user and start onboarding
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Name' }],
+            });
+        }
+    };
+
     const handleSignUp = async () => {
         if (!email || !password || !confirmPassword) {
             Alert.alert('Error', 'Please fill in all fields');
@@ -75,7 +102,7 @@ const SignUpScreen = ({ navigation }) => {
         try {
             const userCredential = await auth().createUserWithEmailAndPassword(email, password);
             console.log('User account created:', userCredential.user);
-            // Navigate to onboarding flow after sign up
+            // New email user – start onboarding
             navigation.navigate('Name');
         } catch (error) {
             console.error('Sign up error:', error);
@@ -139,9 +166,8 @@ const SignUpScreen = ({ navigation }) => {
             const userCredential = await auth().signInWithCredential(googleCredential);
             console.log('User signed up with Google:', userCredential.user.email);
 
-            // Navigate to onboarding flow after sign up
-            navigation.navigate('Name');
-            Alert.alert('Success', `Signed up with Google: ${userCredential.user.email}`);
+            // For Google, treat re-using an existing account like sign-in and route based on onboarding status
+            await navigateAfterAuth();
         } catch (error) {
             console.error('Google sign up error:', error);
             console.error('Error code:', error.code);

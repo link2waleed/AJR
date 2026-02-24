@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth'; // Import auth
 import FirebaseService from '../services/FirebaseService';
@@ -245,6 +246,34 @@ export const useReadingTimer = () => {
                 .catch(error => console.error('Failed to save to Firebase:', error));
         }
     }, [elapsedTime, isRunning]);
+
+    // Pause timer when app goes to background, resume when foreground
+    const wasRunningBeforeBackgroundRef = useRef(false);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', async (nextAppState) => {
+            if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // App is going to background - pause timer if running
+                if (isRunning) {
+                    console.log('📱 App backgrounded - pausing reading timer');
+                    wasRunningBeforeBackgroundRef.current = true;
+                    setIsRunning(false);
+                    stopTimer();
+                    await saveTimeWithValue(elapsedTimeRef.current);
+                    FirebaseService.saveDailyReadingTime(elapsedTimeRef.current).catch(console.error);
+                }
+            } else if (nextAppState === 'active') {
+                // App returned to foreground - resume if it was running before
+                if (wasRunningBeforeBackgroundRef.current) {
+                    console.log('📱 App foregrounded - resuming reading timer');
+                    wasRunningBeforeBackgroundRef.current = false;
+                    startTimer();
+                }
+            }
+        });
+
+        return () => subscription.remove();
+    }, [isRunning, isLoaded]);
 
     return {
         elapsedTime,

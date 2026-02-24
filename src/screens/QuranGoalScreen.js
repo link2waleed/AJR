@@ -67,9 +67,9 @@ const QuranGoalScreen = ({ navigation, route }) => {
                 navigation.navigate('DhikrGoal', { activities, fromSettings });
             } else if (activities.journaling === 'yes') {
                 await FirebaseService.saveJournalingGoals(true);
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
             } else {
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities });
             }
         } catch (error) {
             console.error('Error saving Quran goals:', error);
@@ -86,9 +86,9 @@ const QuranGoalScreen = ({ navigation, route }) => {
             navigation.navigate('DhikrGoal', { activities, fromSettings });
         } else if (activities.journaling === 'yes') {
             await FirebaseService.saveJournalingGoals(true);
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+            navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
         } else {
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities });
+            navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities });
         }
     };
 

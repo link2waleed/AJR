@@ -102,9 +102,9 @@ const DhikrGoalScreen = ({ navigation, route }) => {
             // Navigate to next selected activity
             if (activities.journaling === 'yes') {
                 await FirebaseService.saveJournalingGoals(true);
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
             } else {
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities });
             }
         } catch (error) {
             console.error('Error saving Dhikr goals:', error);
@@ -114,17 +114,7 @@ const DhikrGoalScreen = ({ navigation, route }) => {
         }
     };
 
-    const handleSkip = async () => {
-        const fromSettings = route?.params?.fromSettings || false;
-        // Navigate to next selected activity
-        if (activities.journaling === 'yes') {
-            await FirebaseService.saveJournalingGoals(true);
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
-        } else {
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities });
-        }
-    };
-
+    
     const handleBack = () => {
         navigation.goBack();
     };
@@ -318,7 +308,7 @@ const styles = StyleSheet.create({
     },
     goalButtonText: {
         fontSize: isSmallDevice ? 14 : 16,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.regular,
         color: colors.text.black,
     },
     goalButtonTextSelected: {
@@ -334,7 +324,7 @@ const styles = StyleSheet.create({
         borderColor: '#C5C5C5',
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.md,
-        fontSize: typography.fontSize.md,
+        fontSize: typography.fontSize.sm,
         color: colors.text.black,
     },
     dropdownSection: {
@@ -343,7 +333,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: isSmallDevice ? 14 : 16,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.regular,
         color: colors.text.black,
         marginBottom: spacing.sm,
     },
@@ -411,7 +401,7 @@ const styles = StyleSheet.create({
     },
     dropdownOptionTextSelected: {
         color: colors.primary.sage,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.regular,
     },
     dhikrListSection: {
         marginBottom: spacing.lg,
@@ -456,13 +446,14 @@ const styles = StyleSheet.create({
     },
     dhikrName: {
         marginLeft: spacing.sm,
-        fontSize: typography.fontSize.md,
+        fontSize: typography.fontSize.regular,
+        fontWeight: typography.fontWeight.regular,
         color: colors.text.black,
         flex: 1,
     },
     dhikrNameSelected: {
         color: colors.primary.sage,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.regular,
     },
     counterControl: {
         flexDirection: 'row',
@@ -513,13 +504,13 @@ const styles = StyleSheet.create({
         flex: 1,
         marginRight: spacing.md,
     },
-    dhikrName: {
-        marginLeft: spacing.sm,
-        fontSize: typography.fontSize.md,
-        color: colors.text.black,
-        fontWeight: typography.fontWeight.medium,
-        flex: 1,
-    },
+    // dhikrName: {
+    //     marginLeft: spacing.sm,
+    //     fontSize: typography.fontSize.md,
+    //     color: colors.text.black,
+    //     fontWeight: typography.fontWeight.medium,
+    //     flex: 1,
+    // },
     counterValueContainer: {
         width: 50,
         backgroundColor: 'rgba(255,255,255,0.9)',

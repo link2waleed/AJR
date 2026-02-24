@@ -1,264 +1,1827 @@
-{
-    "daily_themes": [
-        {
-            "day": 1,
-            "title": "Presence with Allah",
-            "description": "This week is about living with awareness that Allah sees you in every moment. Presence begins when the heart slows down and remembers Who it stands before."
-        },
-        {
-            "day": 2,
-            "title": "Gratitude",
-            "description": "Gratitude softens the heart and increases blessings. Noticing Allah's favors trains the soul to see abundance instead of lack."
-        },
-        {
-            "day": 3,
-            "title": "Tawheed",
-            "description": "True peace comes from knowing that Allah alone controls benefit and harm. This week strengthens reliance on Him alone."
-        },
-        {
-            "day": 4,
-            "title": "Tawakkul",
-            "description": "Tawakkul is doing what you can, then trusting Allah with the outcome. Let go of the need to control what is not yours."
-        },
-        {
-            "day": 5,
-            "title": "Sabr",
-            "description": "Patience is restraint for Allah's sake. It is choosing calm over reaction and faith over frustration."
-        },
-        {
-            "day": 6,
-            "title": "Shukr Through Action",
-            "description": "True gratitude is shown through obedience and restraint from sin, not words alone."
-        },
-        {
-            "day": 7,
-            "title": "Seeking Forgiveness",
-            "description": "Returning to Allah cleans the heart and restores closeness, no matter how many times you return."
-        },
-        {
-            "day": 8,
-            "title": "Hope in Allah",
-            "description": "Allah's mercy is greater than your mistakes. Hope protects the heart from despair."
-        },
-        {
-            "day": 9,
-            "title": "Taqwa",
-            "description": "Taqwa is being mindful of Allah before choices, words, and actions."
-        },
-        {
-            "day": 10,
-            "title": "Sincerity (Ikhlas)",
-            "description": "Worship is accepted when it is done for Allah alone, not for people or recognition."
-        },
-        {
-            "day": 11,
-            "title": "Love of Allah",
-            "description": "Love grows through obedience and remembrance, not emotion alone."
-        },
-        {
-            "day": 12,
-            "title": "Mindful Dhikr",
-            "description": "Dhikr with presence shapes the heart more than rushed repetition."
-        },
-        {
-            "day": 13,
-            "title": "Reflection Before Reaction",
-            "description": "Pausing before reacting allows wisdom to lead instead of emotion."
-        },
-        {
-            "day": 14,
-            "title": "Patience with People",
-            "description": "Patience with people tests restraint, humility, and trust in Allah's justice."
-        },
-        {
-            "day": 15,
-            "title": "Gentleness",
-            "description": "Gentleness beautifies speech and action."
-        },
-        {
-            "day": 16,
-            "title": "Humility",
-            "description": "Humility grows when the servant recognizes dependence on Allah in every success."
-        },
-        {
-            "day": 17,
-            "title": "Forgiveness",
-            "description": "Forgiveness frees the heart before it frees others."
-        },
-        {
-            "day": 18,
-            "title": "Self-Control",
-            "description": "Restraint strengthens the soul."
-        },
-        {
-            "day": 19,
-            "title": "Truthfulness",
-            "description": "Truthfulness aligns the tongue with the heart and strengthens sincerity."
-        },
-        {
-            "day": 20,
-            "title": "Kindness",
-            "description": "Small acts done sincerely carry great weight with Allah."
-        },
-        {
-            "day": 21,
-            "title": "Lowering the Gaze",
-            "description": "Lowering the gaze is the first defense of the heart."
-        },
-        {
-            "day": 22,
-            "title": "Contentment",
-            "description": "Contentment brings peace to the heart."
-        },
-        {
-            "day": 23,
-            "title": "Silence with Wisdom",
-            "description": "Silence becomes worship when it prevents harm and unnecessary speech."
-        },
-        {
-            "day": 24,
-            "title": "Good Assumptions",
-            "description": "Good assumptions purify the heart from suspicion and arrogance."
-        },
-        {
-            "day": 25,
-            "title": "Avoiding Sinful Habits",
-            "description": "Leaving sin opens doors to closeness with Allah."
-        },
-        {
-            "day": 26,
-            "title": "Consistency",
-            "description": "Allah loves consistent deeds, even if small."
-        },
-        {
-            "day": 27,
-            "title": "Khushu in Salah",
-            "description": "Khushu increases when prayer is slowed and honored."
-        },
-        {
-            "day": 28,
-            "title": "Longer Sujood",
-            "description": "Sujood is where the servant is closest to Allah."
-        },
-        {
-            "day": 29,
-            "title": "Dua with Certainty",
-            "description": "Allah hears every sincere dua."
-        },
-        {
-            "day": 30,
-            "title": "Quran as Guidance",
-            "description": "The Quran was revealed to be lived."
-        },
-        {
-            "day": 31,
-            "title": "Morning Barakah",
-            "description": "Early hours carry blessings."
-        },
-        {
-            "day": 32,
-            "title": "Night Reflection",
-            "description": "Ending the day with Allah brings peace."
-        },
-        {
-            "day": 33,
-            "title": "Voluntary Salah",
-            "description": "Extra prayers bring closeness."
-        },
-        {
-            "day": 34,
-            "title": "Listening to Quran",
-            "description": "The Quran softens hearts when listened to attentively."
-        },
-        {
-            "day": 35,
-            "title": "Allah's Names",
-            "description": "Calling Allah by His Names deepens dua."
-        },
-        {
-            "day": 36,
-            "title": "Istighfar Lifestyle",
-            "description": "Seeking forgiveness keeps the heart clean."
-        },
-        {
-            "day": 37,
-            "title": "Salawat",
-            "description": "Sending salawat connects the heart to the Prophet \ufdfa."
-        },
-        {
-            "day": 38,
-            "title": "Witr with Presence",
-            "description": "Witr seals the night with sincerity."
-        },
-        {
-            "day": 39,
-            "title": "Balance in Worship",
-            "description": "Balance preserves sincerity and prevents burnout."
-        },
-        {
-            "day": 40,
-            "title": "Seeing Allah in Creation",
-            "description": "Creation points back to the Creator."
-        },
-        {
-            "day": 41,
-            "title": "Mindful Walking",
-            "description": "Movement can awaken spiritual awareness."
-        },
-        {
-            "day": 42,
-            "title": "Honoring the Body",
-            "description": "The body is an amanah from Allah."
-        },
-        {
-            "day": 43,
-            "title": "Protecting Your Time",
-            "description": "Time is a trust that disappears quickly."
-        },
-        {
-            "day": 44,
-            "title": "Intentional Living",
-            "description": "Actions are judged by intentions."
-        },
-        {
-            "day": 45,
-            "title": "Serving Without Being Seen",
-            "description": "Hidden good deeds purify sincerity."
-        },
-        {
-            "day": 46,
-            "title": "Dua for Loved Ones",
-            "description": "Dua strengthens bonds beyond words."
-        },
-        {
-            "day": 47,
-            "title": "Healing the Heart",
-            "description": "Hearts heal when turned toward Allah consistently."
-        },
-        {
-            "day": 48,
-            "title": "Letting Go of Control",
-            "description": "Surrender brings peace where control creates anxiety."
-        },
-        {
-            "day": 49,
-            "title": "Remembering the Akhirah",
-            "description": "The Hereafter clarifies priorities."
-        },
-        {
-            "day": 50,
-            "title": "Living with Purpose",
-            "description": "Purpose comes from aligning life with faith."
-        },
-        {
-            "day": 51,
-            "title": "Review and Repentance",
-            "description": "Repentance is a return, not a punishment."
-        },
-        {
-            "day": 52,
-            "title": "Renewal and Intention",
-            "description": "Every return to Allah is a new beginning."
-        }
-    ]
-}
+[
+  {
+    "day": "1",
+    "title": "Reflecting on Qur’an and du’a keeps your heart awake and guided.",
+    "description": "What ayah, dua, or Islamic reminder stayed with you today?"
+  },
+  {
+    "day": "2",
+    "title": "Noticing habits is the first step toward sincere change for Allah.",
+    "description": "What is one habit you want Allah to help you improve?"
+  },
+  {
+    "day": "3",
+    "title": "Your body is an amanah—honor it with mindful care and balance.",
+    "description": "How did your body feel today and how can you care for it better tomorrow?"
+  },
+  {
+    "day": "4",
+    "title": "Good character is worship—small acts can weigh heavy with Allah.",
+    "description": "How did you show kindness today, even in a small way?"
+  },
+  {
+    "day": "5",
+    "title": "Shukr grows when you notice the “ordinary” gifts you overlook.",
+    "description": "What blessing did you use today that you usually overlook?"
+  },
+  {
+    "day": "6",
+    "title": "Dhikr keeps the heart alive—notice when you returned to Allah.",
+    "description": "How did you remember Allah today, even briefly?"
+  },
+  {
+    "day": "7",
+    "title": "Small consistent steps are beloved—choose one for spiritual growth.",
+    "description": "What small step can you take tomorrow to grow spiritually?"
+  },
+  {
+    "day": "8",
+    "title": "Sakina comes from Allah—reflect on what helped you feel steady.",
+    "description": "What helped you feel calm or grounded today?"
+  },
+  {
+    "day": "9",
+    "title": "Gratitude for people is part of gratitude to Allah’s blessings.",
+    "description": "Who are you thankful for today and why?"
+  },
+  {
+    "day": "10",
+    "title": "Train your tongue to say Alhamdulillah by remembering one moment.",
+    "description": "Describe one moment today that made you say Alhamdulillah."
+  },
+  {
+    "day": "11",
+    "title": "Allah’s mercy is constant—look for where it showed up today.",
+    "description": "Where did you notice Allah mercy in your day?"
+  },
+  {
+    "day": "12",
+    "title": "Sabr is strength—reflect on your response when tested today.",
+    "description": "What challenged your patience today and how did you respond?"
+  },
+  {
+    "day": "13",
+    "title": "Balance comes with tawakkul and action—review your stress response.",
+    "description": "What caused stress today and how can you respond with more balance?"
+  },
+  {
+    "day": "14",
+    "title": "Du’a is worship—notice what you asked Allah for today.",
+    "description": "Did you ask Allah for help today? Write what you asked for."
+  },
+  {
+    "day": "15",
+    "title": "Thanking Allah for abilities protects the heart from arrogance.",
+    "description": "What ability or skill do you thank Allah for today?"
+  },
+  {
+    "day": "16",
+    "title": "True tawakkul includes effort—reflect on reliance you practiced today.",
+    "description": "What did today teach you about reliance on Allah?"
+  },
+  {
+    "day": "17",
+    "title": "Niyyah shapes reward—renew intention before tomorrow begins.",
+    "description": "What intention do you want to renew for tomorrow?"
+  },
+  {
+    "day": "18",
+    "title": "Rest supports ‘ibadah—be honest about your self-care today.",
+    "description": "Did you give yourself enough rest today? Reflect honestly."
+  },
+  {
+    "day": "19",
+    "title": "Iman grows with nurturing—choose one way to strengthen it this week.",
+    "description": "How can you strengthen your relationship with Allah this week?"
+  },
+  {
+    "day": "20",
+    "title": "Shukr increases blessings—name three gifts and why they matter.",
+    "description": "Write 3 things you are grateful to Allah for today and why."
+  },
+  {
+    "day": "21",
+    "title": "Returning to Qur’an brings light—choose what you want to revisit.",
+    "description": "Which surah or verse do you want to revisit this week, and why?"
+  },
+  {
+    "day": "22",
+    "title": "Khushu’ is a gift—notice what helped you be present in salah.",
+    "description": "Which prayer felt the most present today, and what helped it?"
+  },
+  {
+    "day": "23",
+    "title": "Dhikr softens the heart—reflect on what repeated remembrance changed.",
+    "description": "Which dhikr did you repeat today, and what did it soften in you?"
+  },
+  {
+    "day": "24",
+    "title": "Tawbah begins with a choice—name one sin you’re leaving for Allah.",
+    "description": "What is one sin you want to leave for Allah’s sake—starting now?"
+  },
+  {
+    "day": "25",
+    "title": "Ikhlas frees you—notice where approval-seeking may have crept in.",
+    "description": "Where might you be seeking people’s approval instead of Allah’s?"
+  },
+  {
+    "day": "26",
+    "title": "Prophetic character is a path to Jannah—what trait did you practice?",
+    "description": "What character trait did you practice today that the Prophet ﷺ loved?"
+  },
+  {
+    "day": "27",
+    "title": "Silat ar-rahim brings barakah—who needs a warmer word from you?",
+    "description": "Who in your family needs a warmer word from you soon?"
+  },
+  {
+    "day": "28",
+    "title": "Mercy is a sunnah—replace quick judgment with compassion.",
+    "description": "Who did you judge quickly today, and how can you show more mercy?"
+  },
+  {
+    "day": "29",
+    "title": "Forgiving for Allah purifies you—who do you need to release?",
+    "description": "Who do you need to forgive for Allah’s sake, even partially?"
+  },
+  {
+    "day": "30",
+    "title": "Humility protects iman—notice pride and how to soften your heart.",
+    "description": "Where did you feel pride today, and how can you humble your heart?"
+  },
+  {
+    "day": "31",
+    "title": "Shukr for Allah keeps you grounded—name an “ordinary” huge gift.",
+    "description": "Name one “ordinary” thing today that is actually a huge gift."
+  },
+  {
+    "day": "32",
+    "title": "Contentment is wealth—reflect on what you’re chasing unnecessarily.",
+    "description": "What are you chasing that you could release to find peace?"
+  },
+  {
+    "day": "33",
+    "title": "Hope is worship—pair your hope with sincere du’a and action.",
+    "description": "What is one thing you’re hopeful about, and how will you make dua for it?"
+  },
+  {
+    "day": "34",
+    "title": "Taqwa begins with reminders—what would protect you from wrong tomorrow?",
+    "description": "What reminder would help you avoid a wrong choice tomorrow?"
+  },
+  {
+    "day": "35",
+    "title": "Islam is balance—identify imbalance and one practical correction.",
+    "description": "Where did your day feel imbalanced, and what’s one fix for tomorrow?"
+  },
+  {
+    "day": "36",
+    "title": "Time is an amanah—name the distraction and what you’ll replace it with.",
+    "description": "Which time-waster stole your attention today, and what will you replace it with?"
+  },
+  {
+    "day": "37",
+    "title": "Live the Qur’an—turn an ayah into action, not just knowledge.",
+    "description": "How can you turn one ayah into a practical action tomorrow?"
+  },
+  {
+    "day": "38",
+    "title": "Reviving sunnah brings light—choose one realistic sunnah to practice.",
+    "description": "Which Sunnah can you revive this week in a realistic way?"
+  },
+  {
+    "day": "39",
+    "title": "Consistency after salah matters—reflect on your post-prayer adhkar today.",
+    "description": "Did you do your post-prayer adhkar today—what got in the way (or helped)?"
+  },
+  {
+    "day": "40",
+    "title": "Adab of du’a increases presence—reflect on how you began du’a.",
+    "description": "Did you praise Allah and send salawat before dua today? Reflect."
+  },
+  {
+    "day": "41",
+    "title": "Hearts shift daily—name the strongest feeling and its root.",
+    "description": "What feeling dominated your heart today, and what is its root?"
+  },
+  {
+    "day": "42",
+    "title": "Control of anger is strength—reflect on how you cooled it.",
+    "description": "When did you feel anger rise today, and how did you cool it?"
+  },
+  {
+    "day": "43",
+    "title": "Guarding the tongue is protection—replace regretful speech with better words.",
+    "description": "Did you say anything you regret today? What should replace it next time?"
+  },
+  {
+    "day": "44",
+    "title": "Avoiding gossip protects hearts—how will you respond differently next time?",
+    "description": "Did you hear or join gossip today? How will you respond differently?"
+  },
+  {
+    "day": "45",
+    "title": "Truthfulness is iman—reflect on where honesty was tested.",
+    "description": "Where was honesty tested today, and how did you choose integrity?"
+  },
+  {
+    "day": "46",
+    "title": "Amanah is serious—notice the responsibility you fulfilled for Allah.",
+    "description": "What responsibility did you fulfill today as an amanah from Allah?"
+  },
+  {
+    "day": "47",
+    "title": "Company shapes you—evaluate who pulls you toward Allah.",
+    "description": "Did your circle pull you toward Allah or away today? How can you adjust?"
+  },
+  {
+    "day": "48",
+    "title": "Lowering the gaze is purity—identify your trigger and your strategy.",
+    "description": "What situation tested your gaze today, and what strategy can help next time?"
+  },
+  {
+    "day": "49",
+    "title": "Halal choices bring barakah—reflect on one decision you protected today.",
+    "description": "What choice did you make today to keep your income/time/purity halal?"
+  },
+  {
+    "day": "50",
+    "title": "Cleanliness is part of faith—notice how you honored taharah today.",
+    "description": "How did you honor cleanliness today as part of faith?"
+  },
+  {
+    "day": "51",
+    "title": "Hidden deeds are beloved—plan one sincere act only for Allah.",
+    "description": "What is one good deed you can do secretly for Allah this week?"
+  },
+  {
+    "day": "52",
+    "title": "Sadaqah has many forms—pick one small giving for tomorrow.",
+    "description": "What small sadaqah can you give tomorrow (money, food, time, help)?"
+  },
+  {
+    "day": "53",
+    "title": "Serving people is worship—who can you help without being asked?",
+    "description": "Who can you assist tomorrow without being asked?"
+  },
+  {
+    "day": "54",
+    "title": "Remembering answered du’as builds shukr—name one and thank Allah.",
+    "description": "What answered dua from your past can you thank Allah for today?"
+  },
+  {
+    "day": "55",
+    "title": "Trials refine believers—reflect on the wisdom shaping you through hardship.",
+    "description": "What hardship might be shaping you, even if you dislike it?"
+  },
+  {
+    "day": "56",
+    "title": "Ihsan with people is faith—how will you respond with patience?",
+    "description": "Who tried your patience today, and how can you treat them with ihsan?"
+  },
+  {
+    "day": "57",
+    "title": "Hand worries back to Allah—choose one unfinished worry to release.",
+    "description": "What is one “unfinished” worry you can hand back to Allah tonight?"
+  },
+  {
+    "day": "58",
+    "title": "Tawakkul isn’t passivity—where do you need effort, not slogans?",
+    "description": "Where do you need more effort, not just “tawakkul”?"
+  },
+  {
+    "day": "59",
+    "title": "Barakah comes with intention—plan one action to invite it tomorrow.",
+    "description": "What can you do to invite barakah into tomorrow’s schedule?"
+  },
+  {
+    "day": "60",
+    "title": "Begin with Allah—imagine a morning that puts faith first.",
+    "description": "What would a “faith-first” morning look like for you?"
+  },
+  {
+    "day": "61",
+    "title": "End the day with worship—choose how you want to close tonight.",
+    "description": "What is one thing you want to end today with: shukr, tawbah, or dua?"
+  },
+  {
+    "day": "62",
+    "title": "Knowing Allah’s Names strengthens reliance—choose a Name you need today.",
+    "description": "Which Name of Allah do you need to remember today, and why?"
+  },
+  {
+    "day": "63",
+    "title": "Remember Ar-Rahman—identify a specific mercy you experienced today.",
+    "description": "How did you experience Allah’s mercy today in a specific way?"
+  },
+  {
+    "day": "64",
+    "title": "Seek Al-Ghaffar sincerely—name what you’ll ask forgiveness for honestly.",
+    "description": "What do you need to seek forgiveness for, without excuses?"
+  },
+  {
+    "day": "65",
+    "title": "Recognize Ar-Razzaq—notice where rizq came from unexpectedly.",
+    "description": "Where did your rizq show up today in an unexpected form?"
+  },
+  {
+    "day": "66",
+    "title": "Trust Al-Hakeem—reflect on hidden wisdom within confusion.",
+    "description": "What situation is confusing—how might Allah’s wisdom be at work?"
+  },
+  {
+    "day": "67",
+    "title": "Notice Al-Latif—look for Allah’s subtle kindness in your day.",
+    "description": "Where did you notice subtle kindness from Allah today?"
+  },
+  {
+    "day": "68",
+    "title": "Rely on Al-Wakeel—what matter will you hand over to Allah?",
+    "description": "What matter do you need to appoint Allah over right now?"
+  },
+  {
+    "day": "69",
+    "title": "Allah hears all—name the du’a you want Him to hear tonight.",
+    "description": "What dua do you want Allah to hear from you tonight?"
+  },
+  {
+    "day": "70",
+    "title": "Allah sees the unseen—identify one hidden habit needing cleansing.",
+    "description": "What hidden habit needs cleansing because Allah sees it?"
+  },
+  {
+    "day": "71",
+    "title": "Commit to Qur’an realistically—small consistent minutes matter.",
+    "description": "How many minutes can you realistically commit to Qur’an tomorrow?"
+  },
+  {
+    "day": "72",
+    "title": "Seek understanding, not speed—choose a short surah to learn deeply.",
+    "description": "Which short surah do you want to understand more deeply this week?"
+  },
+  {
+    "day": "73",
+    "title": "Tadabbur changes hearts—choose a word/phrase to ponder today.",
+    "description": "What word or phrase in Qur’an do you want to ponder today?"
+  },
+  {
+    "day": "74",
+    "title": "Belief should transform behavior—name what must change.",
+    "description": "What behavior should change if you truly believe Allah’s words?"
+  },
+  {
+    "day": "75",
+    "title": "Qur’anic du’as are powerful—choose one to learn and use.",
+    "description": "What Qur’anic dua do you want to learn and use this week?"
+  },
+  {
+    "day": "76",
+    "title": "Prophets teach resilience—choose the story your heart needs now.",
+    "description": "Which Prophet’s story do you need right now, and why?"
+  },
+  {
+    "day": "77",
+    "title": "Learn from Yusuf’s purity—where do you need patience and restraint?",
+    "description": "Where do you need patience and purity like Yusuf (AS)?"
+  },
+  {
+    "day": "78",
+    "title": "Learn from Musa’s courage—what fear needs trust and action?",
+    "description": "What fear do you need to face with trust like Musa (AS)?"
+  },
+  {
+    "day": "79",
+    "title": "Learn from Ibrahim’s sacrifice—what attachment must be for Allah?",
+    "description": "What attachment do you need to sacrifice for Allah’s pleasure?"
+  },
+  {
+    "day": "80",
+    "title": "Learn from Yunus’s return—where must you turn back quickly?",
+    "description": "Where do you need to return to Allah without delay?"
+  },
+  {
+    "day": "81",
+    "title": "Loving the Prophet means following—name one action of love today.",
+    "description": "What is one way to show love for the Prophet ﷺ through action today?"
+  },
+  {
+    "day": "82",
+    "title": "Salawat brings blessings—set a realistic number and time.",
+    "description": "How many times can you send salawat today, and when will you do it?"
+  },
+  {
+    "day": "83",
+    "title": "Smiling is sunnah—who will you uplift with a genuine smile?",
+    "description": "Who can you greet with a genuine smile tomorrow?"
+  },
+  {
+    "day": "84",
+    "title": "Gentle speech is prophetic—plan how you’ll soften your words.",
+    "description": "How can you speak more gently tomorrow, even under pressure?"
+  },
+  {
+    "day": "85",
+    "title": "Sunnah starts at home—choose one family Sunnah to practice.",
+    "description": "What Sunnah can you practice with family today (kindness, help, patience)?"
+  },
+  {
+    "day": "86",
+    "title": "Neighbor rights are serious—reflect on how you can support them.",
+    "description": "What can you do this week for a neighbor family member that could make difference ?"
+  },
+  {
+    "day": "87",
+    "title": "Honoring parents is a gate to Jannah—choose one act today.",
+    "description": "What is one act of honor to your parents/guardians you can do today?"
+  },
+  {
+    "day": "88",
+    "title": "Small kindness strengthens homes—choose one gentle action tonight.",
+    "description": "What “small kindness” can soften your home atmosphere tonight?"
+  },
+  {
+    "day": "89",
+    "title": "Friendship for Allah needs care—who deserves a sincere check-in?",
+    "description": "Who deserves a check-in today, purely for Allah’s sake?"
+  },
+  {
+    "day": "90",
+    "title": "You have rights too—name one halal joy you’ve neglected.",
+    "description": "What is one halal joy you’ve neglected that could restore you?"
+  },
+  {
+    "day": "91",
+    "title": "Guard the heart from comparison—identify jealousy and its antidote.",
+    "description": "What jealousy or comparison showed up today, and what truth counters it?"
+  },
+  {
+    "day": "92",
+    "title": "Make du’a for others sincerely—especially when envy appears.",
+    "description": "Make dua for someone you envy—what will you say?"
+  },
+  {
+    "day": "93",
+    "title": "Riya’ destroys reward—notice the urge to be seen and correct it.",
+    "description": "Where did you feel the urge to be seen, and how will you correct it?"
+  },
+  {
+    "day": "94",
+    "title": "Husn al-dhann brings peace—choose a better assumption today.",
+    "description": "What is a better assumption you can make about someone today?"
+  },
+  {
+    "day": "95",
+    "title": "Apologies are strength—prepare what you’ll say with humility.",
+    "description": "Who deserves an apology from you, and what will you say?"
+  },
+  {
+    "day": "96",
+    "title": "Repairing harm is part of tawbah—name what you’ll fix.",
+    "description": "What harm did you cause (even small), and how can you fix it?"
+  },
+  {
+    "day": "97",
+    "title": "Allah loves consistency—choose one small daily worship to keep.",
+    "description": "What one worship can you do daily, even if small, without quitting?"
+  },
+  {
+    "day": "98",
+    "title": "Avoid extremes—notice what drains you spiritually and adjust.",
+    "description": "What “too much” are you doing that makes you crash spiritually?"
+  },
+  {
+    "day": "99",
+    "title": "Discipline protects iman—set one phone boundary for Allah’s sake.",
+    "description": "What boundary do you need with your phone to protect your iman?"
+  },
+  {
+    "day": "100",
+    "title": "Remembering death clarifies priorities—what would you change today?",
+    "description": "What would you change today if you knew you’d meet Allah soon?"
+  },
+  {
+    "day": "101",
+    "title": "Jannah is earned by deeds—choose one deed to pursue this week.",
+    "description": "What is one deed you associate with Jannah that you can do this week?"
+  },
+  {
+    "day": "102",
+    "title": "Akhirah awareness shapes choices—notice one decision it changed today.",
+    "description": "How did remembering the Hereafter change any choice today?"
+  },
+  {
+    "day": "103",
+    "title": "Muhasabah builds taqwa—answer as if questioned by Allah.",
+    "description": "What would you say if Allah asked, “How did you use today?”"
+  },
+  {
+    "day": "104",
+    "title": "Make du’a for others—naming them purifies the heart.",
+    "description": "Who can you make sincere dua for right now, by name?"
+  },
+  {
+    "day": "105",
+    "title": "Structured gratitude trains the heart—faith, health, and guidance matter.",
+    "description": "Write one gratitude to Allah for: faith, health, and guidance."
+  },
+  {
+    "day": "106",
+    "title": "Hardship can hide gifts—reflect on the benefit within difficulty.",
+    "description": "What difficulty today carried a hidden benefit?"
+  },
+  {
+    "day": "107",
+    "title": "Thank Allah with action—not only words—plan one deed.",
+    "description": "How can you thank Allah with a deed, not just words, tomorrow?"
+  },
+  {
+    "day": "108",
+    "title": "Thanking people is shukr—plan how you’ll show appreciation.",
+    "description": "Who helped you recently? How will you thank them as part of shukr?"
+  },
+  {
+    "day": "109",
+    "title": "Signs point to Allah—notice what reminded you of His power.",
+    "description": "What in nature or daily life reminded you of Allah’s power today?"
+  },
+  {
+    "day": "110",
+    "title": "Barakah is real—notice where good exceeded expectations.",
+    "description": "Where did you notice “more good than expected” today?"
+  },
+  {
+    "day": "111",
+    "title": "Clean intentions elevate deeds—rewrite one action for Allah.",
+    "description": "Which act today needs a cleaner intention? Rewrite it for Allah."
+  },
+  {
+    "day": "112",
+    "title": "End your night with remembrance—choose a consistent du’a/dhikr.",
+    "description": "What dua or dhikr will you end the night with consistently?"
+  },
+  {
+    "day": "113",
+    "title": "Plan morning adhkar—specificity helps consistency.",
+    "description": "What time tomorrow will you do morning adhkar—be specific."
+  },
+  {
+    "day": "114",
+    "title": "Put Qur’an first—reflect on how you’ll resist scrolling first.",
+    "description": "Can you put Qur’an before social media tomorrow? How?"
+  },
+  {
+    "day": "115",
+    "title": "Replacing habits is sunnah wisdom—identify trigger and replacement.",
+    "description": "What trigger leads you to a bad habit, and what replacement will you use?"
+  },
+  {
+    "day": "116",
+    "title": "Attach good to salah—tiny habits become consistent worship.",
+    "description": "What tiny habit can you attach to a daily prayer (after Fajr, after Isha)?"
+  },
+  {
+    "day": "117",
+    "title": "Dignity is part of deen—notice the choice that protected it.",
+    "description": "What choice today protected your dignity as a believer?"
+  },
+  {
+    "day": "118",
+    "title": "Haya is protection—reflect where you practiced it today.",
+    "description": "Where did you practice haya today—in speech, dress, or behavior?"
+  },
+  {
+    "day": "119",
+    "title": "Halal joy is mercy—plan a guilt-free activity that refreshes you.",
+    "description": "What halal activity brings you joy without guilt? Plan it."
+  },
+  {
+    "day": "120",
+    "title": "Seeking knowledge is worship—choose a topic for this month.",
+    "description": "What Islamic topic do you want to learn this month, and why?"
+  },
+  {
+    "day": "121",
+    "title": "Memorizing hadith revives sunnah—choose one short hadith.",
+    "description": "What short hadith do you want to memorize this week?"
+  },
+  {
+    "day": "122",
+    "title": "Knowledge demands action—name what you’ll finally act on.",
+    "description": "What is one thing you already know is right—how will you finally act on it?"
+  },
+  {
+    "day": "123",
+    "title": "Daily reading builds you—choose a realistic page goal.",
+    "description": "How many pages of an Islamic book can you read daily without struggle?"
+  },
+  {
+    "day": "124",
+    "title": "Listening can soften hearts—pick what helps and schedule it.",
+    "description": "Which lecture/recitation helps your heart most, and when will you listen?"
+  },
+  {
+    "day": "125",
+    "title": "Tajwid is excellence—plan gentle improvement step by step.",
+    "description": "How can you improve your tajwid gently, step by step?"
+  },
+  {
+    "day": "126",
+    "title": "Write du’as intentionally—list what you want for dunya and akhirah.",
+    "description": "Start a dua list: write 5 things you want for your dunya and akhirah."
+  },
+  {
+    "day": "127",
+    "title": "Protect precious du’a times—choose one time to guard more.",
+    "description": "Which dua time will you protect more: after salah, last third of night, or Jumu’ah?"
+  },
+  {
+    "day": "128",
+    "title": "Qiyam revives hearts—set a realistic plan you can keep.",
+    "description": "What is a realistic qiyam plan: 2 rak’ahs once this week?"
+  },
+  {
+    "day": "129",
+    "title": "Witr is a daily anchor—make a plan if you’ve missed it.",
+    "description": "Did you pray witr recently? If not, what’s your plan tonight?"
+  },
+  {
+    "day": "130",
+    "title": "Rawatib strengthens salah—choose which sunnah prayers to add.",
+    "description": "Which sunnah rawatib can you add this week: Fajr, Dhuhr, Maghrib?"
+  },
+  {
+    "day": "131",
+    "title": "Fasting trains taqwa—choose one day and plan it.",
+    "description": "Can you fast one day this month (Monday/Thursday/white days)? Plan it."
+  },
+  {
+    "day": "132",
+    "title": "Memorization grows by repetition—choose 1–3 ayat for this week.",
+    "description": "What 1–3 ayat can you memorize this week with repetition?"
+  },
+  {
+    "day": "133",
+    "title": "Duha brings gratitude—plan one day and rak’ahs.",
+    "description": "Can you pray Duha once this week? When and how many rak’ahs?"
+  },
+  {
+    "day": "134",
+    "title": "Istighfar polishes the heart—name what you want wiped clean.",
+    "description": "What moment today would you like to “wipe clean” with sincere istighfar?"
+  },
+  {
+    "day": "135",
+    "title": "Turn commute into worship—choose dhikr phrases to repeat.",
+    "description": "Can you make your commute a dhikr time? Which phrases will you use?"
+  },
+  {
+    "day": "136",
+    "title": "Serving parents is immense reward—plan one small task.",
+    "description": "What small task can you do for your parents/guardians without being asked?"
+  },
+  {
+    "day": "137",
+    "title": "Soft hearts come from worship—choose what softens you most.",
+    "description": "What act softens you most: Qur’an, sadaqah, or visiting the sick? Choose one."
+  },
+  {
+    "day": "138",
+    "title": "Visiting the sick is sunnah—who will you check on this week?",
+    "description": "Who is unwell or struggling that you can check on this week?"
+  },
+  {
+    "day": "139",
+    "title": "Serve your community—pick one practical support for the masjid.",
+    "description": "How can you support your masjid/community in one practical way?"
+  },
+  {
+    "day": "140",
+    "title": "Unity is worship—release grudges for Allah’s sake.",
+    "description": "What grudge between Muslims do you need to release to protect unity?"
+  },
+  {
+    "day": "141",
+    "title": "Justice is taqwa—reflect on where you can be more fair.",
+    "description": "Where can you be more fair in how you speak about someone?"
+  },
+  {
+    "day": "142",
+    "title": "Kind words are sadaqah—choose one sentence to uplift someone.",
+    "description": "What is one uplifting sentence you can say to someone today?"
+  },
+  {
+    "day": "143",
+    "title": "Listening is adab—reflect if you listened without interrupting.",
+    "description": "Did you truly listen today without interrupting? Reflect and improve."
+  },
+  {
+    "day": "144",
+    "title": "Respect is prophetic—reflect how you honored someone you disagreed with.",
+    "description": "How did you show respect to someone you disagree with?"
+  },
+  {
+    "day": "145",
+    "title": "Promises are amanah—reflect on your word and how to repair it.",
+    "description": "Did you keep your word today? If not, how will you repair it?"
+  },
+  {
+    "day": "146",
+    "title": "Ihsan in work is worship—plan excellence for Allah tomorrow.",
+    "description": "How can you do your work/study with excellence for Allah’s sake tomorrow?"
+  },
+  {
+    "day": "147",
+    "title": "Purifying your earnings invites barakah—keep halal at the center of your life.",
+    "description": "What step can you take to purify your income or spending?"
+  },
+  {
+    "day": "148",
+    "title": "Contentment grows when you resist needless spending for Allah’s sake.",
+    "description": "What unnecessary purchase can you avoid to practice contentment?"
+  },
+  {
+    "day": "149",
+    "title": "Ongoing charity continues after you—choose a sadaqah that lasts.",
+    "description": "What ongoing charity do you want to invest in (even small)?"
+  },
+  {
+    "day": "150",
+    "title": "Let Qur’an guide your finances—align spending with what Allah loves.",
+    "description": "How can you align spending with what Allah loves?"
+  },
+  {
+    "day": "151",
+    "title": "Guard your heart online—boundaries protect iman in the digital world.",
+    "description": "What boundary will protect your heart online this week?"
+  },
+  {
+    "day": "152",
+    "title": "Haya belongs everywhere—reflect if your online self matches your faith.",
+    "description": "Does your online presence reflect haya? What needs adjusting?"
+  },
+  {
+    "day": "153",
+    "title": "What you entertain shapes you—protect your heart from harmful topics.",
+    "description": "What topic do you need to stop entertaining because it harms your heart?"
+  },
+  {
+    "day": "154",
+    "title": "Silence can be worship—choose it when conflict has no benefit.",
+    "description": "Where can you choose silence to avoid a pointless argument?"
+  },
+  {
+    "day": "155",
+    "title": "Discipline over desire is strength—notice how you handled cravings today.",
+    "description": "How did you handle cravings today—what helps you eat with discipline?"
+  },
+  {
+    "day": "156",
+    "title": "Your health is an amanah—choose one grateful, halal step for tomorrow.",
+    "description": "What is one healthy choice you can make tomorrow for Allah’s sake?"
+  },
+  {
+    "day": "157",
+    "title": "Sleep supports worship—set a bedtime that protects Fajr and energy.",
+    "description": "What bedtime supports Fajr? What’s one change you can make tonight?"
+  },
+  {
+    "day": "158",
+    "title": "Movement can be shukr—use your body in a halal, grateful way.",
+    "description": "How can you move your body tomorrow in a halal, grateful way?"
+  },
+  {
+    "day": "159",
+    "title": "Stress reveals reliance—did you turn to du’a first or distraction?",
+    "description": "When stressed today, did you turn to dua or distraction first?"
+  },
+  {
+    "day": "160",
+    "title": "Calm is cultivated—commit to a dhikr or routine that settles you.",
+    "description": "What dhikr or breathing pattern helps you settle—commit to it tonight."
+  },
+  {
+    "day": "161",
+    "title": "Hand your fears to Allah—tawakkul brings relief with action.",
+    "description": "What fear do you need to “hand over” to Allah today?"
+  },
+  {
+    "day": "162",
+    "title": "Allah heals hearts—bring your wounds to Him with honesty and hope.",
+    "description": "What wound are you carrying—how can you seek Allah’s healing?"
+  },
+  {
+    "day": "163",
+    "title": "Notice Allah’s protection—gratitude grows when you spot hidden safety.",
+    "description": "What protection did Allah grant you today that you didn’t notice?"
+  },
+  {
+    "day": "164",
+    "title": "Guidance is a mercy—remember where Allah saved you from repeating harm.",
+    "description": "What past mistake did Allah save you from repeating?"
+  },
+  {
+    "day": "165",
+    "title": "Tests can elevate you—reframe hardship as a doorway to growth.",
+    "description": "What if today’s hardship is a doorway to your growth—what could change?"
+  },
+  {
+    "day": "166",
+    "title": "Rida brings peace—notice where you resist Allah’s decree and soften.",
+    "description": "Where do you resist Allah’s decree? What would acceptance look like?"
+  },
+  {
+    "day": "167",
+    "title": "Shukr purifies speech—replace complaining with praise intentionally.",
+    "description": "How can you reduce complaining tomorrow and increase praise?"
+  },
+  {
+    "day": "168",
+    "title": "Be a source of ease—Allah loves those who lighten burdens.",
+    "description": "How can you make life easier for one person tomorrow?"
+  },
+  {
+    "day": "169",
+    "title": "Removing harm is sadaqah—choose one obstacle you can clear away.",
+    "description": "What “harm” can you remove (trash, obstacle, problem) as a sadaqah?"
+  },
+  {
+    "day": "170",
+    "title": "Hidden good deeds protect sincerity—help quietly for Allah alone.",
+    "description": "Who can you help anonymously this week?"
+  },
+  {
+    "day": "171",
+    "title": "Closeness to Allah has signs—remember the moment you felt nearest.",
+    "description": "When did you feel closest to Allah today, and what was happening?"
+  },
+  {
+    "day": "172",
+    "title": "Awareness is the first step—name what pulled you away from dhikr.",
+    "description": "What pulled you away from remembrance today, and why?"
+  },
+  {
+    "day": "173",
+    "title": "Renewing iman starts with words—choose the phrase that strengthens you.",
+    "description": "What phrase strengthens you most: “La ilaha illa Allah,” “HasbiAllah,” or “Alhamdulillah”?"
+  },
+  {
+    "day": "174",
+    "title": "Let gratitude enter sujood—notice the moment your heart thanked Allah.",
+    "description": "Which sujood today held the most gratitude? Describe it."
+  },
+  {
+    "day": "175",
+    "title": "Sujood is closeness—choose a specific du’a to make next prayer.",
+    "description": "What specific dua will you make in sujood next prayer?"
+  },
+  {
+    "day": "176",
+    "title": "Khushu’ takes intention—identify one change that improves focus.",
+    "description": "What one change increases focus in prayer (phone away, slower recitation, meaning)?"
+  },
+  {
+    "day": "177",
+    "title": "Wudu is preparation—reflect if you rushed and how to be mindful.",
+    "description": "Did wudu feel rushed today? How can you make it more mindful?"
+  },
+  {
+    "day": "178",
+    "title": "Intentions decide reward—prepare your heart before your next deed.",
+    "description": "Intent Before a deed tomorrow, what will you whisper to yourself to make it for Allah?"
+  },
+  {
+    "day": "179",
+    "title": "Loving for Allah is purity—remember who you love and why.",
+    "description": "Who do you love for Allah’s sake, and what quality do you admire?"
+  },
+  {
+    "day": "180",
+    "title": "Faith grows in sisterhood/brotherhood—strengthen a halal bond sincerely.",
+    "description": "How can you strengthen a halal friendship with sincerity this week?"
+  },
+  {
+    "day": "181",
+    "title": "Protecting trust is amanah—reflect on how you guarded someone’s secret.",
+    "description": "Did you protect someone’s trust today? Reflect on amanah."
+  },
+  {
+    "day": "182",
+    "title": "Hidden worship is powerful—notice what stays only between you and Allah.",
+    "description": "What part of your worship is only between you and Allah?"
+  },
+  {
+    "day": "183",
+    "title": "Private sins matter most—muhasabah begins where only Allah sees.",
+    "description": "What is one private habit you must improve because Allah knows it?"
+  },
+  {
+    "day": "184",
+    "title": "Repaying rights is worship—make a plan to return what you owe.",
+    "description": "Did you owe someone money, time, or a promise? What’s your plan to repay?"
+  },
+  {
+    "day": "185",
+    "title": "Rights of others are heavy—reflect on how to seek forgiveness and repair.",
+    "description": "Who might you have wronged—how can you seek forgiveness or make it right?"
+  },
+  {
+    "day": "186",
+    "title": "Choose speech that pleases Allah—rewrite what you wish you hadn’t said.",
+    "description": "What sentence did you wish you hadn’t said today? Rewrite it kindly."
+  },
+  {
+    "day": "187",
+    "title": "Spreading salam spreads mercy—set a goal for greeting others tomorrow.",
+    "description": "How many people can you greet with salam tomorrow?"
+  },
+  {
+    "day": "188",
+    "title": "Feeding people is beloved—plan one act of providing food this week.",
+    "description": "Can you feed someone this week (family, friend, needy)? Plan it."
+  },
+  {
+    "day": "189",
+    "title": "Sharing invites barakah—give without expecting anything back.",
+    "description": "What can you share today (food, knowledge, time) without expecting return?"
+  },
+  {
+    "day": "190",
+    "title": "Food has adab—eat with remembrance and reflect on mindfulness.",
+    "description": "Did you eat mindfully with “Bismillah” and “Alhamdulillah”? Reflect."
+  },
+  {
+    "day": "191",
+    "title": "Shelter is a huge blessing—notice what you rarely mention with shukr.",
+    "description": "What about your home is a blessing you rarely mention?"
+  },
+  {
+    "day": "192",
+    "title": "Clothing is a mercy—practice modesty and gratitude through what you wear.",
+    "description": "How can you practice modesty and gratitude in what you wear?"
+  },
+  {
+    "day": "193",
+    "title": "Your senses are an amanah—review how you used sight and hearing.",
+    "description": "How did you use your senses today for good—or misuse them?"
+  },
+  {
+    "day": "194",
+    "title": "Time is life—notice your best use of it and your biggest loss.",
+    "description": "What was the best use of your time today? What was the worst?"
+  },
+  {
+    "day": "195",
+    "title": "Presence is worship—slow down with Bismillah instead of rushing.",
+    "description": "Where did you rush today? How can you slow down with “Bismillah”?"
+  },
+  {
+    "day": "196",
+    "title": "End with tawbah—close the day by asking Allah’s forgiveness sincerely.",
+    "description": "What will you ask Allah to forgive you for before sleeping?"
+  },
+  {
+    "day": "197",
+    "title": "Small istighfar routines cleanse hearts—choose a time you can keep.",
+    "description": "When tomorrow will you do a short istighfar session (2 minutes)?"
+  },
+  {
+    "day": "198",
+    "title": "Writing du’a clarifies the heart—pour it out for what matters most.",
+    "description": "Write one dua for your heart, one for your family, one for the Ummah."
+  },
+  {
+    "day": "199",
+    "title": "Remember the oppressed—make du’a and plan consistency, not emotion only.",
+    "description": "Make dua for a suffering group—how will you keep it consistent?"
+  },
+  {
+    "day": "200",
+    "title": "Islam improves life—notice what makes your life better even when hard.",
+    "description": "What part of Islam makes your life better—even if it’s challenging?"
+  },
+  {
+    "day": "201",
+    "title": "Prepare early for Ramadan—small habits now bring ease later.",
+    "description": "What habit can you start now to make Ramadan easier later?"
+  },
+  {
+    "day": "202",
+    "title": "Fasting teaches discipline—carry its patience into everyday life.",
+    "description": "How does fasting teach you patience even outside Ramadan?"
+  },
+  {
+    "day": "203",
+    "title": "Goals need realism—choose a Qur’an goal you can actually keep.",
+    "description": "What Qur’an goal feels achievable: reading, listening, memorizing, or reflecting?"
+  },
+  {
+    "day": "204",
+    "title": "Charity is purification—set a weekly giving goal with sincerity.",
+    "description": "Set a weekly sadaqah goal—what amount/action is realistic for you?"
+  },
+  {
+    "day": "205",
+    "title": "Salah is the anchor—identify what needs improvement and commit.",
+    "description": "Which prayer needs the most improvement (time, focus, consistency)?"
+  },
+  {
+    "day": "206",
+    "title": "Protect your boundaries—taqwa means staying far from major sins.",
+    "description": "What boundary do you need to protect yourself from a major sin?"
+  },
+  {
+    "day": "207",
+    "title": "Small sins still stain—identify what repeats and plan a stop.",
+    "description": "What “small sin” repeats often—how will you stop it?"
+  },
+  {
+    "day": "208",
+    "title": "Make obedience easy—create a quick menu of good deeds.",
+    "description": "Write 5 quick good deeds you can do in under 5 minutes."
+  },
+  {
+    "day": "209",
+    "title": "Returning quickly is beloved—plan how you’ll come back after mistakes.",
+    "description": "How will you return to Allah quickly after a mistake (dua, wudu, istighfar, charity)?"
+  },
+  {
+    "day": "210",
+    "title": "Ask for a good ending—define it and choose what supports it.",
+    "description": "What does a “good ending” look like for you, and what supports it?"
+  },
+  {
+    "day": "211",
+    "title": "Jannah motivation matters—connect your heart to its descriptions.",
+    "description": "What description of Jannah motivates you most, and why?"
+  },
+  {
+    "day": "212",
+    "title": "Fear can protect you—choose a deed that shields from Hellfire.",
+    "description": "What protective deed will you focus on this week?"
+  },
+  {
+    "day": "213",
+    "title": "Let Qur’anic values shape today—apply justice, mercy, patience, or gratitude.",
+    "description": "Which value matters most today: justice, mercy, patience, or gratitude? Apply it."
+  },
+  {
+    "day": "214",
+    "title": "Prophetic manners are a legacy—choose what you want to be known for.",
+    "description": "What is one prophetic manner you want to be known for?"
+  },
+  {
+    "day": "215",
+    "title": "Gentleness is strength—notice where softness would solve more than harshness.",
+    "description": "Where could gentleness solve what harshness cannot?"
+  },
+  {
+    "day": "216",
+    "title": "Courage is obedience—choose bravery for what’s right, not comfort.",
+    "description": "Where do you need courage to do the right thing despite discomfort?"
+  },
+  {
+    "day": "217",
+    "title": "Allah loves consistency—small steady deeds beat occasional intensity.",
+    "description": "What small consistent deed beats your occasional “big bursts”? Choose one."
+  },
+  {
+    "day": "218",
+    "title": "Rizq has wisdom—reflect on the “closed door” that may be protection.",
+    "description": "What “closed door” might be Allah protecting you from?"
+  },
+  {
+    "day": "219",
+    "title": "Guidance is a gift—thank Allah for the habit He helped you leave.",
+    "description": "What habit did Allah help you leave behind? Thank Him for it."
+  },
+  {
+    "day": "220",
+    "title": "Allah allows fresh starts—name the new beginning you want today.",
+    "description": "What is one “fresh start” you want to make with Allah today."
+  },
+  {
+    "day": "221",
+    "title": "Let Qur’an be a meeting—soften your approach so it’s not just a task.",
+    "description": "How can you make Qur’an feel less like a task and more like a meeting?"
+  },
+  {
+    "day": "222",
+    "title": "Sacred space helps consistency—design a peaceful Qur’an corner at home.",
+    "description": "Where in your home can you create a peaceful Qur’an corner?"
+  },
+  {
+    "day": "223",
+    "title": "Du’a for parents is righteousness—make it sincere tonight.",
+    "description": "Write a dua for your parents/guardians (alive or passed) tonight."
+  },
+  {
+    "day": "224",
+    "title": "Ask Allah for your future self—make a du’a for growth and goodness.",
+    "description": "Write a dua asking Allah to make “future you” better than “current you.”"
+  },
+  {
+    "day": "225",
+    "title": "Family righteousness is barakah—make a halal du’a for peace at home.",
+    "description": "Write a halal dua for your family’s righteousness and peace."
+  },
+  {
+    "day": "226",
+    "title": "Barakah protects effort—make du’a for work/study and against burnout.",
+    "description": "Write a dua for barakah in your work/study and protection from burnout."
+  },
+  {
+    "day": "227",
+    "title": "Good character is a du’a worth repeating—ask Allah to beautify you.",
+    "description": "Write a dua asking Allah to beautify your manners."
+  },
+  {
+    "day": "228",
+    "title": "Healing is from Allah—make du’a for the sick by name.",
+    "description": "Write a dua for someone sick—include their name."
+  },
+  {
+    "day": "229",
+    "title": "Ask forgiveness deeply—even for sins you don’t remember but Allah knows.",
+    "description": "Write a dua seeking forgiveness for sins you forget but Allah knows."
+  },
+  {
+    "day": "230",
+    "title": "Guidance needs clarity—ask Allah to guide your decision sincerely.",
+    "description": "Write a dua asking Allah to guide you in a decision you’re facing."
+  },
+  {
+    "day": "231",
+    "title": "Let Qur’an shape how you treat people—connect patience to an ayah.",
+    "description": "What ayah reminds you to be patient with people? Write your reflection."
+  },
+  {
+    "day": "232",
+    "title": "Al-Fatihah is a daily conversation—reflect on what speaks to your life.",
+    "description": "What part of Al-Fatihah speaks to your life right now?"
+  },
+  {
+    "day": "233",
+    "title": "Ayat al-Kursi builds security—reflect on how Allah’s power calms fear.",
+    "description": "How does Allah’s power in Ayat al-Kursi calm your fears?"
+  },
+  {
+    "day": "234",
+    "title": "Begin with Bismillah—start tomorrow with intention and clarity.",
+    "description": "How can you begin tomorrow with “Bismillah” and a clear intention?"
+  },
+  {
+    "day": "235",
+    "title": "Night adhkar is protection—choose what you’ll prioritize consistently.",
+    "description": "What protection adhkar will you prioritize tonight?"
+  },
+  {
+    "day": "236",
+    "title": "Good friends are rizq—appreciate who brings you closer to Allah.",
+    "description": "Which friend brings you closer to Allah, and how can you appreciate them?"
+  },
+  {
+    "day": "237",
+    "title": "Protect iman with boundaries—identify toxicity and set a limit.",
+    "description": "What relationship pattern harms your iman, and what boundary is needed?"
+  },
+  {
+    "day": "238",
+    "title": "Sadaqah can be a remedy—give with a specific intention.",
+    "description": "Can you give charity for a specific intention (healing, ease, forgiveness)?"
+  },
+  {
+    "day": "239",
+    "title": "Qur’an is healing—choose a surah and plan how to use it.",
+    "description": "Which surah helps you when you feel low? How can you use it today?"
+  },
+  {
+    "day": "240",
+    "title": "Salah resets the heart—choose a prayer time to be your daily restart.",
+    "description": "What prayer time can become your daily “reset button”?"
+  },
+  {
+    "day": "241",
+    "title": "Mindful eating is sunnah—plan slow, grateful, waste-free habits.",
+    "description": "How can you eat tomorrow with sunnah manners (slow, grateful, not wasteful)?"
+  },
+  {
+    "day": "242",
+    "title": "Waste erases barakah—notice what you wasted and how to reduce it.",
+    "description": "What did you waste today (food, time, energy)? How will you reduce it?"
+  },
+  {
+    "day": "243",
+    "title": "Caring for creation is faith—choose one small environmental responsibility.",
+    "description": "How can you care for Allah’s creation in one small way this week?"
+  },
+  {
+    "day": "244",
+    "title": "Ihsan means no cutting corners—reflect how you can do better.",
+    "description": "Did you cut corners today? How can you do better with ihsan?"
+  },
+  {
+    "day": "245",
+    "title": "Halal paths bring peace—name the shortcut and the halal alternative.",
+    "description": "What shortcut are you tempted by? What halal alternative exists?"
+  },
+  {
+    "day": "246",
+    "title": "Be a role model through actions—what should people learn from you?",
+    "description": "What would you want someone to learn about Islam by watching you today?"
+  },
+  {
+    "day": "247",
+    "title": "Dawah is character—let kindness invite without speeches.",
+    "description": "How can your kindness become a silent invitation to Islam?"
+  },
+  {
+    "day": "248",
+    "title": "Arrogance is dangerous—make tawbah and correct the “better than” feeling.",
+    "description": "Where did you feel “better than others” today? Make tawbah and correct it."
+  },
+  {
+    "day": "249",
+    "title": "Celebrate others sincerely—purify your heart with genuine joy for them.",
+    "description": "How can you genuinely celebrate someone else’s success today?"
+  },
+  {
+    "day": "250",
+    "title": "Attribute success to Allah—reflect if you gave Him credit.",
+    "description": "When something went well today, did you attribute it to Allah? Reflect."
+  },
+  {
+    "day": "251",
+    "title": "Failure can be a doorway—did it bring you closer or push you away?",
+    "description": "When you failed today, did it bring you closer to Allah or into despair?"
+  },
+  {
+    "day": "252",
+    "title": "Hope is required—choose the reminder that stops hopelessness in sin.",
+    "description": "What reminder keeps you from hopelessness about your sins?"
+  },
+  {
+    "day": "253",
+    "title": "Returning again is beloved—reflect on what keeps you coming back.",
+    "description": "Again Even if you fall repeatedly, what keeps you coming back to Allah?"
+  },
+  {
+    "day": "254",
+    "title": "Make space for worship—remove one thing to protect salah and Qur’an.",
+    "description": "What can you remove from your schedule to make space for salah/Qur’an?"
+  },
+  {
+    "day": "255",
+    "title": "Your priorities reveal your heart—did they match Muslim values today?",
+    "description": "What did you prioritize today—did it match your values as a Muslim?"
+  },
+  {
+    "day": "256",
+    "title": "Choose companions for akhirah—identify who helps and who distracts.",
+    "description": "Who helps your akhirah? Who distracts it? What will you do?"
+  },
+  {
+    "day": "257",
+    "title": "Let go for taqwa—choose peace over proving you’re right.",
+    "description": "Where can you let go of “being right” to keep peace and taqwa?"
+  },
+  {
+    "day": "258",
+    "title": "Speak truth with adab—choose courage that stays kind.",
+    "description": "Where can you speak truth kindly, even if it’s uncomfortable?"
+  },
+  {
+    "day": "259",
+    "title": "Protect the heart from harmful inputs—decide what to unfollow.",
+    "description": "What content (music/video/accounts) harms your heart—what will you unfollow?"
+  },
+  {
+    "day": "260",
+    "title": "Lowering the gaze needs strategy—choose a practical step.",
+    "description": "What is one practical step to lower your gaze more consistently?"
+  },
+  {
+    "day": "261",
+    "title": "What you hear shapes you—decide what to stop listening to.",
+    "description": "What should you stop listening to because it feeds negativity or sin?"
+  },
+  {
+    "day": "262",
+    "title": "Guard the tongue intentionally—choose what kind of talk to remove.",
+    "description": "What type of talk do you want to remove: sarcasm, complaining, gossip, insults?"
+  },
+  {
+    "day": "263",
+    "title": "Thoughts can be traps—redirect with dhikr and better focus.",
+    "description": "What thought loop traps you—how can you redirect with dhikr?"
+  },
+  {
+    "day": "264",
+    "title": "Peace is a gift—notice when you felt calm and why.",
+    "description": "When did you feel peaceful today? What caused it?"
+  },
+  {
+    "day": "265",
+    "title": "Trials can purify—reflect on what sin/habit may be washed away.",
+    "description": "What trial might be a purification? What sin/habit could it be washing away?"
+  },
+  {
+    "day": "266",
+    "title": "Private shukr is powerful—thank Allah in a way only He knows.",
+    "description": "How can you thank Allah in a way nobody sees?"
+  },
+  {
+    "day": "267",
+    "title": "Serving the vulnerable is worship—notice who needs help around you.",
+    "description": "Who is vulnerable around you (elderly, new Muslim, single parent)? How can you help?"
+  },
+  {
+    "day": "268",
+    "title": "Generosity begins at home—choose one way to give to family today.",
+    "description": "How can you practice generosity with your family today?"
+  },
+  {
+    "day": "269",
+    "title": "Kindness to strangers is sadaqah—plan one small act.",
+    "description": "What’s one small kindness you can offer a stranger tomorrow?"
+  },
+  {
+    "day": "270",
+    "title": "Trust Allah’s timing—turn impatience into reflection and surrender.",
+    "description": "What are you impatient about? Write “Allah’s timing is better,” and reflect."
+  },
+  {
+    "day": "271",
+    "title": "Waiting well is worship—choose a good deed while you wait.",
+    "description": "What is one good deed you can do while waiting for Allah’s answer?"
+  },
+  {
+    "day": "272",
+    "title": "Consistency in du’a changes hearts—choose one du’a to repeat daily.",
+    "description": "What dua will you repeat daily for 40 days? Choose one."
+  },
+  {
+    "day": "273",
+    "title": "Ask Allah for beautiful character—name the trait you want removed.",
+    "description": "What bad character trait do you want Allah to remove from you?"
+  },
+  {
+    "day": "274",
+    "title": "Protection is a blessing—ask Allah to guard you from specific harms.",
+    "description": "What do you want protection from: envy, temptation, sadness, arrogance?"
+  },
+  {
+    "day": "275",
+    "title": "Barakah multiplies goodness—ask Allah where you need it most.",
+    "description": "Where do you need barakah most: money, time, relationships, health?"
+  },
+  {
+    "day": "276",
+    "title": "Honor yourself through obedience—self-respect grows with taqwa.",
+    "description": "How can you honor yourself by obeying Allah today?"
+  },
+  {
+    "day": "277",
+    "title": "Haya shows in choices—reflect on a modest act you did quietly.",
+    "description": "What choice today reflected haya—even if nobody would know otherwise?"
+  },
+  {
+    "day": "278",
+    "title": "Saying “no” can be obedience—identify where you must refuse for deen.",
+    "description": "Where do you need to say “no” to protect your deen?"
+  },
+  {
+    "day": "279",
+    "title": "Saying “yes” can be salvation—name the good deed you keep delaying.",
+    "description": "Where do you need to say “yes” to a good deed you keep delaying?"
+  },
+  {
+    "day": "280",
+    "title": "A reset can be mercy—choose the spiritual restart your heart needs.",
+    "description": "What spiritual “reset” do you need today: wudu, prayer, Qur’an, or a walk with dhikr?"
+  },
+  {
+    "day": "281",
+    "title": "Du’a is a sign of life—reflect on what you asked Allah today.",
+    "description": "What dua did you make today that shows your heart still turns to Allah?"
+  },
+  {
+    "day": "282",
+    "title": "Allah protects in unseen ways—notice the danger you may have been saved from.",
+    "description": "What danger did Allah possibly protect you from today without you knowing?"
+  },
+  {
+    "day": "283",
+    "title": "Forgiveness is a covering—reflect on how you’ll respond with better choices.",
+    "description": "What sin did Allah cover for you—how can you respond with better choices?"
+  },
+  {
+    "day": "284",
+    "title": "Jumu’ah is a weekly reset—reflect on honoring it with sunnah.",
+    "description": "How can you honor Friday weekly (ghusl, salawat, Surah Al-Kahf, dua)?"
+  },
+  {
+    "day": "285",
+    "title": "Surah Al-Kahf protects from fitnah—choose the theme you need now.",
+    "description": "What theme from Surah Al-Kahf do you need: fitnah, patience, humility, trust?"
+  },
+  {
+    "day": "286",
+    "title": "Initiating salam spreads love—plan to start it tomorrow.",
+    "description": "Did you initiate salam today? If not, plan to do it tomorrow."
+  },
+  {
+    "day": "287",
+    "title": "Smiling is sadaqah—choose who you’ll warm with a smile.",
+    "description": "Who needs a warm smile from you tomorrow?"
+  },
+  {
+    "day": "288",
+    "title": "Lightening burdens is beloved—choose one person to help specifically.",
+    "description": "Who can you lighten a burden for this week? Be specific."
+  },
+  {
+    "day": "289",
+    "title": "Peacemaking is worship—reflect if you can reconcile a conflict wisely.",
+    "description": "Is there a conflict you can help reconcile with wisdom and sincerity?"
+  },
+  {
+    "day": "290",
+    "title": "Trust the detour—Allah’s plan may guide you to better than you asked.",
+    "description": "What “detour” in your life might be Allah guiding you to something better?"
+  },
+  {
+    "day": "291",
+    "title": "Love must be purified—reorder what competes with obedience to Allah.",
+    "description": "What needs reordering?"
+  },
+  {
+    "day": "292",
+    "title": "Discipline protects you—identify the desire that needs control.",
+    "description": "What desire do you need to control more carefully?"
+  },
+  {
+    "day": "293",
+    "title": "Thank Allah for growth—notice what once felt hard but became normal.",
+    "description": "What Islamic practice once felt hard but now feels normal? Thank Allah."
+  },
+  {
+    "day": "294",
+    "title": "Returning to Qur’an softens hearts—reflect on what could bring you back.",
+    "description": "When was the last time you cried or softened with Qur’an? What might help?"
+  },
+  {
+    "day": "295",
+    "title": "Studying Allah’s Names changes you—choose one and reflect its impact.",
+    "description": "Choose one Name of Allah to study today—what does it change in you?"
+  },
+  {
+    "day": "296",
+    "title": "Fear and hope must balance—reflect which side you’re leaning into.",
+    "description": "Are you leaning more into fear or hope lately? How can you balance?"
+  },
+  {
+    "day": "297",
+    "title": "Seeking refuge is protection—notice if you turned to Allah in temptation.",
+    "description": "When tempted today, did you seek refuge with Allah? Reflect."
+  },
+  {
+    "day": "298",
+    "title": "Plan your exit from sin—write the practical steps to leave temptation.",
+    "description": "What is your “exit plan” when temptation appears? Write it down."
+  },
+  {
+    "day": "299",
+    "title": "Accountability helps consistency—choose someone kind and supportive.",
+    "description": "Who can keep you accountable kindly for one good habit?"
+  },
+  {
+    "day": "300",
+    "title": "Community strengthens iman—plan one way to connect to your masjid.",
+    "description": "What’s one way to feel more connected to your masjid/community this month?"
+  },
+  {
+    "day": "301",
+    "title": "Gatherings of knowledge revive hearts—plan attendance realistically.",
+    "description": "Can you attend a halaqa/khutbah/lesson soon? What’s the plan?"
+  },
+  {
+    "day": "302",
+    "title": "Forgiving through du’a heals you—ask Allah to forgive those who hurt you.",
+    "description": "Ask Allah to forgive someone who hurt you—how does it feel?"
+  },
+  {
+    "day": "303",
+    "title": "Surrender anger to Allah—reflect on what’s stored and how to release it.",
+    "description": "What anger is stored in you? What would surrender to Allah look like?"
+  },
+  {
+    "day": "304",
+    "title": "Bring sadness to Allah—don’t hide what du’a can heal.",
+    "description": "What sadness do you need to take to Allah in dua instead of hiding it?"
+  },
+  {
+    "day": "305",
+    "title": "Loneliness can become closeness—use it to return to Allah.",
+    "description": "How can you use loneliness to build closeness with Allah?"
+  },
+  {
+    "day": "306",
+    "title": "Shukr includes people—make du’a for someone who eased your life.",
+    "description": "Who made your life easier recently? Make dua for them."
+  },
+  {
+    "day": "307",
+    "title": "Honoring teachers is gratitude—reflect on who benefited you.",
+    "description": "Who taught you something beneficial? How can you honor them?"
+  },
+  {
+    "day": "308",
+    "title": "Opportunities are gifts—notice what Allah opened for you today.",
+    "description": "What opportunity did Allah give you today (small or big)?"
+  },
+  {
+    "day": "309",
+    "title": "Compare less, thank more—reflect on safety you have that others don’t.",
+    "description": "What safety you have today might others be missing? Reflect with shukr."
+  },
+  {
+    "day": "310",
+    "title": "A home can be a place of barakah—plan how to Islam-center it.",
+    "description": "How can you make your home more Islam-centered this week?"
+  },
+  {
+    "day": "311",
+    "title": "Qur’an at home brings peace—choose what to play/recite consistently.",
+    "description": "What can you play/recite at home to bring barakah (even 5 minutes)?"
+  },
+  {
+    "day": "312",
+    "title": "Protect prayer times like treasures—plan how to keep them when busy.",
+    "description": "How can you protect prayer times when you’re busy or outside?"
+  },
+  {
+    "day": "313",
+    "title": "Travel needs planning—prepare how you’ll guard salah on the move.",
+    "description": "What’s your plan for salah when traveling or out all day?"
+  },
+  {
+    "day": "314",
+    "title": "Halal and tayyib matter—reflect on steps to ensure purity of food.",
+    "description": "What steps ensure your food is halal and tayyib?"
+  },
+  {
+    "day": "315",
+    "title": "Cutting waste can be sadaqah—choose a subscription/expense to remove.",
+    "description": "What subscription/expense could you cut to avoid waste and increase sadaqah?"
+  },
+  {
+    "day": "316",
+    "title": "Giving more is growth—choose what you can increase for Allah.",
+    "description": "What can you give more of: time, attention, patience, money, help?"
+  },
+  {
+    "day": "317",
+    "title": "Receiving humbly is gratitude—notice if you thanked Allah and people.",
+    "description": "Did you receive help today? Did you thank Allah and the person?"
+  },
+  {
+    "day": "318",
+    "title": "Ask Allah before pride—identify where you need help but resist it.",
+    "description": "Where do you need help but refuse out of pride? Ask Allah first."
+  },
+  {
+    "day": "319",
+    "title": "Decisions need du’a—bring your choice to Allah with sincerity.",
+    "description": "What decision needs istikhara-like reflection and dua? Write it."
+  },
+  {
+    "day": "320",
+    "title": "Du’a requires action—after trusting Allah, name your next step.",
+    "description": "After Dua After making dua, what action step will you take while trusting Allah?"
+  },
+  {
+    "day": "321",
+    "title": "Heart diseases are real—identify what you want Allah to cure.",
+    "description": "What “heart disease” do you want to heal: envy, pride, anger, showing off?"
+  },
+  {
+    "day": "322",
+    "title": "Daily tawbah keeps hearts clean—choose your phrase and moment.",
+    "description": "What is your daily tawbah phrase and moment (after Isha, before sleep, after Fajr)?"
+  },
+  {
+    "day": "323",
+    "title": "Daily dhikr builds steadiness—choose one phrase to commit to.",
+    "description": "What is one dhikr you will commit to daily for the next 7 days?"
+  },
+  {
+    "day": "324",
+    "title": "Qur’an needs a minimum—pick a “non-negotiable” dose you won’t skip.",
+    "description": "What is your minimum Qur’an dose (1 page, 5 minutes, 1 surah) that you won’t skip?"
+  },
+  {
+    "day": "325",
+    "title": "Daily sadaqah is possible—choose a way to give even without money.",
+    "description": "What daily sadaqah can you do even without money (help, smile, dua)?"
+  },
+  {
+    "day": "326",
+    "title": "Weekly upgrades build you—schedule one faith practice you’ll keep.",
+    "description": "What is one weekly “faith upgrade” you will schedule (lesson, masjid, family visit)?"
+  },
+  {
+    "day": "327",
+    "title": "Monthly goals create momentum—choose a worship target to pursue.",
+    "description": "What monthly worship goal do you want (fasting, charity, memorization, volunteering)?"
+  },
+  {
+    "day": "328",
+    "title": "Friendships are paths—invest in the one best for your deen.",
+    "description": "Which friendship is most beneficial for your deen, and how can you invest in it?"
+  },
+  {
+    "day": "329",
+    "title": "Your feed shapes your heart—clean up what raises or lowers iman.",
+    "description": "What accounts/content increase your iman? What decreases it? Clean up today."
+  },
+  {
+    "day": "330",
+    "title": "Evenings decide endings—reflect how you’ll close your nights with Allah.",
+    "description": "What do your evenings usually look like? How can you end them with Allah?"
+  },
+  {
+    "day": "331",
+    "title": "End with shukr—notice today’s sign of Allah’s care.",
+    "description": "What is one thing you’ll remember from today as a sign of Allah’s care?"
+  },
+  {
+    "day": "332",
+    "title": "End with tawbah—name what you want Allah to erase from today.",
+    "description": "What is one thing you want Allah to erase from today?"
+  },
+  {
+    "day": "333",
+    "title": "End with du’a—write with hope for what you want answered.",
+    "description": "What is one dua you want answered soon—write it with full hope."
+  },
+  {
+    "day": "334",
+    "title": "Gentleness with yourself needs taqwa—balance mercy and accountability.",
+    "description": "How can you be gentle with yourself without excusing sin?"
+  },
+  {
+    "day": "335",
+    "title": "Mistakes can teach—reflect on what you learned from one today.",
+    "description": "What mistake taught you something useful today?"
+  },
+  {
+    "day": "336",
+    "title": "Learning is a blessing—thank Allah for self-knowledge that brings you closer.",
+    "description": "What did you learn today about yourself that can bring you closer to Allah?"
+  },
+  {
+    "day": "337",
+    "title": "Plan worship intentionally—name one act you will do tomorrow no matter what.",
+    "description": "What is one worship you will do tomorrow no matter what?"
+  },
+  {
+    "day": "338",
+    "title": "Weekly goals build consistency—choose one spiritual target for this week.",
+    "description": "What is one spiritual goal you want by the end of this week?"
+  },
+  {
+    "day": "339",
+    "title": "A year can transform—describe what practical iman growth you want.",
+    "description": "What do you want your iman to look like in one year, in practical terms?"
+  },
+  {
+    "day": "340",
+    "title": "Picture your meeting with Allah—describe who you want to be then.",
+    "description": "What kind of person do you want to meet Allah as? Describe them."
+  },
+  {
+    "day": "341",
+    "title": "Soft hearts are a gift—choose what softens you fastest and do it.",
+    "description": "What softens you fastest: Qur’an, dua, charity, or serving others? Choose one today."
+  },
+  {
+    "day": "342",
+    "title": "Allah still guiding you is a sign—notice one proof of His mercy.",
+    "description": "What is one sign Allah is still guiding you despite your flaws?"
+  },
+  {
+    "day": "343",
+    "title": "Increase good with wisdom—choose one deed to grow by 10%.",
+    "description": "What is one good deed you can increase by 10% (time, quality, consistency)?"
+  },
+  {
+    "day": "344",
+    "title": "Leaving sin is protection—name one sin you’ll avoid for the next 24 hours.",
+    "description": "What is one sin you will actively avoid for the next 24 hours—be specific."
+  },
+  {
+    "day": "345",
+    "title": "Replace temptation with halal—plan your substitution ahead of time.",
+    "description": "What halal replacement will you use when tempted (walk, dhikr, call a friend, wudu)?"
+  },
+  {
+    "day": "346",
+    "title": "Purify relationships with adab—name what needs more humility and manners.",
+    "description": "What relationship needs more adab and less ego from you?"
+  },
+  {
+    "day": "347",
+    "title": "Surrender the past to Allah—release regret into His mercy.",
+    "description": "What past regret do you need to surrender to Allah’s mercy?"
+  },
+  {
+    "day": "348",
+    "title": "Hope in Allah’s mercy is obligatory—challenge the thought you won’t be forgiven.",
+    "description": "What makes you think Allah won’t forgive you? Write the truth you need instead."
+  },
+  {
+    "day": "349",
+    "title": "Salah structures your life—reflect on how it benefits you daily.",
+    "description": "How does salah structure your day in a beneficial way?"
+  },
+  {
+    "day": "350",
+    "title": "Love shows in obedience—choose one command to honor more lovingly.",
+    "description": "What is one command of Allah you want to honor more lovingly, not grudgingly?"
+  },
+  {
+    "day": "351",
+    "title": "Ask for steadfastness—identify where you need thabat most.",
+    "description": "Ask Allah for thabat—what area needs steadfastness most?"
+  },
+  {
+    "day": "352",
+    "title": "Purity of heart matters—ask Allah to cleanse hypocrisy and pride.",
+    "description": "Ask Allah to purify your heart from hypocrisy and pride—write it."
+  },
+  {
+    "day": "353",
+    "title": "Ask Allah for light—define what “light” means for your life.",
+    "description": "Ask Allah for light in your heart, home, and path—what does “light” mean to you?"
+  },
+  {
+    "day": "354",
+    "title": "Acceptance is humility—ask Allah to accept what you offer sincerely.",
+    "description": "Ask Allah to accept your deeds—what deed do you hope is accepted most?"
+  },
+  {
+    "day": "355",
+    "title": "Fitnah is real—name what worries you and what protection you seek.",
+    "description": "What fitnah worries you most, and what protection do you seek?"
+  },
+  {
+    "day": "356",
+    "title": "Be grateful for today—name one thing you’re truly glad happened.",
+    "description": "What is one thing you’re genuinely glad happened today, even if small?"
+  },
+  {
+    "day": "357",
+    "title": "Plan for sabr—write your next-time protocol for patience.",
+    "description": "What will you do next time patience is tested: pause, breathe, dhikr, silence, dua?"
+  },
+  {
+    "day": "358",
+    "title": "Plan for anger—define your believer’s protocol in three steps.",
+    "description": "What is your “anger protocol” as a believer? Write it in 3 steps."
+  },
+  {
+    "day": "359",
+    "title": "Plan for stress—root your response in faith, not impulse.",
+    "description": "What is your “stress protocol” rooted in faith? Write it in 3 steps."
+  },
+  {
+    "day": "360",
+    "title": "Halal joy is gratitude—celebrate without forgetting Allah.",
+    "description": "How can you celebrate halal joy while remembering Allah?"
+  },
+  {
+    "day": "361",
+    "title": "Carry the Ummah in your heart—choose a daily connection through worship.",
+    "description": "What is one way to keep the Ummah in your heart daily (dua, charity, awareness)?"
+  },
+  {
+    "day": "362",
+    "title": "Protection of iman is a blessing—thank Allah for the temptation you avoided.",
+    "description": "What temptation did Allah help you avoid recently? Thank Him."
+  },
+  {
+    "day": "363",
+    "title": "Don’t delay the good—name the next right step Allah is calling you to now.",
+    "description": "What is the next right step Allah is calling you to take—today, not someday?"
+  },
+  {
+    "day": "364",
+    "title": "Live as if it’s your last—reflect on what you want forgiven and accepted.",
+    "description": "Reflection If today were your last, what would you want Allah to forgive and what would you want Him to accept?"
+  },
+  {
+    "day": "365",
+    "title": "Du’a can summarize your life—write what you want most with full sincerity.",
+    "description": "Write one heartfelt dua summarizing what you want most from Allah in this life and the next."
+  }
+]

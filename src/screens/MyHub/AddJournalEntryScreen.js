@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GradientBackground from '../../components/GradientBackground';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import dailyThemes from '../../data/dailyThemes.json';
 import FirebaseService from '../../services/FirebaseService';
+import notificationImg from '../../../assets/images/notification-bing.png';
 
 const RECENT_ENTRIES = [
     {
@@ -62,13 +63,24 @@ const AddJournalEntryScreen = ({ navigation }) => {
                 const diffTime = today - createdAt;
                 const daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-                // Cycle through 52 themes
-                const index = daysSince % dailyThemes.daily_themes.length;
-                setCurrentTheme(dailyThemes.daily_themes[index]);
+                // Support either an array export or an object with `daily_themes` key.
+                const themesArray = Array.isArray(dailyThemes)
+                    ? dailyThemes
+                    : (dailyThemes?.daily_themes || dailyThemes?.themes || []);
+
+                if (!themesArray || themesArray.length === 0) {
+                    console.warn('dailyThemes is missing or empty', dailyThemes);
+                    setCurrentTheme(null);
+                    return;
+                }
+
+                const index = daysSince % themesArray.length;
+                setCurrentTheme(themesArray[index]);
             } catch (error) {
                 console.error('Error fetching daily theme:', error);
                 // Fallback to first theme
-                setCurrentTheme(dailyThemes.daily_themes[0]);
+                const fallback = Array.isArray(dailyThemes) ? dailyThemes[0] : (dailyThemes?.daily_themes?.[0] || null);
+                setCurrentTheme(fallback);
             }
         };
 
@@ -162,10 +174,9 @@ const AddJournalEntryScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Journal Entry</Text>
-                        <TouchableOpacity style={styles.headerIcon}>
-                            <View style={styles.bellContainer}>
-                                <Ionicons name="notifications" size={24} color={colors.primary.darkSage} />
-                                <View style={styles.notificationDot} />
+                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
+                            <View style={styles.notificationBadge}>
+                                <Image source={notificationImg} style={styles.notificationIcon} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -211,7 +222,7 @@ const AddJournalEntryScreen = ({ navigation }) => {
                                     </View>
 
                                     {/* Entry Title */}
-                                    <Text style={styles.entryTitle}>{currentTheme?.title ? `${currentTheme.title} Reflection` : 'Reflection'}</Text>
+                                    {/* <Text style={styles.entryTitle}>{currentTheme?.title ? `${currentTheme.title} Reflection` : 'Reflection'}</Text> */}
                                 </>
                             ) : (
                                 <>
@@ -288,22 +299,17 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    bellContainer: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        padding: 6,
+    notificationBadge: {
+        width: 40,
+        height: 40,
         borderRadius: 20,
-        position: 'relative',
+        backgroundColor: colors.primary.sage,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    notificationDot: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        width: 8,
-        height: 8,
-        backgroundColor: colors.accent.coral,
-        borderRadius: 4,
-        borderWidth: 1.5,
-        borderColor: '#FFFFFF',
+    notificationIcon: {
+        width: 20,
+        height: 20,
     },
     scrollContent: {
         paddingHorizontal: spacing.lg,
@@ -348,13 +354,14 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(122, 145, 129, 0.1)',
         paddingHorizontal: 16,
         paddingVertical: 6,
-        borderRadius: 20,
+        borderRadius: 5,
         marginBottom: 16,
+
     },
     categoryTagText: {
-        fontSize: 12,
+        fontSize: 14,
         color: '#7A9181',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     promptBox: {
         backgroundColor: 'rgba(255, 255, 255, 0.6)', // Less white, more translucent
@@ -369,6 +376,7 @@ const styles = StyleSheet.create({
         color: colors.text.black,
         lineHeight: 20,
         fontWeight: 'normal',
+        paddingHorizontal: spacing.sm
     },
     entryTitle: {
         fontSize: 16,
@@ -377,7 +385,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     textInput: {
-        backgroundColor: 'rgba(122, 145, 129, 0.08)', // Muted green-grey tint
+        backgroundColor: 'rgba(122, 145, 129, 0.08)',
         borderRadius: 16,
         padding: 16,
         minHeight: 120,

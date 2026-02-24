@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, FlatList, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import GradientBackground from '../../components/GradientBackground';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { SURAHS } from '../../data/surahData';
 import { JUZS } from '../../data/juzData';
+import notificationImg from '../../../assets/images/notification-bing.png';
 
 const QuranScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('Surah');
@@ -124,10 +125,9 @@ const QuranScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Quran</Text>
-                        <TouchableOpacity style={styles.headerIcon}>
-                            <View style={styles.bellContainer}>
-                                <Ionicons name="notifications" size={24} color={colors.primary.darkSage} />
-                                <View style={styles.notificationDot} />
+                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
+                            <View style={styles.notificationBadge}>
+                                <Image source={notificationImg} style={styles.notificationIcon} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -215,22 +215,17 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    bellContainer: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        padding: 6,
+    notificationBadge: {
+        width: 40,
+        height: 40,
         borderRadius: 20,
-        position: 'relative',
+        backgroundColor: colors.primary.sage,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    notificationDot: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        width: 8,
-        height: 8,
-        backgroundColor: colors.accent.coral,
-        borderRadius: 4,
-        borderWidth: 1.5,
-        borderColor: '#FFFFFF',
+    notificationIcon: {
+        width: 20,
+        height: 20,
     },
     scrollContent: {
         paddingHorizontal: spacing.lg,

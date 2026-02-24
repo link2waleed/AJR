@@ -12,6 +12,7 @@ import {
     Alert,
     Modal,
 } from 'react-native';
+import YoutubeIframe from 'react-native-youtube-iframe';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +26,6 @@ import duaData from '../data/dua.json';
 import AJRRings from '../components/AJRRings';
 import { Audio } from 'expo-av';
 import whiteClock from '../../assets/images/white-clock.png';
-import heart from '../../assets/images/heart.png';
 import notifications from '../../assets/images/notification-bing.png';
 import themeChange from '../../assets/images/theme-change.png';
 import darkBackground from '../../assets/images/dark.png';
@@ -68,6 +68,58 @@ const AdhkarItem = ({ title, subtitle, onPress, isLast }) => (
     </TouchableOpacity>
 );
 
+// YouTube Player Modal Component
+const YouTubeModal = ({ visible, videoId, title, onClose }) => {
+    const [playing, setPlaying] = useState(false);
+
+    // Auto-play when modal opens, pause when closes
+    useEffect(() => {
+        if (visible) {
+            setPlaying(true);
+        } else {
+            setPlaying(false);
+        }
+    }, [visible]);
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={styles.ytModalOverlay}>
+                <View style={styles.ytModalContainer}>
+                    {/* Header */}
+                    <View style={styles.ytModalHeader}>
+                        <Text style={styles.ytModalTitle} numberOfLines={1}>{title}</Text>
+                        <TouchableOpacity
+                            onPress={() => { setPlaying(false); onClose(); }}
+                            style={styles.ytCloseButton}
+                        >
+                            <Ionicons name="close" size={22} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* YouTube Player */}
+                    <View style={styles.ytVideoWrapper}>
+                        {visible && (
+                            <YoutubeIframe
+                                height={screenWidth * (9 / 16)}
+                                width={screenWidth}
+                                videoId={videoId}
+                                play={playing}
+                                onChangeState={(state) => {
+                                    if (state === 'ended') setPlaying(false);
+                                }}
+                                webViewProps={{
+                                    androidLayerType: 'hardware',
+                                }}
+                            />
+                        )}
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+
 // Audio Player Modal Component
 const AudioPlayerModal = ({ visible, title, onClose }) => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -84,14 +136,14 @@ const AudioPlayerModal = ({ visible, title, onClose }) => {
     };
 
     // Get audio URI based on title
-    const getAudioUri = () => {
-        if (title === 'Morning Adhkar') {
-            return require('../../src/data/morning-adkar.mp4');
-        } else if (title === 'Evening Adhkar') {
-            return require('../../src/data/evening-adkar.mp4');
-        }
-        return null;
-    };
+    // const getAudioUri = () => {
+    //     if (title === 'Morning Adhkar') {
+    //         return require('../../src/data/morning-adkar.mp4');
+    //     } else if (title === 'Evening Adhkar') {
+    //         return require('../../src/data/evening-adkar.mp4');
+    //     }
+    //     return null;
+    // };
 
     // Cleanup and unload audio
     const cleanupAudio = async () => {
@@ -272,6 +324,16 @@ const HomeScreen = ({ navigation }) => {
     const [duaExpanded, setDuaExpanded] = useState(false);
     const [audioPlayerVisible, setAudioPlayerVisible] = useState(false);
     const [selectedAdhkar, setSelectedAdhkar] = useState('');
+    // YouTube modal state
+    const [ytModalVisible, setYtModalVisible] = useState(false);
+    const [ytVideoId, setYtVideoId] = useState('');
+    const [ytModalTitle, setYtModalTitle] = useState('');
+
+    const openYouTube = (videoId, title) => {
+        setYtVideoId(videoId);
+        setYtModalTitle(title);
+        setYtModalVisible(true);
+    };
     const [todayDua, setTodayDua] = useState(null);
     const [isDuaSaved, setIsDuaSaved] = useState(false);
     const [savedDuaId, setSavedDuaId] = useState(null);
@@ -485,7 +547,10 @@ const HomeScreen = ({ navigation }) => {
             if (onboardingData.dikar && Array.isArray(onboardingData.dikar)) {
                 const totalGoal = onboardingData.dikar.reduce((sum, dhikr) => sum + (dhikr.counter || 0), 0);
                 const dhikrProgress = await FirebaseService.getDhikrProgress();
-                const totalCompleted = Object.values(dhikrProgress).reduce((sum, count) => sum + count, 0);
+                // Cap each dhikr at its own target to prevent overflow counting
+                const totalCompleted = onboardingData.dikar.reduce((sum, item) => {
+                    return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                }, 0);
                 setDhikrStats({ totalGoal, totalCompleted });
             }
         } catch (e) {
@@ -546,7 +611,10 @@ const HomeScreen = ({ navigation }) => {
                     // Fetch dhikr progress once
                     FirebaseService.getDhikrProgress()
                         .then((dhikrProgress) => {
-                            const totalCompleted = Object.values(dhikrProgress).reduce((sum, count) => sum + count, 0);
+                            // Cap each dhikr at its own target to prevent overflow counting
+                            const totalCompleted = data.dikar.reduce((sum, item) => {
+                                return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                            }, 0);
                             setDhikrStats(prev => ({
                                 ...prev,
                                 totalCompleted
@@ -730,7 +798,7 @@ const HomeScreen = ({ navigation }) => {
                     <Text style={[styles.userName, { color: themeColors.userName }]}>{displayData.name}</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.headerIconButton}>
+                    <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Notifications')}>
                         <View style={styles.notificationBadge}>
                             <Image source={notifications} style={styles.notificationIcon} />
                         </View>
@@ -891,19 +959,13 @@ const HomeScreen = ({ navigation }) => {
                         <AdhkarItem
                             title="Morning Adhkar"
                             subtitle="A moment of remembrance to begin your day"
-                            onPress={() => {
-                                setSelectedAdhkar('Morning Adhkar');
-                                setAudioPlayerVisible(true);
-                            }}
+                            onPress={() => openYouTube('P8EIBksC0MA', 'Morning Adhkar')}
                             isLast={false}
                         />
                         <AdhkarItem
                             title="Evening Adhkar"
                             subtitle="A gentle closing of the day in remembrance"
-                            onPress={() => {
-                                setSelectedAdhkar('Evening Adhkar');
-                                setAudioPlayerVisible(true);
-                            }}
+                            onPress={() => openYouTube('fQUbhEHetks', 'Evening Adhkar')}
                             isLast={true}
                         />
                     </View>
@@ -999,6 +1061,12 @@ const HomeScreen = ({ navigation }) => {
                     title={selectedAdhkar}
                     onClose={() => setAudioPlayerVisible(false)}
                 />
+                <YouTubeModal
+                    visible={ytModalVisible}
+                    videoId={ytVideoId}
+                    title={ytModalTitle}
+                    onClose={() => setYtModalVisible(false)}
+                />
             </>
         );
     }
@@ -1016,6 +1084,12 @@ const HomeScreen = ({ navigation }) => {
                 visible={audioPlayerVisible}
                 title={selectedAdhkar}
                 onClose={() => setAudioPlayerVisible(false)}
+            />
+            <YouTubeModal
+                visible={ytModalVisible}
+                videoId={ytVideoId}
+                title={ytModalTitle}
+                onClose={() => setYtModalVisible(false)}
             />
         </>
     );
@@ -1299,7 +1373,7 @@ const styles = StyleSheet.create({
     ringsCard: {
         backgroundColor: colors.primary.light,
         borderRadius: borderRadius.lg,
-        padding: spacing.sm,
+        padding: spacing.md,
         marginBottom: spacing.sm,
         borderWidth: 1.5,
         borderColor: '#fff',
@@ -1308,34 +1382,34 @@ const styles = StyleSheet.create({
         fontSize: isSmallDevice ? 16 : 18,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
-        paddingHorizontal: spacing.lg,
-
+        paddingHorizontal: spacing.xs,
     },
     ringsDivider: {
         height: 1,
         backgroundColor: colors.border.grey,
         marginTop: spacing.sm,
-        marginBottom: spacing.md,
-
+        marginBottom: spacing.sm,
     },
     ringsContent: {
         flexDirection: 'row',
-        alignItems: 'space-between',
-        justifyContent: 'flex-start',
-        gap: spacing.xs,
-
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: spacing.xs,
+        gap: spacing.xs
     },
     legendContainer: {
         flex: 1,
-        marginLeft: null,
-
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        padding: spacing.xs,
     },
     legendItem: {
         flexDirection: 'row',
-        alignItems: 'start',
-        marginBottom: spacing.sm,
-        paddingBottom: spacing.lg,
-        flexWrap: 'wrap',
+        alignItems: "center",
+        paddingVertical: spacing.xs,
+        marginBottom: spacing.xs,
+        flexWrap: "nowrap",
+        width: '100%',
     },
     legendCheck: {
         width: 18,
@@ -1344,10 +1418,10 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: spacing.sm,
+        marginRight: spacing.xxs,
     },
     legendLabel: {
-        fontSize: isSmallDevice ? 12 : 13,
+        fontSize: isSmallDevice ? 10 : 12,
         color: colors.text.black,
         flexShrink: 1,
     },
@@ -1460,6 +1534,51 @@ const styles = StyleSheet.create({
     audioSlider: {
         width: '100%',
         height: 40,
+    },
+
+    ytModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        justifyContent: 'flex-end',
+    },
+    ytModalContainer: {
+        backgroundColor: '#1a1a1a',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        overflow: 'hidden',
+        paddingBottom: 20,
+    },
+    ytModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: '#111',
+    },
+    ytModalTitle: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        flex: 1,
+        marginRight: 10,
+    },
+    ytCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    ytVideoWrapper: {
+        width: '100%',
+        height: screenWidth * (9 / 16), // 16:9 aspect ratio
+        backgroundColor: '#000',
+    },
+    ytWebView: {
+        flex: 1,
+        backgroundColor: '#000',
     },
 });
 

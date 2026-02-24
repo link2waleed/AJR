@@ -22,6 +22,7 @@ import BrandLogo from '../components/BrandLogo';
 import { colors, typography, spacing } from '../theme';
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -51,6 +52,32 @@ const SignInScreen = ({ navigation }) => {
         });
     }, []);
 
+    const navigateAfterAuth = async () => {
+        try {
+            const userData = await FirebaseService.getUserRootData();
+            if (userData['onboarding-process'] === true) {
+                // Onboarding not finished – resume from Name screen
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Name' }],
+                });
+            } else {
+                // Onboarding complete – go to main app
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainApp' }],
+                });
+            }
+        } catch (error) {
+            console.error('Post-auth navigation error:', error);
+            // If user root document does not exist yet, treat as new user and start onboarding
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Name' }],
+            });
+        }
+    };
+
     const handleSignIn = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please enter email and password');
@@ -61,8 +88,8 @@ const SignInScreen = ({ navigation }) => {
         try {
             const userCredential = await auth().signInWithEmailAndPassword(email, password);
             console.log('User signed in:', userCredential.user);
-            // Navigate to onboarding flow after sign in
-            navigation.navigate('MainApp');
+            // Navigate based on onboarding status
+            await navigateAfterAuth();
         } catch (error) {
             console.error('Sign in error:', error);
             let errorMessage = 'Failed to sign in';
@@ -122,9 +149,8 @@ const SignInScreen = ({ navigation }) => {
             const userCredential = await auth().signInWithCredential(googleCredential);
             console.log('User signed in with Google:', userCredential.user.email);
 
-            // Navigate to onboarding flow after sign in
-            navigation.navigate('MainApp');
-            Alert.alert('Success', `Signed in with Google: ${userCredential.user.email}`);
+            // Navigate based on onboarding status
+            await navigateAfterAuth();
         } catch (error) {
             console.error('Google sign in error:', error);
             console.error('Error code:', error.code);

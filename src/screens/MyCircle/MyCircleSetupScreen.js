@@ -38,11 +38,11 @@ const MyCircleSetupScreen = ({ navigation }) => {
         <View style={styles.container}>
             {/* Back Button */}
             <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="arrow-back" size={24} color={colors.text.black} />
-                </TouchableOpacity>
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+            >
+                <Ionicons name="arrow-back" size={24} color={colors.text.black} />
+            </TouchableOpacity>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -69,7 +69,7 @@ const MyCircleSetupScreen = ({ navigation }) => {
                             <Image source={createCircleIcon} style={{ width: 24, height: 24 }} resizeMode="contain" />
                         </View>
                         <Text style={styles.optionLabel}>Create Circle</Text>
-                        <Ionicons name="chevron-forward" size={22} color={colors.text.grey} />
+                        {/* <Ionicons name="chevron-forward" size={22} color={colors.text.grey} /> */}
                     </TouchableOpacity>
 
                     {/* Join Circle */}
@@ -82,7 +82,7 @@ const MyCircleSetupScreen = ({ navigation }) => {
                             <Image source={joinCircleIcon} style={{ width: 24, height: 24 }} resizeMode="contain" />
                         </View>
                         <Text style={styles.optionLabel}>Join Circle</Text>
-                        <Ionicons name="chevron-forward" size={22} color={colors.text.grey} />
+                        {/* <Ionicons name="chevron-forward" size={22} color={colors.text.grey} /> */}
                     </TouchableOpacity>
                 </View>
 
@@ -93,7 +93,7 @@ const MyCircleSetupScreen = ({ navigation }) => {
             {/* Skip Button */}
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.skipButtonFull} onPress={handleSkip}>
-                    <Text style={styles.skipText}>Skip</Text>
+                    <Text style={styles.skipText}>Continue</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
             </View>

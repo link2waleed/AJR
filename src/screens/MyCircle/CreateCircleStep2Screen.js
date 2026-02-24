@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,10 +7,14 @@ import {
     ScrollView,
     Dimensions,
     Image,
+    Alert,
+    ActivityIndicator,
+    TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import FirebaseService from '../../services/FirebaseService';
 
 // Import assets
 import notifications from '../../../assets/images/notification-bing.png';
@@ -75,11 +79,39 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
     const circleType = route?.params?.circleType || 'named';
     const circleTypeName = circleType === 'named' ? 'Named' : 'Anonymous';
 
-    const handleCreateCircle = () => {
-        // TODO: Implement circle creation logic with Firebase
-        console.log('Creating circle:', { type: circleType });
-        // Navigate back to MyCircle screen after creation
-        navigation.navigate('MainApp', { screen: 'My Circle' });
+    const [circleName, setCircleName] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [remainingSlots, setRemainingSlots] = useState(3);
+
+    // Fetch remaining circle slots on mount
+    useEffect(() => {
+        const fetchSlots = async () => {
+            try {
+                const circles = await FirebaseService.getUserCircles();
+                setRemainingSlots(Math.max(0, 3 - circles.length));
+            } catch (e) {
+                console.warn('Could not fetch circle count:', e);
+            }
+        };
+        fetchSlots();
+    }, []);
+
+    const handleCreateCircle = async () => {
+        if (!circleName.trim()) {
+            Alert.alert('Circle Name', 'Please enter a name for your circle.');
+            return;
+        }
+        setLoading(true);
+        try {
+            await FirebaseService.createCircle(circleName.trim(), circleType);
+            Alert.alert('Success', 'Your circle has been created!', [
+                { text: 'OK', onPress: () => navigation.navigate('MainApp', { screen: 'MyCircle' }) },
+            ]);
+        } catch (error) {
+            Alert.alert('Error', error.message || 'Failed to create circle. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCancel = () => {
@@ -108,7 +140,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
 
                     <Text style={styles.headerTitle}>Create Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton}>
+                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
                         <View style={styles.notificationBadge}>
                             <Image source={notifications} style={styles.notificationIcon} />
                         </View>
@@ -118,13 +150,28 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
                 {/* Step Indicator */}
                 <StepIndicator currentStep={2} totalSteps={2} />
 
+                {/* Circle Name Input */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Circle name</Text>
+                    <View style={styles.nameInputContainer}>
+                        <TextInput
+                            style={styles.nameInput}
+                            placeholder="Enter circle name"
+                            placeholderTextColor={colors.text.grey}
+                            value={circleName}
+                            onChangeText={setCircleName}
+                            maxLength={30}
+                        />
+                    </View>
+                </View>
+
                 {/* Circle Summary Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Circle summary</Text>
                     <View style={styles.summaryCard}>
                         <SummaryRow label="Circle Type:" value={circleTypeName} />
                         <SummaryRow label="Member limit:" value="10" />
-                        <SummaryRow label="Your remaining Circle slots:" value="3" isLast />
+                        <SummaryRow label="Your remaining Circle slots:" value={String(remainingSlots)} isLast />
                     </View>
                 </View>
 
@@ -162,9 +209,15 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
                     <Ionicons name="arrow-forward" size={18} color={colors.text.dark} />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.createButton} onPress={handleCreateCircle}>
-                    <Text style={styles.createButtonText}>Create Circle</Text>
-                    <Ionicons name="arrow-forward" size={18} color={colors.text.primary} />
+                <TouchableOpacity style={[styles.createButton, loading && { opacity: 0.7 }]} onPress={handleCreateCircle} disabled={loading}>
+                    {loading ? (
+                        <ActivityIndicator size="small" color={colors.text.primary} />
+                    ) : (
+                        <>
+                            <Text style={styles.createButtonText}>Create Circle</Text>
+                            <Ionicons name="arrow-forward" size={18} color={colors.text.primary} />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </LinearGradient>
@@ -181,7 +234,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: horizontalPadding,
         paddingTop: screenHeight * 0.06,
-        paddingBottom: spacing.xxl * 4,
+        paddingBottom: spacing.xxl * 3,
     },
     // Header
     header: {
@@ -305,7 +358,7 @@ const styles = StyleSheet.create({
     circlesImageContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: spacing.lg,
+        paddingVertical: spacing.xl,
     },
     circlesImage: {
         width: screenWidth * 0.5,
@@ -314,13 +367,13 @@ const styles = StyleSheet.create({
     // Member Info
     memberInfoContainer: {
         alignItems: 'center',
-        marginBottom: spacing.md,
+        marginBottom: spacing.xxl,
     },
     memberInfoTitle: {
         fontSize: isSmallDevice ? 15 : 17,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
-        marginBottom: spacing.xxs,
+        marginBottom: spacing.xs,
     },
     memberInfoSubtitle: {
         fontSize: typography.fontSize.sm,
@@ -384,6 +437,20 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.md,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.primary,
+    },
+    // Circle Name Input
+    nameInputContainer: {
+        backgroundColor: colors.primary.light,
+        borderRadius: borderRadius.lg,
+        borderWidth: 1.5,
+        borderColor: '#fff',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+    },
+    nameInput: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.black,
+        paddingVertical: spacing.sm,
     },
 });
 

@@ -26,10 +26,34 @@ const PrayerTimesScreen = ({ navigation }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedSchool, setSelectedSchool] = useState(1); // 0 = Shafi, 1 = Hanafi
+    const schoolLoadedRef = React.useRef(false);
 
     useEffect(() => {
-        loadPrayerTimes(selectedDate);
-    }, [selectedDate, selectedSchool]);
+        // Load school preference and prayer times only once on mount
+        const initializeScreen = async () => {
+            try {
+                const school = await StorageService.getSchoolPreference();
+                setSelectedSchool(school);
+                schoolLoadedRef.current = true;
+                setLoading(true);
+                await loadPrayerTimes(new Date(), school);
+            } catch (error) {
+                console.error('Error initializing screen:', error);
+                schoolLoadedRef.current = true;
+                setLoading(true);
+                await loadPrayerTimes(new Date(), 1);
+            }
+        };
+        
+        initializeScreen();
+    }, []);
+
+    useEffect(() => {
+        // Only reload prayer times when selected date changes (not on mount/school change)
+        if (schoolLoadedRef.current && selectedDate) {
+            loadPrayerTimes(selectedDate);
+        }
+    }, [selectedDate]);
 
     // Update current time every second for countdown
     useEffect(() => {
@@ -40,7 +64,7 @@ const PrayerTimesScreen = ({ navigation }) => {
         return () => clearInterval(timer);
     }, []);
 
-    const loadPrayerTimes = async (date = new Date()) => {
+    const loadPrayerTimes = async (date = new Date(), schoolOverride = null) => {
         try {
             setLoading(true);
             console.log('🕌 Starting to load prayer times for date:', date.toDateString());
@@ -78,7 +102,7 @@ const PrayerTimesScreen = ({ navigation }) => {
 
             // Fetch prayer times for specific date
             console.log('Fetching prayer times from API...');
-            const data = await PrayerTimeService.getCompletePrayerData(lat, lng, date, selectedSchool);
+            const data = await PrayerTimeService.getCompletePrayerData(lat, lng, date, schoolOverride ?? selectedSchool);
             console.log('Prayer data received:', data);
 
             if (!data) {
@@ -239,19 +263,8 @@ const PrayerTimesScreen = ({ navigation }) => {
             }
         };
 
-        const loadSchoolPreference = async () => {
-            try {
-                const school = await StorageService.getSchoolPreference();
-                setSelectedSchool(school);
-                console.log('🕌 Loaded school preference:', school === 0 ? 'Shafi' : 'Hanafi');
-            } catch (error) {
-                console.error('Error loading school preference:', error);
-            }
-        };
-
         loadPrayerCompletion();
         loadPreferences();
-        loadSchoolPreference();
 
         // Listen to real-time updates
         const unsubscribe = FirebaseService.listenToPrayerCompletion(
@@ -472,40 +485,7 @@ const PrayerTimesScreen = ({ navigation }) => {
                             <Text style={styles.addAlarmText}>Alarm</Text>
                         </TouchableOpacity> */}
 
-                        {/* School Selection */}
-                        <View style={styles.schoolSelectionContainer}>
-                            <Text style={styles.schoolSelectionLabel}>Prayer School</Text>
-                            <View style={styles.schoolButtonsContainer}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.schoolButton,
-                                        selectedSchool === 0 && styles.schoolButtonActive
-                                    ]}
-                                    onPress={() => handleSchoolChange(0)}
-                                >
-                                    <Text style={[
-                                        styles.schoolButtonText,
-                                        selectedSchool === 0 && styles.schoolButtonTextActive
-                                    ]}>
-                                        Shafi
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.schoolButton,
-                                        selectedSchool === 1 && styles.schoolButtonActive
-                                    ]}
-                                    onPress={() => handleSchoolChange(1)}
-                                >
-                                    <Text style={[
-                                        styles.schoolButtonText,
-                                        selectedSchool === 1 && styles.schoolButtonTextActive
-                                    ]}>
-                                        Hanafi
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+
                     </ScrollView>
                 </View>
             </SafeAreaView>
@@ -519,6 +499,7 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
+        paddingTop: spacing.xl,
     },
     loadingContainer: {
         flex: 1,
@@ -758,49 +739,6 @@ const styles = StyleSheet.create({
     inlineLoadingText: {
         fontSize: typography.fontSize.sm,
         color: colors.text.grey,
-    },
-    schoolSelectionContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 0.75)',
-        borderRadius: borderRadius.lg,
-        padding: spacing.md,
-        marginBottom: spacing.md,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.4)',
-    },
-    schoolSelectionLabel: {
-        fontSize: typography.fontSize.md,
-        fontWeight: typography.fontWeight.semibold,
-        color: colors.text.black,
-        marginBottom: spacing.md,
-        textAlign: 'center',
-    },
-    schoolButtonsContainer: {
-        flexDirection: 'row',
-        gap: spacing.md,
-        justifyContent: 'center',
-    },
-    schoolButton: {
-        flex: 1,
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.lg,
-        borderRadius: borderRadius.md,
-        backgroundColor: 'rgba(122, 158, 127, 0.1)',
-        borderWidth: 2,
-        borderColor: colors.primary.darkSage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    schoolButtonActive: {
-        backgroundColor: colors.primary.darkSage,
-        borderColor: colors.primary.darkSage,
-    },
-    schoolButtonText: {
-        fontSize: typography.fontSize.md,
-        fontWeight: typography.fontWeight.semibold,
-        color: colors.primary.darkSage,
-    },
-    schoolButtonTextActive: {
-        color: '#FFFFFF',
     },
 });
 

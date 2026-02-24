@@ -13,7 +13,7 @@ export { default as SelectActivitiesScreen } from './SelectActivitiesScreen';
 export { default as PrayerSetupScreen } from './PrayerSetupScreen';
 export { default as QuranGoalScreen } from './QuranGoalScreen';
 export { default as DhikrGoalScreen } from './DhikrGoalScreen';
-export { default as MyCircleSetupScreen } from './MyCircle/MyCircleSetupScreen';
+
 export { default as SubscriptionScreen } from './SubscriptionScreen';
 export { default as FinalSetupScreen } from './FinalSetupScreen';
 
@@ -40,4 +40,4 @@ export { default as AddOrganizationScreen } from './MyHub/AddOrganizationScreen'
 export { default as AddDonationScreen } from './MyHub/AddDonationScreen';
 export { default as QiblaFinderScreen } from './MyHub/QiblaFinderScreen';
 export { default as PrayerTimesScreen } from './MyHub/PrayerTimesScreen';
-
+export { default as NotificationsScreen } from './NotificationsScreen';

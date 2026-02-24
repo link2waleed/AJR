@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import GradientBackground from '../../components/GradientBackground';
 import RowItem from '../../components/RowItem';
 import { colors, spacing, typography, borderRadius } from '../../theme';
+import notificationImg from '../../../assets/images/notification-bing.png';
 
 // Icons matching the design
 const IMAGES = {
@@ -60,10 +61,9 @@ const MyClubScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>MyHub</Text>
-                        <TouchableOpacity style={styles.headerIcon}>
-                            <View style={styles.bellContainer}>
-                                <Ionicons name="notifications" size={24} color={colors.primary.darkSage} />
-                                <View style={styles.notificationDot} />
+                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
+                            <View style={styles.notificationBadge}>
+                                <Image source={notificationImg} style={styles.notificationIcon} />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -124,22 +124,17 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    bellContainer: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        padding: 6,
+    notificationBadge: {
+        width: 40,
+        height: 40,
         borderRadius: 20,
-        position: 'relative',
+        backgroundColor: colors.primary.sage,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    notificationDot: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        width: 8,
-        height: 8,
-        backgroundColor: colors.accent.coral,
-        borderRadius: 4,
-        borderWidth: 1.5,
-        borderColor: '#FFFFFF',
+    notificationIcon: {
+        width: 20,
+        height: 20,
     },
     listContent: {
         paddingHorizontal: spacing.lg,

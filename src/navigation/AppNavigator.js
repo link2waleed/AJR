@@ -18,7 +18,6 @@ import {
     PrayerSetupScreen,
     QuranGoalScreen,
     DhikrGoalScreen,
-    MyCircleSetupScreen,
     SubscriptionScreen,
     FinalSetupScreen,
 
@@ -39,6 +38,7 @@ import {
     AddDonationScreen,
     QiblaFinderScreen,
     PrayerTimesScreen,
+    NotificationsScreen,
 } from '../screens';
 
 import BottomTabNavigator from './BottomTabNavigator';
@@ -76,7 +76,6 @@ const AppNavigator = () => {
                 <Stack.Screen name="PrayerSetup" component={PrayerSetupScreen} />
                 <Stack.Screen name="QuranGoal" component={QuranGoalScreen} />
                 <Stack.Screen name="DhikrGoal" component={DhikrGoalScreen} />
-                <Stack.Screen name="MyCircleSetup" component={MyCircleSetupScreen} />
 
                 {/* ================= FINAL ONBOARDING ================= */}
                 <Stack.Screen name="Subscription" component={SubscriptionScreen} />
@@ -120,10 +119,8 @@ const AppNavigator = () => {
                     name="QiblaFinder"
                     component={QiblaFinderScreen}
                 />
-                <Stack.Screen
-                    name="PrayerTimes"
-                    component={PrayerTimesScreen}
-                />
+                <Stack.Screen name="PrayerTimes" component={PrayerTimesScreen} />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

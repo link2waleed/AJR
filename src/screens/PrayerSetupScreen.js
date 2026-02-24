@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import FirebaseService from '../services/FirebaseService';
+import NotificationService from '../services/NotificationService';
+import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import volumeImage from '../../assets/images/volume.png';
 import fajrIcon from '../../assets/images/fajr.png';
 import duhurIcon from '../../assets/images/duhur.png';
@@ -33,16 +35,6 @@ const prayers = [
     { id: 'isha', name: 'Isha', icon: ishaIcon },
 ];
 
-/**
- * Sound mode options for prayer notifications
- * Each mode determines how the app notifies the user at prayer time
- * 
- * TODO: Future integration for each mode:
- * - 'athan': Play the selected Athan audio file
- * - 'beep': Play a short notification beep sound
- * - 'vibration': Trigger device vibration pattern
- * - 'silent': No sound or vibration, only visual notification
- */
 const SOUND_MODES = [
     { id: 'athan', label: 'Athan', icon: 'volume-high-outline', description: 'Full Athan call to prayer' },
     { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short notification sound' },
@@ -54,11 +46,7 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
     // Get current sound mode details
     const currentSoundMode = SOUND_MODES.find(mode => mode.id === settings.soundMode) || SOUND_MODES[0];
 
-    /**
-     * Cycle to next sound mode
-     * TODO: Add haptic feedback when cycling modes
-     * TODO: Play preview sound for audio modes (athan, beep)
-     */
+
     const handleSoundModePress = () => {
         const currentIndex = SOUND_MODES.findIndex(mode => mode.id === settings.soundMode);
         const nextIndex = (currentIndex + 1) % SOUND_MODES.length;
@@ -157,32 +145,28 @@ const PrayerSetupScreen = ({ navigation, route }) => {
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [showPermModal, setShowPermModal] = useState(false);
 
     const handleToggleExpand = (prayerId) => {
         setExpandedPrayer(expandedPrayer === prayerId ? null : prayerId);
     };
 
-    const handleSettingChange = (prayerId, setting, value) => {
+    const handleSettingChange = async (prayerId, setting, value) => {
+        if (setting === 'enabled' && value === true) {
+            const granted = await NotificationService.requestPermissions();
+            if (!granted) {
+                setShowPermModal(true);
+                return;
+            }
+        }
         setPrayerSettings(prev => ({
             ...prev,
             [prayerId]: { ...prev[prayerId], [setting]: value }
         }));
-
-        // Auto-expand when prayer is enabled
         if (setting === 'enabled' && value === true) {
             setExpandedPrayer(prayerId);
         }
     };
-
-    /**
-     * Handle sound mode change for a specific prayer
-     * Cycles through: Athan -> Beep -> Vibration -> Silent -> Athan...
-     * 
-     * TODO: Future integration:
-     * - Store selected sound mode in persistent storage
-     * - Configure notification sound based on mode
-     * - Add haptic feedback on mode change
-     */
     const handleSoundModeChange = (prayerId, newMode) => {
         setPrayerSettings(prev => ({
             ...prev,
@@ -196,11 +180,11 @@ const PrayerSetupScreen = ({ navigation, route }) => {
         try {
             // Save prayer settings to Firebase
             await FirebaseService.savePrayerSettings({
-                fajr: prayerSettings.fajr.enabled,
-                dhuhr: prayerSettings.duhur.enabled,
-                asr: prayerSettings.asr.enabled,
-                maghrib: prayerSettings.mughrib.enabled,
-                isha: prayerSettings.isha.enabled,
+                fajr: { enabled: prayerSettings.fajr.enabled, athanEnabled: prayerSettings.fajr.athanEnabled, reminderEnabled: prayerSettings.fajr.reminderEnabled },
+                dhuhr: { enabled: prayerSettings.duhur.enabled, athanEnabled: prayerSettings.duhur.athanEnabled, reminderEnabled: prayerSettings.duhur.reminderEnabled },
+                asr: { enabled: prayerSettings.asr.enabled, athanEnabled: prayerSettings.asr.athanEnabled, reminderEnabled: prayerSettings.asr.reminderEnabled },
+                maghrib: { enabled: prayerSettings.mughrib.enabled, athanEnabled: prayerSettings.mughrib.athanEnabled, reminderEnabled: prayerSettings.mughrib.reminderEnabled },
+                isha: { enabled: prayerSettings.isha.enabled, athanEnabled: prayerSettings.isha.athanEnabled, reminderEnabled: prayerSettings.isha.reminderEnabled },
                 soundMode: prayerSettings.fajr.soundMode,
             });
             // Navigate to next selected activity
@@ -210,9 +194,9 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                 navigation.navigate('DhikrGoal', { activities, fromSettings });
             } else if (activities.journaling === 'yes') {
                 await FirebaseService.saveJournalingGoals(true);
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
             } else {
-                navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+                navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
             }
         } catch (error) {
             console.error('Error saving prayer settings:', error);
@@ -231,9 +215,9 @@ const PrayerSetupScreen = ({ navigation, route }) => {
             navigation.navigate('DhikrGoal', { activities, fromSettings });
         } else if (activities.journaling === 'yes') {
             await FirebaseService.saveJournalingGoals(true);
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+            navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
         } else {
-            navigation.navigate(fromSettings ? 'FinalSetup' : 'MyCircleSetup', { activities, fromSettings });
+            navigation.navigate(fromSettings ? 'FinalSetup' : 'Subscription', { activities, fromSettings });
         }
     };
 
@@ -300,6 +284,12 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                     disabled={loading}
                 />
             </View>
+
+            {/* Permission Modal */}
+            <NotificationPermissionModal
+                visible={showPermModal}
+                onClose={() => setShowPermModal(false)}
+            />
         </View>
     );
 };

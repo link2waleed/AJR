@@ -8,19 +8,27 @@ import {
     Image,
     Dimensions,
     Switch,
-    Alert
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
+import StorageService from '../services/StorageService';
+import NotificationService from '../services/NotificationService';
+import NotificationPermissionModal from '../components/NotificationPermissionModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const SettingItem = ({ icon, title, subtitle, onPress, showArrow = true, rightComponent }) => (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+        style={styles.settingItem}
+        onPress={showArrow && !rightComponent ? onPress : undefined}
+        activeOpacity={0.7}
+        disabled={!showArrow || rightComponent}
+    >
         <View style={styles.settingIconContainer}>
             <Ionicons name={icon} size={22} color={colors.primary.sage} />
         </View>
@@ -41,8 +49,10 @@ const SectionHeader = ({ title }) => (
 const ProfileScreen = ({ navigation }) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+    const [selectedSchool, setSelectedSchool] = useState(1); // 0 = Shafi, 1 = Hanafi
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showPermModal, setShowPermModal] = useState(false);
 
     useEffect(() => {
         const unsubscribe = auth().onAuthStateChanged(async (user) => {
@@ -104,7 +114,77 @@ const ProfileScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
+    // Load Prayer School preference on mount
+    useEffect(() => {
+        const loadSchoolPreference = async () => {
+            try {
+                const school = await StorageService.getSchoolPreference();
+                setSelectedSchool(school);
+                console.log('🕌 Loaded school preference:', school === 0 ? 'Shafi' : 'Hanafi');
+            } catch (error) {
+                console.error('Error loading school preference:', error);
+            }
+        };
 
+        loadSchoolPreference();
+    }, []);
+
+    // Load notification toggle state from AsyncStorage
+    useEffect(() => {
+        const loadNotifState = async () => {
+            try {
+                const saved = await StorageService.getPermissionStatus();
+                // re-use 'notifGlobalEnabled' key stored separately
+                const raw = await require('@react-native-async-storage/async-storage').default.getItem('@ajr_notif_global');
+                if (raw !== null) setNotificationsEnabled(JSON.parse(raw));
+            } catch (e) { }
+        };
+        loadNotifState();
+    }, []);
+
+    // Handle notification master toggle
+    const handleNotificationToggle = async (value) => {
+        if (value) {
+            const granted = await NotificationService.requestPermissions();
+            if (!granted) {
+                setShowPermModal(true);
+                return;
+            }
+        }
+        setNotificationsEnabled(value);
+        try {
+            await require('@react-native-async-storage/async-storage').default.setItem('@ajr_notif_global', JSON.stringify(value));
+
+            if (!value) {
+                await NotificationService.cancelAllPrayerNotifications();
+                console.log('ProfileScreen: all notifications cancelled');
+            } else {
+                const info = await FirebaseService.getOnboardingInfo();
+                const timings = await StorageService.getFullTimings();
+                const prayer = info?.prayer;
+                if (prayer && timings) {
+                    const parsePrayer = (val) => {
+                        if (val && typeof val === 'object') return val;
+                        return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true };
+                    };
+                    await NotificationService.schedulePrayerNotifications(
+                        {
+                            fajr: parsePrayer(prayer.fajr),
+                            duhur: parsePrayer(prayer.dhuhr),
+                            asr: parsePrayer(prayer.asr),
+                            mughrib: parsePrayer(prayer.maghrib),
+                            isha: parsePrayer(prayer.isha),
+                            soundMode: prayer.soundMode || 'athan',
+                        },
+                        timings
+                    );
+                    console.log('ProfileScreen: notifications re-enabled and rescheduled');
+                }
+            }
+        } catch (err) {
+            console.error('ProfileScreen: handleNotificationToggle error', err);
+        }
+    };
 
     const handleLogout = () => {
         Alert.alert(
@@ -129,7 +209,13 @@ const ProfileScreen = ({ navigation }) => {
         );
     };
 
-    return (
+    const handleSchoolChange = async (school) => {
+        setSelectedSchool(school);
+        await StorageService.saveSchoolPreference(school);
+        console.log('🕌 School preference changed to:', school === 0 ? 'Shafi' : 'Hanafi');
+    };
+
+    return (<>
         <View style={styles.container}>
             <ScrollView
                 style={styles.scrollView}
@@ -195,7 +281,7 @@ const ProfileScreen = ({ navigation }) => {
                         rightComponent={
                             <Switch
                                 value={notificationsEnabled}
-                                onValueChange={setNotificationsEnabled}
+                                onValueChange={handleNotificationToggle}
                                 trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
                                 thumbColor="#FFFFFF"
                                 ios_backgroundColor="#E0E0E0"
@@ -209,6 +295,44 @@ const ProfileScreen = ({ navigation }) => {
                         onPress={() => navigation.navigate('LocationPermission', { fromSettings: true })}
                     />
                     <SettingItem
+                        icon="book-outline"
+                        title="Prayer School"
+                        subtitle={selectedSchool === 0 ? 'Shafi' : 'Hanafi'}
+                        showArrow={false}
+                        rightComponent={
+                            <View style={styles.schoolToggleContainer}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.schoolToggleButton,
+                                        selectedSchool === 0 && styles.schoolToggleButtonActive
+                                    ]}
+                                    onPress={() => handleSchoolChange(0)}
+                                >
+                                    <Text style={[
+                                        styles.schoolToggleText,
+                                        selectedSchool === 0 && styles.schoolToggleTextActive
+                                    ]}>
+                                        Shafi
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.schoolToggleButton,
+                                        selectedSchool === 1 && styles.schoolToggleButtonActive
+                                    ]}
+                                    onPress={() => handleSchoolChange(1)}
+                                >
+                                    <Text style={[
+                                        styles.schoolToggleText,
+                                        selectedSchool === 1 && styles.schoolToggleTextActive
+                                    ]}>
+                                        Hanafi
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        }
+                    />
+                    {/* <SettingItem
                         icon="moon-outline"
                         title="Dark Mode"
                         showArrow={false}
@@ -221,7 +345,7 @@ const ProfileScreen = ({ navigation }) => {
                                 ios_backgroundColor="#E0E0E0"
                             />
                         }
-                    />
+                    /> */}
                     {/* <SettingItem
                         icon="language-outline"
                         title="Language"
@@ -244,11 +368,11 @@ const ProfileScreen = ({ navigation }) => {
                         title="Help & FAQ"
                         onPress={() => console.log('Help')}
                     />
-                    <SettingItem
+                    {/* <SettingItem
                         icon="chatbubble-outline"
                         title="Contact Us"
                         onPress={() => console.log('Contact')}
-                    />
+                    /> */}
                     <SettingItem
                         icon="document-text-outline"
                         title="Terms & Privacy Policy"
@@ -257,7 +381,7 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
 
                 {/* Account Section */}
-                <SectionHeader title="Account" />
+                {/* <SectionHeader title="Account" />
                 <View style={styles.settingsSection}>
                     <SettingItem
                         icon="shield-checkmark-outline"
@@ -270,7 +394,7 @@ const ProfileScreen = ({ navigation }) => {
                         onPress={() => console.log('Export')}
                     />
 
-                </View>
+                </View> */}
 
                 {/* Logout Button */}
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -282,7 +406,13 @@ const ProfileScreen = ({ navigation }) => {
                 <Text style={styles.versionText}>AJR v1.0.0</Text>
             </ScrollView>
         </View>
-    );
+
+        {/* Permission Modal */}
+        <NotificationPermissionModal
+            visible={showPermModal}
+            onClose={() => setShowPermModal(false)}
+        />
+    </>);
 };
 
 const styles = StyleSheet.create({
@@ -476,6 +606,33 @@ const styles = StyleSheet.create({
         color: colors.text.grey,
         textAlign: 'center',
         marginTop: spacing.lg,
+    },
+    schoolToggleContainer: {
+        flexDirection: 'row',
+        gap: spacing.xs,
+    },
+    schoolToggleButton: {
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderRadius: borderRadius.md,
+        backgroundColor: 'rgba(122, 158, 127, 0.1)',
+        borderWidth: 1,
+        borderColor: colors.primary.darkSage,
+        minWidth: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    schoolToggleButtonActive: {
+        backgroundColor: colors.primary.darkSage,
+        borderColor: colors.primary.darkSage,
+    },
+    schoolToggleText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.primary.darkSage,
+    },
+    schoolToggleTextActive: {
+        color: '#FFFFFF',
     },
 });
 

@@ -101,7 +101,7 @@ const CreateCircleScreen = ({ navigation }) => {
     // Circle type options
     const circleTypes = {
         named: {
-            title: 'Named Circle',
+            title: 'Shared Circle',
             subtitle: 'Best for close friends or family',
             features: [
                 "Members' names are visible",
@@ -150,7 +150,7 @@ const CreateCircleScreen = ({ navigation }) => {
 
                     <Text style={styles.headerTitle}>Create Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton}>
+                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
                         <View style={styles.notificationBadge}>
                             <Image source={notifications} style={styles.notificationIcon} />
                         </View>

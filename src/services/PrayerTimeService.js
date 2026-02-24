@@ -1,6 +1,15 @@
 import StorageService from './StorageService';
 
 const ALADHAN_API_BASE = 'https://api.aladhan.com/v1';
+const LONDON_API = 'https://www.londonprayertimes.com/api/times/?format=json&key=bb82e0db-c7fc-4250-9c07-788cb6a56cb2';
+
+// London coordinates (approximate center)
+const LONDON_BOUNDS = {
+    minLat: 51.28,
+    maxLat: 51.70,
+    minLng: -0.51,
+    maxLng: 0.33,
+};
 
 // 1 = University of Islamic Sciences, Karachi
 const DEFAULT_METHOD = 1;
@@ -17,6 +26,18 @@ const PRAYER_DISPLAY_NAMES = {
     Asr: 'Asr',
     Maghrib: 'Maghrib',
     Isha: 'Isha',
+};
+
+/**
+ * Check if coordinates are within London bounds
+ */
+const isInLondon = (latitude, longitude) => {
+    return (
+        latitude >= LONDON_BOUNDS.minLat &&
+        latitude <= LONDON_BOUNDS.maxLat &&
+        longitude >= LONDON_BOUNDS.minLng &&
+        longitude <= LONDON_BOUNDS.maxLng
+    );
 };
 
 /**
@@ -52,10 +73,71 @@ const formatTo12Hour = (timeString) => {
 const PrayerTimeService = {
 
     /**
-     * Fetch prayer times using latitude & longitude
+     * Fetch prayer times from London API
+     * London API uses 'asr' for Hanafi and 'asr_2' for Shafi
+     */
+    fetchLondonPrayerTimes: async (school = DEFAULT_SCHOOL) => {
+        try {
+            const response = await fetch(LONDON_API);
+
+            if (!response.ok) {
+                throw new Error(`London API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // London API format:
+            // - asr: Hanafi Asr time
+            // - asr_2: Shafi Asr time
+            // school: 0 = Shafi, 1 = Hanafi
+            const asrTime = school === 1 ? data.asr : data.asr_2;
+
+            // Convert London API response to our standard format
+            const standardTimings = {
+                Fajr: data.fajr,
+                Sunrise: data.sunrise,
+                Dhuhr: data.dhuhr,
+                Asr: asrTime,
+                Maghrib: data.magrib, // Note: API uses 'magrib' not 'maghrib'
+                Isha: data.isha,
+            };
+
+            // Parse the date string to create hijri/gregorian format
+            const dateObj = new Date(data.date);
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+
+            return {
+                timings: standardTimings,
+                date: {
+                    gregorian: {
+                        day: dateObj.getDate().toString(),
+                        month: {
+                            en: months[dateObj.getMonth()]
+                        },
+                        year: dateObj.getFullYear().toString()
+                    },
+                    // London API doesn't provide Hijri date, will need fallback
+                    hijri: null
+                },
+                meta: {
+                    timezone: 'Europe/London',
+                    method: {
+                        name: 'London Unified Prayer Timetable'
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('PrayerTimeService: Error fetching London prayer times:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Fetch prayer times using latitude & longitude from Aladhan API
      * Uses method=1 (Karachi) and configurable school (default: 1 = Hanafi)
      */
-    fetchPrayerTimes: async (latitude, longitude, school = DEFAULT_SCHOOL) => {
+    fetchAladhanPrayerTimes: async (latitude, longitude, school = DEFAULT_SCHOOL) => {
         try {
             const url =
                 `${ALADHAN_API_BASE}/timings?latitude=${latitude}` +
@@ -66,14 +148,27 @@ const PrayerTimeService = {
             const response = await fetch(url);
 
             if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
+                throw new Error(`Aladhan API error: ${response.status}`);
             }
 
             const data = await response.json();
             return data.data;
         } catch (error) {
-            console.error('PrayerTimeService: Error fetching prayer times:', error);
+            console.error('PrayerTimeService: Error fetching Aladhan prayer times:', error);
             return null;
+        }
+    },
+
+    /**
+     * Fetch prayer times - automatically selects London or Aladhan API
+     */
+    fetchPrayerTimes: async (latitude, longitude, school = DEFAULT_SCHOOL) => {
+        if (isInLondon(latitude, longitude)) {
+            console.log('Using London Prayer Times API');
+            return await PrayerTimeService.fetchLondonPrayerTimes(school);
+        } else {
+            console.log('Using Aladhan API');
+            return await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, school);
         }
     },
 
@@ -115,13 +210,27 @@ const PrayerTimeService = {
                 }
             }
 
-            const hijriDate = apiDateResponse?.hijri
-                ? `${apiDateResponse.hijri.day} ${apiDateResponse.hijri.month.en} ${apiDateResponse.hijri.year}`
-                : '';
+            // If London API (no Hijri date), fetch it from Aladhan
+            let hijriDate = '';
+            let gregorianDate = '';
 
-            const gregorianDate = apiDateResponse?.gregorian
-                ? `${apiDateResponse.gregorian.day} ${apiDateResponse.gregorian.month.en} ${apiDateResponse.gregorian.year}`
-                : '';
+            if (apiDateResponse?.hijri) {
+                hijriDate = `${apiDateResponse.hijri.day} ${apiDateResponse.hijri.month.en} ${apiDateResponse.hijri.year}`;
+            } else if (isInLondon(latitude, longitude)) {
+                // Fallback: Get Hijri date from Aladhan for London users
+                try {
+                    const aladhanData = await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, school);
+                    if (aladhanData?.date?.hijri) {
+                        hijriDate = `${aladhanData.date.hijri.day} ${aladhanData.date.hijri.month.en} ${aladhanData.date.hijri.year}`;
+                    }
+                } catch (hijriError) {
+                    console.warn('Could not fetch Hijri date:', hijriError);
+                }
+            }
+
+            if (apiDateResponse?.gregorian) {
+                gregorianDate = `${apiDateResponse.gregorian.day} ${apiDateResponse.gregorian.month.en} ${apiDateResponse.gregorian.year}`;
+            }
 
             const cleanTimings = {};
             for (const [key, value] of Object.entries(timings)) {
@@ -143,9 +252,12 @@ const PrayerTimeService = {
                 nextPrayerTime: formatTo12Hour(nextPrayer.time),
                 maghribTime: cleanTimings.Maghrib,
                 timezone: meta?.timezone || '',
+                isLondonApi: isInLondon(latitude, longitude),
             };
 
             await StorageService.savePrayerTimes(result, latitude, longitude);
+            // Also cache full timings for NotificationService
+            await StorageService.saveFullTimings(cleanTimings);
 
             return result;
         } catch (error) {
@@ -227,6 +339,7 @@ const PrayerTimeService = {
         }
     },
 
+    isInLondon,
     parseTimeToDate,
     formatTo12Hour,
     PRAYER_ORDER,
