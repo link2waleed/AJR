@@ -11,7 +11,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "buildNumber": "3",
+      "supportsTablet": false,
+      "buildNumber": "6",
       "bundleIdentifier": "com.my.AJR",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
