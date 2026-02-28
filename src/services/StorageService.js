@@ -90,11 +90,12 @@ const StorageService = {
         }
     },
 
-    saveFullTimings: async (timings, date) => {
+    saveFullTimings: async (timings, date, timezone = 'UTC') => {
         try {
             const data = {
                 timings,
                 date: date || getTodayDateString(),
+                timezone: timezone || 'UTC',
             };
             await AsyncStorage.setItem(STORAGE_KEYS.FULL_TIMINGS, JSON.stringify(data));
             return true;
@@ -109,9 +110,13 @@ const StorageService = {
             const raw = await AsyncStorage.getItem(STORAGE_KEYS.FULL_TIMINGS);
             if (!raw) return null;
             const data = JSON.parse(raw);
-            // Only return if from today
-            if (data.date !== getTodayDateString()) return null;
-            return data.timings;
+            // Return cached timings even if not from today - they're still valid for daily prayer scheduling
+            // The date is only used for context, not for validation
+            console.log(`StorageService: Retrieved cached timings from ${data.date}, timezone: ${data.timezone}`);
+            return {
+                timings: data.timings,
+                timezone: data.timezone || 'UTC'
+            };
         } catch (error) {
             console.error('StorageService: Error getting full timings:', error);
             return null;

@@ -114,33 +114,38 @@ class FirebaseService {
             if (!user) throw new Error('No authenticated user');
 
             // prayerSettings shape:
-            // { fajr, dhuhr, asr, maghrib, isha } — each: { enabled, athanEnabled, reminderEnabled }
-            // + soundMode (global string)
+            // { fajr, dhuhr, asr, maghrib, isha } — each: { enabled, athanEnabled, reminderEnabled, soundMode }
+            // + soundMode (global string for backward compatibility)
             const prayerData = {
                 fajr: {
                     enabled: prayerSettings.fajr?.enabled ?? false,
                     athanEnabled: prayerSettings.fajr?.athanEnabled ?? true,
                     reminderEnabled: prayerSettings.fajr?.reminderEnabled ?? true,
+                    soundMode: prayerSettings.fajr?.soundMode || 'athan',
                 },
                 dhuhr: {
                     enabled: prayerSettings.dhuhr?.enabled ?? false,
                     athanEnabled: prayerSettings.dhuhr?.athanEnabled ?? true,
                     reminderEnabled: prayerSettings.dhuhr?.reminderEnabled ?? true,
+                    soundMode: prayerSettings.dhuhr?.soundMode || 'athan',
                 },
                 asr: {
                     enabled: prayerSettings.asr?.enabled ?? false,
                     athanEnabled: prayerSettings.asr?.athanEnabled ?? true,
                     reminderEnabled: prayerSettings.asr?.reminderEnabled ?? true,
+                    soundMode: prayerSettings.asr?.soundMode || 'athan',
                 },
                 maghrib: {
                     enabled: prayerSettings.maghrib?.enabled ?? false,
                     athanEnabled: prayerSettings.maghrib?.athanEnabled ?? true,
                     reminderEnabled: prayerSettings.maghrib?.reminderEnabled ?? true,
+                    soundMode: prayerSettings.maghrib?.soundMode || 'athan',
                 },
                 isha: {
                     enabled: prayerSettings.isha?.enabled ?? false,
                     athanEnabled: prayerSettings.isha?.athanEnabled ?? true,
                     reminderEnabled: prayerSettings.isha?.reminderEnabled ?? true,
+                    soundMode: prayerSettings.isha?.soundMode || 'athan',
                 },
                 soundMode: prayerSettings.soundMode || 'athan',
             };

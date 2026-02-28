@@ -160,12 +160,13 @@ const ProfileScreen = ({ navigation }) => {
                 console.log('ProfileScreen: all notifications cancelled');
             } else {
                 const info = await FirebaseService.getOnboardingInfo();
-                const timings = await StorageService.getFullTimings();
+                const fullData = await StorageService.getFullTimings();
                 const prayer = info?.prayer;
-                if (prayer && timings) {
+                if (prayer && fullData) {
+                    const { timings, timezone } = fullData;
                     const parsePrayer = (val) => {
                         if (val && typeof val === 'object') return val;
-                        return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true };
+                        return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' };
                     };
                     await NotificationService.schedulePrayerNotifications(
                         {
@@ -176,7 +177,8 @@ const ProfileScreen = ({ navigation }) => {
                             isha: parsePrayer(prayer.isha),
                             soundMode: prayer.soundMode || 'athan',
                         },
-                        timings
+                        timings,
+                        timezone
                     );
                     console.log('ProfileScreen: notifications re-enabled and rescheduled');
                 }

@@ -21,8 +21,8 @@ const dhikrDetails = {
     'Allahu Akbar': { arabic: 'اللّٰهُ أَكْبَر', translation: 'Allah is the Greatest' },
     'Astaghfirullah': { arabic: 'أَسْتَغْفِرُ اللّٰهَ', translation: 'I seek forgiveness from Allah' },
     'La ilaha illa Allah': { arabic: 'لَا إِلٰهَ إِلَّا اللّٰهُ', translation: 'There is no god but Allah' },
-    'SubhanAllahi wa bihamdih': { arabic: 'سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ', translation: 'Glory be to Allah and His is the praise' },
-    'SubhanAllahil Azim': { arabic: 'سُبْحَانَ اللّٰهِ الْعَظِيمِ', translation: 'Glory be to Allah, the Magnificent' },
+    'SubhanAllahi wa bihamdih': { arabic: 'سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ', translation: 'Glory be to Allah and all praise is due to Him' },
+    'SubhanAllah Al-Adheem': { arabic: 'سُبْحَانَ اللّٰهِ الْعَظِيمِ', translation: 'Glory be to Allah, the Magnificent' },
     'La hawla wa la quwwata illa billah': { arabic: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللّٰهِ', translation: 'There is no power nor strength except by Allah' },
     'Allahumma salli ala Muhammad': { arabic: 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ', translation: 'O Allah, send prayers upon Muhammad' },
     // Long kalima might need special handling or shortening for UI

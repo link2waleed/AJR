@@ -53,11 +53,14 @@ const PRAYER_LABELS = {
 
 // ─── Foreground handler — show notifications even when app is open ─────────────
 Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-    }),
+    handleNotification: async () => {
+        console.log('[NOTIFICATION] Foreground notification received');
+        return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+        };
+    },
 });
 
 // ─── NotificationService ──────────────────────────────────────────────────────
@@ -70,8 +73,9 @@ const NotificationService = {
     async requestPermissions() {
         try {
             const { status: existing } = await Notifications.getPermissionsAsync();
+            console.log(`[NOTIFICATION] Current permission status: ${existing}`);
             if (existing === 'granted') {
-                console.log('NotificationService: permission already granted');
+                console.log('[NOTIFICATION] Permission already granted');
                 return true;
             }
 
@@ -82,10 +86,13 @@ const NotificationService = {
                     allowSound: true,
                 },
             });
-            console.log(`NotificationService: permission status = ${status}`);
+            console.log(`[NOTIFICATION] Permission request result: ${status}`);
+            if (status !== 'granted') {
+                console.warn('[NOTIFICATION] Permission was not granted:', status);
+            }
             return status === 'granted';
         } catch (err) {
-            console.error('NotificationService: requestPermissions error', err);
+            console.error('[NOTIFICATION] requestPermissions error:', err);
             return false;
         }
     },
@@ -94,7 +101,10 @@ const NotificationService = {
      * Create Android notification channels.
      */
     async setupChannels() {
-        if (Platform.OS !== 'android') return;
+        if (Platform.OS !== 'android') {
+            console.log('[NOTIFICATION] Platform is not Android, skipping channel setup');
+            return;
+        }
         try {
             for (const [key, ch] of Object.entries(CHANNELS)) {
                 await Notifications.setNotificationChannelAsync(ch.id, {
@@ -106,10 +116,10 @@ const NotificationService = {
                     enableVibrate: ch.enableVibrate,
                     showBadge: false,
                 });
-                console.log(`NotificationService: channel "${key}" set up`);
+                console.log(`[NOTIFICATION] Android channel "${key}" (${ch.id}) set up`);
             }
         } catch (err) {
-            console.error('NotificationService: setupChannels error', err);
+            console.error('[NOTIFICATION] setupChannels error:', err);
         }
     },
 
@@ -120,12 +130,14 @@ const NotificationService = {
         try {
             const scheduled = await Notifications.getAllScheduledNotificationsAsync();
             const prayerNotifs = scheduled.filter(n => n.content?.data?.type === 'prayer');
+            console.log(`[NOTIFICATION] Found ${scheduled.length} total scheduled notifications, ${prayerNotifs.length} are prayer notifications`);
             for (const notif of prayerNotifs) {
                 await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+                console.log(`[NOTIFICATION] Cancelled notification id=${notif.identifier}`);
             }
-            console.log(`NotificationService: cancelled ${prayerNotifs.length} old prayer notifications`);
+            console.log(`[NOTIFICATION] Cancelled ${prayerNotifs.length} old prayer notifications`);
         } catch (err) {
-            console.error('NotificationService: cancelAll error', err);
+            console.error('[NOTIFICATION] cancelAll error:', err);
         }
     },
 
@@ -138,7 +150,7 @@ const NotificationService = {
         const secondsFromNow = Math.floor((date.getTime() - now.getTime()) / 1000);
 
         if (secondsFromNow <= 5) {
-            console.log(`NotificationService: skipping past notification "${title}" (${secondsFromNow}s ago)`);
+            console.log(`[NOTIFICATION] Skipping past notification "${title}" (scheduled ${secondsFromNow}s ago, now=${now.toISOString()}, scheduled=${date.toISOString()})`);
             return null;
         }
 
@@ -161,26 +173,63 @@ const NotificationService = {
             });
 
             console.log(
-                `NotificationService: scheduled "${title}" in ${Math.round(secondsFromNow / 60)}min (id=${id})`
+                `[NOTIFICATION] Scheduled "${title}" in ${Math.round(secondsFromNow / 60)}min (id=${id}, soundMode=${soundMode}, channel=${channel.id})`
             );
             return id;
         } catch (err) {
-            console.error(`NotificationService: scheduleAt error for "${title}"`, err);
+            console.error(`[NOTIFICATION] scheduleAt error for "${title}":`, err);
             return null;
         }
     },
 
     /**
-     * Parse "HH:MM" time string into today's Date object.
+     * Parse "HH:MM" time string into Date object with timezone awareness.
+     * Gets current time in the prayer location's timezone for accurate notification scheduling.
+     * @param {string} timeStr - Time in HH:MM format (in prayer location's timezone)
+     * @param {string} timezone - IANA timezone (e.g., 'Europe/London', 'Asia/Karachi')
      */
-    _parseTime(timeStr) {
+    _parseTime(timeStr, timezone = 'UTC') {
         if (!timeStr) return null;
         const clean = timeStr.split(' ')[0];
         const parts = clean.split(':').map(Number);
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-        const d = new Date();
-        d.setHours(parts[0], parts[1], 0, 0);
-        return d;
+
+        if (timezone === 'UTC') {
+            // Simple UTC case - just use local time
+            const d = new Date();
+            d.setHours(parts[0], parts[1], 0, 0);
+            return d;
+        }
+
+        // Get current time in the prayer location's timezone
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+
+        const tzParts = formatter.formatToParts(now);
+        const tzYear = parseInt(tzParts.find(p => p.type === 'year').value, 10);
+        const tzMonth = parseInt(tzParts.find(p => p.type === 'month').value, 10) - 1;
+        const tzDay = parseInt(tzParts.find(p => p.type === 'day').value, 10);
+
+        // Create a prayer time in the prayer location's timezone
+        const prayerTimeInTz = new Date(tzYear, tzMonth, tzDay, parts[0], parts[1], 0);
+
+        // Calculate offset between device timezone and prayer location timezone
+        const offset = now.getTime() - new Date(tzYear, tzMonth, tzDay).getTime();
+
+        // Adjust prayer time to device timezone
+        const prayerTimeInDeviceTz = new Date(prayerTimeInTz.getTime() + offset);
+
+        console.log(`[NOTIFICATION] Parsed ${timeStr} in ${timezone} timezone -> ${prayerTimeInDeviceTz.toISOString()}`);
+        return prayerTimeInDeviceTz;
     },
 
     /**
@@ -188,15 +237,17 @@ const NotificationService = {
      *
      * @param {Object} prayerSettings  DB prayer object + soundMode
      * @param {Object} prayerTimings   { Fajr: "05:19", Dhuhr: "12:16", ... }
+     * @param {string} timezone        IANA timezone (e.g., 'Europe/London', 'Asia/Karachi')
      */
-    async schedulePrayerNotifications(prayerSettings, prayerTimings) {
-        console.log('NotificationService: starting schedulePrayerNotifications...');
-        console.log('  timings:', JSON.stringify(prayerTimings));
-        console.log('  settings:', JSON.stringify(prayerSettings));
+    async schedulePrayerNotifications(prayerSettings, prayerTimings, timezone = 'UTC') {
+        console.log('[NOTIFICATION] Starting schedulePrayerNotifications...');
+        console.log('[NOTIFICATION] Timezone:', timezone);
+        console.log('[NOTIFICATION] Timings:', JSON.stringify(prayerTimings));
+        console.log('[NOTIFICATION] Settings:', JSON.stringify(prayerSettings));
 
         const granted = await this.requestPermissions();
         if (!granted) {
-            console.warn('NotificationService: ❌ permission denied — cannot schedule');
+            console.warn('[NOTIFICATION] ERROR: permission denied — cannot schedule');
             return;
         }
 
@@ -220,14 +271,14 @@ const NotificationService = {
             const label = PRAYER_LABELS[local] || timingKey;
 
             if (!settings?.enabled) {
-                console.log(`  ⏭ ${label}: disabled`);
+                console.log(`  [NOTIFICATION] ⏭ ${label}: disabled`);
                 continue;
             }
 
             const prayerTimeStr = prayerTimings?.[timingKey];
-            const prayerDate = this._parseTime(prayerTimeStr);
+            const prayerDate = this._parseTime(prayerTimeStr, timezone);
 
-            console.log(`  ✅ ${label}: enabled | time=${prayerTimeStr} | athanEnabled=${settings.athanEnabled} | reminderEnabled=${settings.reminderEnabled}`);
+            console.log(`  [NOTIFICATION] ✅ ${label}: enabled | time=${prayerTimeStr} | athanEnabled=${settings.athanEnabled} | reminderEnabled=${settings.reminderEnabled}`);
 
             // 1️⃣  Start-of-prayer notification
             if (settings.athanEnabled !== false && prayerDate) {
@@ -250,7 +301,7 @@ const NotificationService = {
                     : null;
 
                 if (nextTimingKey) {
-                    const nextDate = this._parseTime(prayerTimings?.[nextTimingKey]);
+                    const nextDate = this._parseTime(prayerTimings?.[nextTimingKey], timezone);
                     if (nextDate) {
                         const reminderDate = new Date(nextDate.getTime() - REMINDER_OFFSET_MINUTES * 60 * 1000);
                         const id = await this.scheduleAt({
@@ -267,7 +318,7 @@ const NotificationService = {
         }
 
         const total = await this.getScheduledCount();
-        console.log(`NotificationService: ✅ done — ${scheduledCount} scheduled this run, ${total} total in queue`);
+        console.log(`[NOTIFICATION] SUCCESS: ${scheduledCount} scheduled this run, ${total} total in queue`);
     },
 
     /**
@@ -286,23 +337,33 @@ const NotificationService = {
      * TESTING HELPER — fire an immediate test notification (5 seconds from now).
      */
     async sendTestNotification() {
-        await this.requestPermissions();
-        await this.setupChannels();
-        const id = await Notifications.scheduleNotificationAsync({
-            content: {
-                title: '🕌 AJR Test Notification',
-                body: 'Notification system is working correctly!',
-                sound: 'default',
-                data: { type: 'prayer', test: true },
-                ...(Platform.OS === 'android' && { channelId: CHANNELS.athan.id }),
-            },
-            trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                seconds: 5,
-            },
-        });
-        console.log(`NotificationService: test notification scheduled (id=${id}), fires in 5s`);
-        return id;
+        console.log('[NOTIFICATION] Initiating test notification...');
+        try {
+            const granted = await this.requestPermissions();
+            if (!granted) {
+                console.error('[NOTIFICATION] Test notification failed: permissions not granted');
+                return null;
+            }
+            await this.setupChannels();
+            const id = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: '🕌 AJR Test Notification',
+                    body: 'Notification system is working correctly!',
+                    sound: 'default',
+                    data: { type: 'prayer', test: true },
+                    ...(Platform.OS === 'android' && { channelId: CHANNELS.athan.id }),
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                    seconds: 5,
+                },
+            });
+            console.log(`[NOTIFICATION] Test notification scheduled (id=${id}), will fire in 5s`);
+            return id;
+        } catch (err) {
+            console.error('[NOTIFICATION] sendTestNotification error:', err);
+            return null;
+        }
     },
 };
 

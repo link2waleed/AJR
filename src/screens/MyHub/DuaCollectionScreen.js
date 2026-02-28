@@ -78,7 +78,7 @@ const DuaCollectionScreen = ({ navigation }) => {
                         <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Dua Collection</Text>
+                        <Text style={styles.headerTitle}>Hadith Collection</Text>
                         <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
                             <View style={styles.notificationBadge}>
                                 <Image source={notificationImg} style={styles.notificationIcon} />

@@ -200,17 +200,18 @@ const NotificationsScreen = ({ navigation, route }) => {
         try {
             // 1. Save to DB
             await FirebaseService.savePrayerSettings({
-                fajr: { enabled: updatedSettings.fajr.enabled, athanEnabled: updatedSettings.fajr.athanEnabled, reminderEnabled: updatedSettings.fajr.reminderEnabled },
-                dhuhr: { enabled: updatedSettings.duhur.enabled, athanEnabled: updatedSettings.duhur.athanEnabled, reminderEnabled: updatedSettings.duhur.reminderEnabled },
-                asr: { enabled: updatedSettings.asr.enabled, athanEnabled: updatedSettings.asr.athanEnabled, reminderEnabled: updatedSettings.asr.reminderEnabled },
-                maghrib: { enabled: updatedSettings.mughrib.enabled, athanEnabled: updatedSettings.mughrib.athanEnabled, reminderEnabled: updatedSettings.mughrib.reminderEnabled },
-                isha: { enabled: updatedSettings.isha.enabled, athanEnabled: updatedSettings.isha.athanEnabled, reminderEnabled: updatedSettings.isha.reminderEnabled },
+                fajr: { enabled: updatedSettings.fajr.enabled, athanEnabled: updatedSettings.fajr.athanEnabled, reminderEnabled: updatedSettings.fajr.reminderEnabled, soundMode: updatedSettings.fajr.soundMode },
+                dhuhr: { enabled: updatedSettings.duhur.enabled, athanEnabled: updatedSettings.duhur.athanEnabled, reminderEnabled: updatedSettings.duhur.reminderEnabled, soundMode: updatedSettings.duhur.soundMode },
+                asr: { enabled: updatedSettings.asr.enabled, athanEnabled: updatedSettings.asr.athanEnabled, reminderEnabled: updatedSettings.asr.reminderEnabled, soundMode: updatedSettings.asr.soundMode },
+                maghrib: { enabled: updatedSettings.mughrib.enabled, athanEnabled: updatedSettings.mughrib.athanEnabled, reminderEnabled: updatedSettings.mughrib.reminderEnabled, soundMode: updatedSettings.mughrib.soundMode },
+                isha: { enabled: updatedSettings.isha.enabled, athanEnabled: updatedSettings.isha.athanEnabled, reminderEnabled: updatedSettings.isha.reminderEnabled, soundMode: updatedSettings.isha.soundMode },
                 soundMode: updatedSettings.fajr.soundMode,
             });
 
             // 2. Reschedule local notifications
-            const timings = await StorageService.getFullTimings();
-            if (timings) {
+            const fullData = await StorageService.getFullTimings();
+            if (fullData) {
+                const { timings, timezone } = fullData;
                 await NotificationService.schedulePrayerNotifications(
                     {
                         fajr: updatedSettings.fajr,
@@ -220,7 +221,8 @@ const NotificationsScreen = ({ navigation, route }) => {
                         isha: updatedSettings.isha,
                         soundMode: updatedSettings.fajr.soundMode,
                     },
-                    timings
+                    timings,
+                    timezone
                 );
             }
         } catch (err) {

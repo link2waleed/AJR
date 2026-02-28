@@ -180,11 +180,11 @@ const PrayerSetupScreen = ({ navigation, route }) => {
         try {
             // Save prayer settings to Firebase
             await FirebaseService.savePrayerSettings({
-                fajr: { enabled: prayerSettings.fajr.enabled, athanEnabled: prayerSettings.fajr.athanEnabled, reminderEnabled: prayerSettings.fajr.reminderEnabled },
-                dhuhr: { enabled: prayerSettings.duhur.enabled, athanEnabled: prayerSettings.duhur.athanEnabled, reminderEnabled: prayerSettings.duhur.reminderEnabled },
-                asr: { enabled: prayerSettings.asr.enabled, athanEnabled: prayerSettings.asr.athanEnabled, reminderEnabled: prayerSettings.asr.reminderEnabled },
-                maghrib: { enabled: prayerSettings.mughrib.enabled, athanEnabled: prayerSettings.mughrib.athanEnabled, reminderEnabled: prayerSettings.mughrib.reminderEnabled },
-                isha: { enabled: prayerSettings.isha.enabled, athanEnabled: prayerSettings.isha.athanEnabled, reminderEnabled: prayerSettings.isha.reminderEnabled },
+                fajr: { enabled: prayerSettings.fajr.enabled, athanEnabled: prayerSettings.fajr.athanEnabled, reminderEnabled: prayerSettings.fajr.reminderEnabled, soundMode: prayerSettings.fajr.soundMode },
+                dhuhr: { enabled: prayerSettings.duhur.enabled, athanEnabled: prayerSettings.duhur.athanEnabled, reminderEnabled: prayerSettings.duhur.reminderEnabled, soundMode: prayerSettings.duhur.soundMode },
+                asr: { enabled: prayerSettings.asr.enabled, athanEnabled: prayerSettings.asr.athanEnabled, reminderEnabled: prayerSettings.asr.reminderEnabled, soundMode: prayerSettings.asr.soundMode },
+                maghrib: { enabled: prayerSettings.mughrib.enabled, athanEnabled: prayerSettings.mughrib.athanEnabled, reminderEnabled: prayerSettings.mughrib.reminderEnabled, soundMode: prayerSettings.mughrib.soundMode },
+                isha: { enabled: prayerSettings.isha.enabled, athanEnabled: prayerSettings.isha.athanEnabled, reminderEnabled: prayerSettings.isha.reminderEnabled, soundMode: prayerSettings.isha.soundMode },
                 soundMode: prayerSettings.fajr.soundMode,
             });
             // Navigate to next selected activity

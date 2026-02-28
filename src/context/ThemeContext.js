@@ -370,7 +370,8 @@ export const ThemeProvider = ({ children }) => {
     }, [evaluateTheme]);
 
     /**
-     * Periodic check for theme changes (every 5 minutes)
+     * Periodic check for theme changes (every 1 minute)
+     * Faster 1-minute interval ensures real-time response to Maghrib-Isha window changes
      * This catches the transition at Maghrib time without requiring app restart
      * CLEARS manual preview - periodic check syncs with automatic logic
      */
@@ -378,7 +379,7 @@ export const ThemeProvider = ({ children }) => {
         const interval = setInterval(() => {
             // Only re-evaluate, don't force refresh
             evaluateTheme();
-        }, 5 * 60 * 1000); // 5 minutes
+        }, 1 * 60 * 1000); // 1 minute (changed from 5 minutes)
 
         return () => clearInterval(interval);
     }, [evaluateTheme]);

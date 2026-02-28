@@ -357,6 +357,7 @@ const HomeScreen = ({ navigation }) => {
         journaling: false,
     });
     const [togglingActivity, setTogglingActivity] = useState(null);
+    const [minuteTick, setMinuteTick] = useState(0); // For triggering re-renders every minute based on location timezone
     const hasAlertShownRef = useRef(false);
     const saveProgressTimeoutRef = useRef(null);
 
@@ -690,6 +691,24 @@ const HomeScreen = ({ navigation }) => {
         }
     }, [hasNoData]);
 
+    /**
+     * Update next prayer every minute based on location timezone
+     * Ensures real-time accuracy using geolocation, not device time
+     */
+    useEffect(() => {
+        if (!prayerData?.timezone || !prayerData?.timings) {
+            return;
+        }
+
+        // Set up interval to recalculate next prayer every minute
+        const interval = setInterval(() => {
+            setMinuteTick(prev => prev + 1);
+            console.log('🕌 HomeScreen: Recalculating next prayer based on location timezone:', prayerData.timezone);
+        }, 60000); // Every 60 seconds
+
+        return () => clearInterval(interval);
+    }, [prayerData?.timezone, prayerData?.timings]);
+
     // Dynamic data from API, with fallbacks
     // City: prefer Expo Location city, fallback to API timezone city, then fallback text
     const displayCity = cityName || prayerData?.city || (isLoading ? 'Loading...' : (showPermissionMessage ? 'Enable location' : '--'));
@@ -706,14 +725,302 @@ const HomeScreen = ({ navigation }) => {
         return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
     };
 
+    /**
+     * Recalculate next prayer based on location timezone (geolocation), not device time
+     * This ensures accuracy even if time passes without a component refresh
+     */
+    const calculateNextPrayerByLocation = () => {
+        if (!prayerData?.timings || !prayerData?.timezone) {
+            return {
+                name: prayerData?.nextPrayer || 'Loading',
+                time: prayerData?.nextPrayerTime || '--:--'
+            };
+        }
+
+        const timezone = prayerData.timezone;
+        const PRAYER_ORDER = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        const PRAYER_DISPLAY_NAMES = {
+            Fajr: 'Fajr',
+            Dhuhr: 'Dhuhr', 
+            Asr: 'Asr',
+            Maghrib: 'Maghrib',
+            Isha: 'Isha',
+            Sunrise: 'Sunrise'
+        };
+
+        try {
+            // Get current time in location's timezone
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            });
+
+            const parts = formatter.formatToParts(now);
+            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
+            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
+            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
+            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
+            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
+            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
+
+            // Current time in location timezone
+            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+
+            // Find next prayer
+            for (const prayerName of PRAYER_ORDER) {
+                if (prayerName === 'Sunrise') continue; // Skip Sunrise
+
+                const prayerTimeStr = prayerData.timings[prayerName];
+                if (!prayerTimeStr) continue;
+
+                // Parse prayer time (HH:MM format)
+                const [prayerHours, prayerMinutes] = prayerTimeStr.split(':').map(Number);
+                const prayerDate = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
+
+                if (prayerDate > nowInLocationTz) {
+                    console.log(`✅ HomeScreen: Next prayer by geolocation (${timezone}): ${prayerName} at ${prayerTimeStr}`);
+                    return {
+                        name: PRAYER_DISPLAY_NAMES[prayerName] || prayerName,
+                        time: prayerTimeStr
+                    };
+                }
+            }
+
+            // All prayers passed, next is tomorrow's Fajr
+            console.log(`✅ HomeScreen: All prayers passed, next is tomorrow's Fajr in ${timezone}`);
+            return {
+                name: 'Fajr',
+                time: prayerData.timings?.Fajr || '--:--'
+            };
+        } catch (error) {
+            console.error('HomeScreen: Error calculating next prayer by location:', error);
+            return {
+                name: prayerData?.nextPrayer || 'Loading',
+                time: prayerData?.nextPrayerTime || '--:--'
+            };
+        }
+    };
+
+    /**
+     * Calculate CURRENT prayer - which prayer is happening right now
+     * Returns which prayer window we're currently in (or null if between prayers)
+     */
+    const calculateCurrentPrayer = () => {
+        if (!prayerData?.timings || !prayerData?.timezone) {
+            return null;
+        }
+
+        const timezone = prayerData.timezone;
+        const PRAYER_ORDER = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+
+        try {
+            // Get current time in location's timezone
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            });
+
+            const parts = formatter.formatToParts(now);
+            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
+            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
+            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
+            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
+            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
+            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
+
+            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+
+            // Check which prayer window we're in
+            for (let i = 0; i < PRAYER_ORDER.length; i++) {
+                const currentPrayerName = PRAYER_ORDER[i];
+                const nextPrayerName = PRAYER_ORDER[i + 1];
+
+                const currentPrayerStr = prayerData.timings[currentPrayerName];
+                const nextPrayerStr = nextPrayerName ? prayerData.timings[nextPrayerName] : null;
+
+                if (!currentPrayerStr) continue;
+
+                const [currentHours, currentMinutes] = currentPrayerStr.split(':').map(Number);
+                const currentPrayerTime = new Date(tzYear, tzMonth, tzDay, currentHours, currentMinutes, 0);
+
+                let nextPrayerTime;
+                if (nextPrayerStr) {
+                    const [nextHours, nextMinutes] = nextPrayerStr.split(':').map(Number);
+                    nextPrayerTime = new Date(tzYear, tzMonth, tzDay, nextHours, nextMinutes, 0);
+                } else {
+                    // After last prayer (Isha), until midnight
+                    nextPrayerTime = new Date(tzYear, tzMonth, tzDay + 1, 0, 0, 0);
+                }
+
+                // Check if current time is in this prayer window
+                if (nowInLocationTz >= currentPrayerTime && nowInLocationTz < nextPrayerTime) {
+                    console.log(`🕌 HomeScreen: Current prayer (${timezone}): ${currentPrayerName} (${currentPrayerStr})`);
+                    return {
+                        name: currentPrayerName,
+                        time: currentPrayerStr,
+                        isCurrent: true
+                    };
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('HomeScreen: Error calculating current prayer by location:', error);
+            return null;
+        }
+    };
+
+    /**
+     * Convert 12-hour time format to 24-hour format
+     * Handles both AM/PM and plain HH:MM formats
+     */
+    const convertTo24Hour = (timeStr) => {
+        if (!timeStr) return '--:--';
+        
+        // If already in 24-hour format (no AM/PM), return as is
+        if (!timeStr.includes('AM') && !timeStr.includes('PM')) {
+            return timeStr.split(' ')[0]; // Remove any extra spaces
+        }
+        
+        const parts = timeStr.trim().split(' ');
+        const timePart = parts[0];
+        const period = parts[1]?.toUpperCase() || '';
+        
+        const [hours, minutes] = timePart.split(':').map(Number);
+        let hour24 = hours;
+        
+        if (period === 'PM' && hours !== 12) {
+            hour24 = hours + 12;
+        } else if (period === 'AM' && hours === 12) {
+            hour24 = 0;
+        }
+        
+        return `${hour24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    };
+
+    /**
+     * Get all prayer times with upcoming prayer highlighted (24-hour format)
+     */
+    const getAllPrayerTimesFormatted = () => {
+        if (!prayerData?.timings || !prayerData?.timezone) {
+            return [];
+        }
+
+        const timezone = prayerData.timezone;
+        const PRAYER_ORDER = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        const PRAYER_ICONS = {
+            Fajr: 'sunrise',
+            Dhuhr: 'sunny',
+            Asr: 'cloudy',
+            Maghrib: 'sunset',
+            Isha: 'moon'
+        };
+
+        try {
+            // Get current time in location's timezone
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            });
+
+            const parts = formatter.formatToParts(now);
+            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
+            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
+            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
+            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
+            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
+            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
+
+            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+
+            // Build prayer times array
+            const prayerTimes = PRAYER_ORDER.map((prayerName) => {
+                const prayerTimeStr = prayerData.timings[prayerName];
+                if (!prayerTimeStr) return null;
+
+                const [prayerHours, prayerMinutes] = prayerTimeStr.split(':').map(Number);
+                const prayerDate = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
+                
+                // Check if this is the upcoming prayer
+                const isUpcoming = prayerDate > nowInLocationTz;
+                
+                // Time in 24-hour format
+                const time24 = `${prayerHours.toString().padStart(2, '0')}:${prayerMinutes.toString().padStart(2, '0')}`;
+
+                return {
+                    name: prayerName,
+                    time: time24,
+                    isUpcoming,
+                    icon: PRAYER_ICONS[prayerName],
+                };
+            }).filter(p => p !== null);
+
+            return prayerTimes;
+        } catch (error) {
+            console.error('Error getting all prayer times:', error);
+            return [];
+        }
+    };
+
+    /**
+     * Get next prayer time formatted in the prayer location's timezone
+     * Now uses real-time geolocation-based calculation instead of cached value
+     */
+    const getNextPrayerTimeInLocationTz = () => {
+        if (!prayerData?.nextPrayerTime) {
+            return showPermissionMessage ? '--:--' : '--:--';
+        }
+
+        // prayerData.nextPrayerTime is already formatted by PrayerTimeService
+        // and includes timezone conversion if needed
+        // Just return it with timezone indicator if available
+        const timezone = prayerData?.timezone || '';
+        const timeStr = prayerData.nextPrayerTime;
+
+        // If timezone is available and not UTC, show timezone abbreviation
+        if (timezone && timezone !== 'UTC') {
+            const tzParts = timezone.split('/');
+            const tzCity = tzParts[tzParts.length - 1]?.replace(/_/g, ' ');
+            return timeStr; // Time is already correct for location
+        }
+
+        return timeStr;
+    };
+
     const displayData = {
         name: userName || 'User',
         city: displayCity,
         temperature: displayTemperature,
         hijriDate: prayerData?.hijriDate || (showPermissionMessage ? '--' : '--'),
         gregorianDate: getDeviceGregorianDate(), // Always from device, never from API
-        nextPrayer: prayerData?.nextPrayer || (isLoading ? 'Loading' : (showPermissionMessage ? 'Location required' : 'Loading')),
-        nextPrayerTime: prayerData?.nextPrayerTime || (showPermissionMessage ? '--:--' : '--:--'),
+        // Use geolocation-based calculation for current and next prayer (synced and recalculated every minute)
+        currentPrayer: calculateCurrentPrayer()?.name || 'Between prayers',
+        currentPrayerTime: calculateCurrentPrayer()?.time || '--:--',
+        nextPrayer: calculateNextPrayerByLocation().name,
+        nextPrayerTime: calculateNextPrayerByLocation().time,
+        timezone: prayerData?.timezone || '',
+        _minuteTick: minuteTick, // Ensures re-render every minute for location-based updates
     };
 
     // Calculate progress based on selected and completed activities
@@ -845,9 +1152,16 @@ const HomeScreen = ({ navigation }) => {
                         source={whiteClock}
                         style={styles.clockIcon}
                     />
-                    <Text style={styles.nextPrayerText}>
-                        Next: {displayData.nextPrayer} • {displayData.nextPrayerTime}
-                    </Text>
+                    <View style={styles.nextPrayerTextContainer}>
+                        <Text style={styles.nextPrayerText}>
+                            Upcoming: {displayData.nextPrayer} • {convertTo24Hour(displayData.nextPrayerTime)}
+                        </Text>
+                        {displayData.timezone && displayData.timezone !== 'UTC' && (
+                            <Text style={styles.nextPrayerTimezone}>
+                                {displayData.timezone}
+                            </Text>
+                        )}
+                    </View>
                 </View>
                 <TouchableOpacity
                     style={styles.refreshIconButton}
@@ -863,6 +1177,7 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </View>
 
+         
             {/* Dua of the Day */}
             <View
                 style={styles.duaCard}
@@ -1248,11 +1563,98 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
     },
+    nextPrayerTextContainer: {
+        flex: 1,
+        marginLeft: spacing.sm,
+    },
     nextPrayerText: {
         fontSize: isSmallDevice ? 14 : 16,
         fontWeight: typography.fontWeight.medium,
         color: '#FFFFFF',
-        marginLeft: spacing.sm,
+    },
+    nextPrayerTimezone: {
+        fontSize: isSmallDevice ? 11 : 12,
+        color: 'rgba(255, 255, 255, 0.7)',
+        marginTop: spacing.xxs,
+        fontStyle: 'italic',
+    },
+    // Prayer Times Card - 24-hour format
+    prayerTimesCard: {
+        backgroundColor: colors.primary.light,
+        borderRadius: borderRadius.lg,
+        padding: spacing.lg,
+        marginBottom: spacing.lg,
+        borderWidth: 1.5,
+        borderColor: '#fff',
+    },
+    prayerTimesTitle: {
+        fontSize: isSmallDevice ? 16 : 18,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+        marginBottom: spacing.md,
+    },
+    prayerTimesContainer: {
+        borderRadius: borderRadius.md,
+        overflow: 'hidden',
+    },
+    prayerTimeItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        backgroundColor: '#FFFFFF',
+    },
+    prayerTimeItemUpcoming: {
+        backgroundColor: colors.primary.sage,
+    },
+    prayerTimeItemBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.grey,
+    },
+    prayerTimeLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    prayerTimeIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primary.light,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.md,
+    },
+    prayerTimeIconUpcoming: {
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    prayerTimeName: {
+        fontSize: isSmallDevice ? 14 : 16,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+    },
+    prayerTimeNameUpcoming: {
+        color: '#FFFFFF',
+        fontWeight: typography.fontWeight.semibold,
+    },
+    prayerTimeRight: {
+        alignItems: 'flex-end',
+    },
+    prayerTimeValue: {
+        fontSize: isSmallDevice ? 14 : 16,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+    },
+    prayerTimeValueUpcoming: {
+        color: '#FFFFFF',
+        fontSize: isSmallDevice ? 16 : 18,
+    },
+    upcomingBadge: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginTop: spacing.xxs,
+        fontWeight: typography.fontWeight.medium,
     },
     // Dua Card
     duaCard: {

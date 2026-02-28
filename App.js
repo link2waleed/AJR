@@ -14,21 +14,30 @@ import StorageService from './src/services/StorageService';
 // ── Bootstrap notifications on every app start ────────────────────────────────
 async function bootstrapNotifications() {
   try {
+    console.log('[APP] Starting notification bootstrap...');
     await NotificationService.setupChannels();
 
     // Load prayer settings from DB
     const info = await FirebaseService.getOnboardingInfo();
     const prayer = info?.prayer;
-    if (!prayer) return;
+    if (!prayer) {
+      console.log('[APP] No prayer settings found in database, skipping bootstrap');
+      return;
+    }
+    console.log('[APP] Prayer settings loaded:', JSON.stringify(prayer, null, 2));
 
-    // Load cached timings (only available if prayer times were fetched today)
-    const timings = await StorageService.getFullTimings();
-    if (!timings) return;
+    // Load cached timings with timezone
+    const fullData = await StorageService.getFullTimings();
+    if (!fullData) {
+      console.warn('[APP] No cached timings found, notifications cannot be scheduled');
+      return;
+    }
+    console.log('[APP] Cached timings loaded:', { timings: fullData.timings, timezone: fullData.timezone });
 
-    const globalSound = prayer.soundMode || 'athan';
+    const { timings, timezone } = fullData;
     const parsePrayer = (val) => {
       if (val && typeof val === 'object') return val;
-      return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true };
+      return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' };
     };
 
     await NotificationService.schedulePrayerNotifications(
@@ -38,13 +47,15 @@ async function bootstrapNotifications() {
         asr: parsePrayer(prayer.asr),
         mughrib: parsePrayer(prayer.maghrib),
         isha: parsePrayer(prayer.isha),
-        soundMode: globalSound,
+        soundMode: prayer.soundMode || 'athan',
       },
-      timings
+      timings,
+      timezone
     );
+    console.log('[APP] Notification bootstrap completed successfully');
   } catch (err) {
     // Non-blocking — notifications are best-effort
-    console.warn('bootstrapNotifications failed:', err.message);
+    console.warn('[APP] bootstrapNotifications failed:', err.message, err);
   }
 }
 

@@ -22,13 +22,13 @@ const THEME_MODE = {
 };
 
 /**
- * Pure function to determine theme based on inputs
+ * Pure function to determine theme based on next prayer
  * @param {boolean} permissionGranted - Is location permission granted
  * @param {Object|null} location - { latitude, longitude } or null
- * @param {boolean|null} isAfterMaghrib - true/false or null if unknown
+ * @param {string|null} nextPrayer - Name of next prayer (Fajr, Dhuhr, etc.) or null
  * @returns {string} - 'day' or 'evening'
  */
-const resolveTheme = (permissionGranted, location, isAfterMaghrib) => {
+const resolveTheme = (permissionGranted, location, nextPrayer) => {
     // Rule 1: Permission denied → Day UI
     if (!permissionGranted) {
         return THEME_MODE.DAY;
@@ -39,20 +39,28 @@ const resolveTheme = (permissionGranted, location, isAfterMaghrib) => {
         return THEME_MODE.DAY;
     }
 
-    // Rule 3: Maghrib unavailable → Day UI
-    if (isAfterMaghrib === null || isAfterMaghrib === undefined) {
+    // Rule 3: Next prayer unavailable → Day UI
+    if (!nextPrayer) {
         return THEME_MODE.DAY;
     }
 
-    // Rule 4 & 5: Based on time relative to Maghrib
-    return isAfterMaghrib ? THEME_MODE.EVENING : THEME_MODE.DAY;
+    // Rule 4 & 5: Evening theme when next prayer is Fajr or Isha
+    // - If next = Fajr → We're in Isha-to-Fajr period (night) → Evening
+    // - If next = Isha → We're in Maghrib-to-Isha period (evening) → Evening
+    // - Otherwise → Day
+    if (nextPrayer === 'Fajr' || nextPrayer === 'Isha') {
+        return THEME_MODE.EVENING;
+    }
+
+    return THEME_MODE.DAY;
 };
 
 const ThemeResolver = {
     /**
      * Get current theme mode
      * This is the main entry point that orchestrates all checks
-     * @returns {Promise<{ mode: string, location: Object|null, maghribTime: string|null }>}
+     * Theme logic: Evening when next prayer is Fajr or Isha, Day otherwise
+     * @returns {Promise<{ mode: string, location: Object|null, nextPrayer: string|null }>}
      */
     resolveCurrentTheme: async () => {
         try {
@@ -60,11 +68,11 @@ const ThemeResolver = {
             const permissionGranted = await LocationService.isPermissionGranted();
 
             if (!permissionGranted) {
-                console.log('ThemeResolver: Permission not granted, using Day UI');
+                console.log('[THEME] Permission not granted, using Day UI');
                 return {
                     mode: THEME_MODE.DAY,
                     location: null,
-                    maghribTime: null,
+                    nextPrayer: null,
                     reason: 'permission_denied',
                 };
             }
@@ -73,55 +81,59 @@ const ThemeResolver = {
             const location = await LocationService.getLocationWithFallback();
 
             if (!location) {
-                console.log('ThemeResolver: No location available, using Day UI');
+                console.log('[THEME] No location available, using Day UI');
                 return {
                     mode: THEME_MODE.DAY,
                     location: null,
-                    maghribTime: null,
+                    nextPrayer: null,
                     reason: 'no_location',
                 };
             }
 
-            // Step 3: Get Maghrib time
-            const maghribTime = await PrayerTimeService.getMaghribTime(
+            // Step 3: Get complete prayer data to get next prayer
+            const prayerData = await PrayerTimeService.getCompletePrayerData(
                 location.latitude,
                 location.longitude
             );
 
-            if (!maghribTime) {
-                console.log('ThemeResolver: Maghrib time unavailable, using Day UI');
+            if (!prayerData || !prayerData.nextPrayer) {
+                console.log('[THEME] Prayer data unavailable, using Day UI');
                 return {
                     mode: THEME_MODE.DAY,
                     location,
-                    maghribTime: null,
-                    reason: 'no_maghrib',
+                    nextPrayer: null,
+                    reason: 'no_prayer_data',
                 };
             }
 
-            // Step 4: Check if after Maghrib
-            const isAfterMaghrib = await PrayerTimeService.isAfterMaghrib(
-                location.latitude,
-                location.longitude
-            );
+            const nextPrayer = prayerData.nextPrayer;
 
-            // Step 5: Resolve theme
-            const mode = resolveTheme(true, location, isAfterMaghrib);
+            // Step 4: Resolve theme based on next prayer
+            const mode = resolveTheme(true, location, nextPrayer);
 
-            console.log(`ThemeResolver: Resolved theme - ${mode} (Maghrib: ${maghribTime})`);
+            console.log(`\n[THEME] === THEME RESOLVER FINAL DECISION ===`);
+            console.log(`[THEME] Resolved theme: ${mode}`);
+            console.log(`[THEME] Next prayer: ${nextPrayer}`);
+            console.log(`[THEME] Location: ${location.latitude}, ${location.longitude}`);
+            console.log(`[THEME] City: ${prayerData.city || 'Unknown'}`);
+            console.log(`[THEME] Timezone: ${prayerData.timezone}`);
+            console.log(`[THEME] Current time: ${new Date().toLocaleTimeString()}`);
+            console.log(`[THEME] Current time ISO: ${new Date().toISOString()}`);
+            console.log(`[THEME] ==========================================\n`);
 
             return {
                 mode,
                 location,
-                maghribTime,
-                reason: isAfterMaghrib ? 'after_maghrib' : 'before_maghrib',
+                nextPrayer,
+                reason: (nextPrayer === 'Fajr' || nextPrayer === 'Isha') ? 'evening_period' : 'day_period',
             };
         } catch (error) {
-            console.error('ThemeResolver: Error resolving theme:', error);
+            console.error('[THEME] Error resolving theme:', error);
             // Graceful fallback
             return {
                 mode: THEME_MODE.DAY,
                 location: null,
-                maghribTime: null,
+                nextPrayer: null,
                 reason: 'error',
             };
         }
@@ -140,7 +152,7 @@ const ThemeResolver = {
                 return {
                     mode: THEME_MODE.DAY,
                     location: null,
-                    maghribTime: null,
+                    nextPrayer: null,
                     reason: 'refresh_no_location',
                 };
             }
@@ -151,38 +163,40 @@ const ThemeResolver = {
                 location.longitude
             );
 
-            // Extract maghrib time string from prayer data
-            const maghribTime = prayerData?.maghribTime || null;
-
-            if (!maghribTime) {
+            if (!prayerData || !prayerData.nextPrayer) {
                 return {
                     mode: THEME_MODE.DAY,
                     location,
-                    maghribTime: null,
-                    reason: 'refresh_no_maghrib',
+                    nextPrayer: null,
+                    reason: 'refresh_no_prayer_data',
                 };
             }
 
-            // Step 3: Check if after Maghrib
-            const maghribDate = PrayerTimeService.parseTimeToDate(maghribTime);
-            const now = new Date();
-            const isAfterMaghrib = maghribDate ? now >= maghribDate : null;
+            const nextPrayer = prayerData.nextPrayer;
 
-            // Step 4: Resolve theme
-            const mode = resolveTheme(true, location, isAfterMaghrib);
+            // Step 3: Resolve theme based on next prayer
+            const mode = resolveTheme(true, location, nextPrayer);
+
+            console.log(`\n[THEME] === THEME REFRESH FINAL DECISION ===`);
+            console.log(`[THEME] Resolved theme: ${mode}`);
+            console.log(`[THEME] Next prayer: ${nextPrayer}`);
+            console.log(`[THEME] Location: ${location.latitude}, ${location.longitude}`);
+            console.log(`[THEME] City: ${prayerData.city || 'Unknown'}`);
+            console.log(`[THEME] Current time: ${new Date().toLocaleTimeString()}`);
+            console.log(`[THEME] ==========================================\n`);
 
             return {
                 mode,
                 location,
-                maghribTime,
-                reason: isAfterMaghrib ? 'after_maghrib' : 'before_maghrib',
+                nextPrayer,
+                reason: (nextPrayer === 'Fajr' || nextPrayer === 'Isha') ? 'evening_period' : 'day_period',
             };
         } catch (error) {
-            console.error('ThemeResolver: Error in refresh:', error);
+            console.error('[THEME] Error in refresh:', error);
             return {
                 mode: THEME_MODE.DAY,
                 location: null,
-                maghribTime: null,
+                nextPrayer: null,
                 reason: 'refresh_error',
             };
         }

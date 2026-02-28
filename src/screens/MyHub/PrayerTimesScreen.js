@@ -184,50 +184,120 @@ const PrayerTimesScreen = ({ navigation }) => {
     };
 
     const getNextPrayerInfo = () => {
-        if (!prayerData || !prayerData.timings) return null;
+        if (!prayerData || !prayerData.timings || !prayerData.timezone) return null;
 
-        const now = currentTime;
-        const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+        // Use location's timezone (same as HomeScreen for sync)
+        const timezone = prayerData.timezone;
 
-        const prayerOrder = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        try {
+            // Get current time in location's timezone
+            const now = currentTime;
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            });
 
-        for (const prayer of prayerOrder) {
-            const timeString = prayerData.timings[prayer];
-            if (!timeString) continue;
+            const parts = formatter.formatToParts(now);
+            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
+            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
+            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
+            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
+            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
+            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
 
-            const [hours, minutes] = timeString.split(':').map(Number);
-            const prayerSeconds = hours * 3600 + minutes * 60;
+            const currentSeconds = tzHours * 3600 + tzMinutes * 60 + tzSeconds;
 
-            if (prayerSeconds > currentSeconds) {
-                const diffSeconds = prayerSeconds - currentSeconds;
-                const hoursLeft = Math.floor(diffSeconds / 3600);
-                const minutesLeft = Math.floor((diffSeconds % 3600) / 60);
-                const secondsLeft = diffSeconds % 60;
+            const prayerOrder = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-                // Format countdown like "starts in 14m 18s" or "starts in 2h 14m 18s"
-                let countdownText = 'starts in ';
-                if (hoursLeft > 0) {
-                    countdownText += `${hoursLeft}h `;
+            for (const prayer of prayerOrder) {
+                const timeString = prayerData.timings[prayer];
+                if (!timeString) continue;
+
+                const [hours, minutes] = timeString.split(':').map(Number);
+                const prayerSeconds = hours * 3600 + minutes * 60;
+
+                if (prayerSeconds > currentSeconds) {
+                    const diffSeconds = prayerSeconds - currentSeconds;
+                    const hoursLeft = Math.floor(diffSeconds / 3600);
+                    const minutesLeft = Math.floor((diffSeconds % 3600) / 60);
+                    const secondsLeft = diffSeconds % 60;
+
+                    // Format countdown like "starts in 14m 18s" or "starts in 2h 14m 18s"
+                    let countdownText = 'starts in ';
+                    if (hoursLeft > 0) {
+                        countdownText += `${hoursLeft}h `;
+                    }
+                    if (minutesLeft > 0 || hoursLeft > 0) {
+                        countdownText += `${minutesLeft}m `;
+                    }
+                    countdownText += `${secondsLeft}s`;
+
+                    console.log(`🕌 PrayerTimesScreen: Highlighting next prayer (${timezone}): ${prayer} at ${timeString}`);
+
+                    return {
+                        name: prayer,
+                        time: timeString,
+                        countdown: countdownText
+                    };
                 }
-                if (minutesLeft > 0 || hoursLeft > 0) {
-                    countdownText += `${minutesLeft}m `;
-                }
-                countdownText += `${secondsLeft}s`;
-
-                return {
-                    name: prayer,
-                    time: timeString,
-                    countdown: countdownText
-                };
             }
-        }
 
-        // If no prayer left today, return Fajr for tomorrow
-        return {
-            name: 'Fajr',
-            time: prayerData.timings.Fajr,
-            countdown: 'tomorrow'
-        };
+            // If no prayer left today, return Fajr for tomorrow
+            return {
+                name: 'Fajr',
+                time: prayerData.timings.Fajr,
+                countdown: 'tomorrow'
+            };
+        } catch (error) {
+            console.error('Error getting next prayer info with timezone:', error);
+            // Fallback to device time if timezone processing fails
+            const now = currentTime;
+            const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+            const prayerOrder = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+
+            for (const prayer of prayerOrder) {
+                const timeString = prayerData.timings[prayer];
+                if (!timeString) continue;
+
+                const [hours, minutes] = timeString.split(':').map(Number);
+                const prayerSeconds = hours * 3600 + minutes * 60;
+
+                if (prayerSeconds > currentSeconds) {
+                    const diffSeconds = prayerSeconds - currentSeconds;
+                    const hoursLeft = Math.floor(diffSeconds / 3600);
+                    const minutesLeft = Math.floor((diffSeconds % 3600) / 60);
+                    const secondsLeft = diffSeconds % 60;
+
+                    let countdownText = 'starts in ';
+                    if (hoursLeft > 0) {
+                        countdownText += `${hoursLeft}h `;
+                    }
+                    if (minutesLeft > 0 || hoursLeft > 0) {
+                        countdownText += `${minutesLeft}m `;
+                    }
+                    countdownText += `${secondsLeft}s`;
+
+                    return {
+                        name: prayer,
+                        time: timeString,
+                        countdown: countdownText
+                    };
+                }
+            }
+
+            return {
+                name: 'Fajr',
+                time: prayerData.timings.Fajr,
+                countdown: 'tomorrow'
+            };
+        }
     };
 
     const [completedPrayers, setCompletedPrayers] = useState({
