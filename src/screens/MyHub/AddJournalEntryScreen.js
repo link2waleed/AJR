@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import { useFocusEffect } from '@react-navigation/native';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import dailyThemes from '../../data/dailyThemes.json';
 import FirebaseService from '../../services/FirebaseService';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const RECENT_ENTRIES = [
     {
@@ -27,84 +28,79 @@ const AddJournalEntryScreen = ({ navigation }) => {
     const [recentEntries, setRecentEntries] = useState([]);
     const [promptsEnabled, setPromptsEnabled] = useState(true);
 
-    React.useEffect(() => {
-        const fetchPreferences = async () => {
-            try {
-                const info = await FirebaseService.getOnboardingInfo();
-                // Check if prompts are enabled (default to true if not set)
-                // Structure saved by saveJournalingGoals is { prompts: boolean }
-                let isEnabled = true;
-                if (info?.journaling) {
-                    if (typeof info.journaling.prompts !== 'undefined') {
-                        isEnabled = info.journaling.prompts;
-                    } else if (typeof info.journaling.enablePrompts !== 'undefined') {
-                        isEnabled = info.journaling.enablePrompts;
-                    }
-                }
+    const fetchRecentEntries = useCallback(async () => {
+        try {
+            const entries = await FirebaseService.getJournalEntries();
+            // Filter out archived and take top 3 most recent
+            setRecentEntries(entries.filter(e => !e.isArchived).slice(0, 3));
+        } catch (error) {
+            console.error('Error fetching recent entries:', error);
+        }
+    }, []);
 
-                console.log('Journal Preferences:', { final: isEnabled, raw: info?.journaling });
-
-                setPromptsEnabled(isEnabled);
-
-                // If prompts disabled, force Free write mode
-                if (!isEnabled) {
-                    setMode('Free write');
-                }
-            } catch (error) {
-                console.error('Error fetching journal preferences:', error);
-            }
-        };
-
-        const fetchDailyTheme = async () => {
-            try {
-                const firestoreData = await FirebaseService.getUserRootData();
-                const createdAt = firestoreData.createdAt?.toDate ? firestoreData.createdAt.toDate() : new Date();
-                const today = new Date();
-                const diffTime = today - createdAt;
-                const daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                // Support either an array export or an object with `daily_themes` key.
-                const themesArray = Array.isArray(dailyThemes)
-                    ? dailyThemes
-                    : (dailyThemes?.daily_themes || dailyThemes?.themes || []);
-
-                if (!themesArray || themesArray.length === 0) {
-                    console.warn('dailyThemes is missing or empty', dailyThemes);
-                    setCurrentTheme(null);
-                    return;
-                }
-
-                const index = daysSince % themesArray.length;
-                setCurrentTheme(themesArray[index]);
-            } catch (error) {
-                console.error('Error fetching daily theme:', error);
-                // Fallback to first theme
-                const fallback = Array.isArray(dailyThemes) ? dailyThemes[0] : (dailyThemes?.daily_themes?.[0] || null);
-                setCurrentTheme(fallback);
-            }
-        };
-
-        const fetchRecentEntries = async () => {
-            try {
-                const entries = await FirebaseService.getJournalEntries();
-                // Take top 3 most recent
-                setRecentEntries(entries.slice(0, 3));
-            } catch (error) {
-                console.error('Error fetching recent entries:', error);
-            }
-        };
-
-        fetchPreferences();
-        fetchDailyTheme();
-        fetchRecentEntries();
-
-        // Add listener for journal updates if needed, or just fetch on mount
-        const unsubscribe = navigation.addListener('focus', () => {
+    useFocusEffect(
+        useCallback(() => {
+            fetchPreferences();
+            fetchDailyTheme();
             fetchRecentEntries();
-        });
+        }, [fetchRecentEntries])
+    );
 
-        return unsubscribe;
-    }, [navigation]);
+    const fetchPreferences = async () => {
+        try {
+            const info = await FirebaseService.getOnboardingInfo();
+            let isEnabled = true;
+            if (info?.journaling) {
+                if (typeof info.journaling.prompts !== 'undefined') {
+                    isEnabled = info.journaling.prompts;
+                } else if (typeof info.journaling.enablePrompts !== 'undefined') {
+                    isEnabled = info.journaling.enablePrompts;
+                }
+            }
+            setPromptsEnabled(isEnabled);
+            if (!isEnabled) {
+                setMode('Free write');
+            }
+        } catch (error) {
+            console.error('Error fetching journal preferences:', error);
+        }
+    };
+
+    const fetchDailyTheme = async () => {
+        try {
+            const firestoreData = await FirebaseService.getUserRootData();
+            // Use fallback to today if createdAt is missing
+            const createdAtData = firestoreData.createdAt?.toDate ? firestoreData.createdAt.toDate() : new Date();
+
+            // Normalize dates to midnight to calculate "Calendar Days" difference
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const joinDate = new Date(createdAtData);
+            joinDate.setHours(0, 0, 0, 0);
+
+            // Calculate absolute difference in days
+            const diffTime = Math.abs(today - joinDate);
+            const daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            const themesArray = Array.isArray(dailyThemes)
+                ? dailyThemes
+                : (dailyThemes?.daily_themes || dailyThemes?.themes || []);
+
+            if (!themesArray || themesArray.length === 0) {
+                setCurrentTheme(null);
+                return;
+            }
+
+            const index = daysSince % themesArray.length;
+            setCurrentTheme(themesArray[index]);
+            console.log('Daily Theme Updated:', { daysSince, index, title: themesArray[index].title });
+        } catch (error) {
+            console.error('Error fetching daily theme:', error);
+            const fallback = Array.isArray(dailyThemes) ? dailyThemes[0] : (dailyThemes?.daily_themes?.[0] || null);
+            setCurrentTheme(fallback);
+        }
+    };
 
     const handleBack = () => navigation.goBack();
 
@@ -137,35 +133,8 @@ const AddJournalEntryScreen = ({ navigation }) => {
         }
     };
 
-    const handleArchive = async () => {
-        console.log('🗄️ handleArchive called - Starting archive process');
-        try {
-            if (!entryText.trim()) {
-                Alert.alert('Empty Entry', 'Please write something before archiving.');
-                return;
-            }
-
-            await FirebaseService.saveJournalEntry({
-                mode: mode,
-                themeTitle: mode === 'Guided' ? currentTheme?.title : null,
-                themeDescription: mode === 'Guided' ? currentTheme?.description : null,
-                content: entryText.trim(),
-                isArchived: true
-            });
-
-            // Mark journal as complete for today (even for archived entries)
-            await FirebaseService.markJournalComplete();
-
-            Alert.alert('Archived', 'Journal entry has been archived.');
-            navigation.goBack();
-        } catch (error) {
-            console.error('Error archiving journal entry:', error);
-            Alert.alert('Error', 'Failed to archive journal entry. Please try again.');
-        }
-    };
-
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -174,11 +143,7 @@ const AddJournalEntryScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Journal Entry</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     <ScrollView
@@ -244,9 +209,6 @@ const AddJournalEntryScreen = ({ navigation }) => {
 
                             {/* Action Buttons */}
                             <View style={styles.actionButtons}>
-                                <TouchableOpacity style={styles.archiveButton} onPress={handleArchive}>
-                                    <Text style={styles.archiveButtonText}>Archive</Text>
-                                </TouchableOpacity>
                                 <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                                     <Text style={styles.saveButtonText}>Save</Text>
                                 </TouchableOpacity>
@@ -258,21 +220,25 @@ const AddJournalEntryScreen = ({ navigation }) => {
                             <>
                                 <Text style={styles.sectionTitle}>Recent Entries</Text>
                                 {recentEntries.map((entry) => (
-                                    <View key={entry.id} style={styles.recentEntryCard}>
+                                    <TouchableOpacity
+                                        key={entry.id}
+                                        style={styles.recentEntryCard}
+                                        onPress={() => navigation.navigate('JournalDetail', { entry })}
+                                    >
                                         <Text style={styles.recentEntryCategory}>
                                             {entry.themeTitle || entry.mode || 'Journal Entry'}
                                         </Text>
-                                        <Text style={styles.recentEntryContent} numberOfLines={3}>
+                                        <Text style={styles.recentEntryContent} numberOfLines={2}>
                                             {entry.content}
                                         </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                 ))}
                             </>
                         )}
                     </ScrollView>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -299,21 +265,10 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     scrollContent: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 40,
+        paddingBottom: 80,
     },
     entryCard: {
         backgroundColor: 'rgba(255, 255, 255, 0.4)', // Translucent glass effect
@@ -399,20 +354,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 12,
     },
-    archiveButton: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
-    },
-    archiveButtonText: {
-        fontSize: 15,
-        color: colors.text.grey,
-        fontWeight: '500',
-    },
     saveButton: {
         flex: 1,
         backgroundColor: '#7A9181',
@@ -426,35 +367,35 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     sectionTitle: {
-        fontSize: 17,
+        fontSize: 18,
         fontWeight: '700',
         color: colors.text.black,
         marginBottom: 16,
-        marginTop: 8,
+        marginTop: 12,
     },
     recentEntryCard: {
-        backgroundColor: 'rgba(243, 241, 232, 0.7)', // Creamy tinted background
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 12,
+        backgroundColor: 'rgba(243, 241, 232, 0.7)',
+        borderRadius: 10,
+        padding: 8,
+        marginBottom: 6,
         borderWidth: 1,
         borderColor: 'rgba(0, 0, 0, 0.05)',
     },
     recentEntryCategory: {
         alignSelf: 'flex-start',
         backgroundColor: 'rgba(122, 145, 129, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
         fontSize: 11,
         color: '#7A9181',
         fontWeight: '600',
-        marginBottom: 12,
+        marginBottom: 4,
     },
     recentEntryContent: {
-        fontSize: 14,
+        fontSize: 11,
         color: '#444444',
-        lineHeight: 20,
+        lineHeight: 16,
     },
 });
 

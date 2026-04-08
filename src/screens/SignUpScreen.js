@@ -15,13 +15,12 @@ import {
     GradientBackground,
     Button,
     Input,
-    SocialButton,
     Checkbox,
 } from '../components';
 import BrandLogo from '../components/BrandLogo';
 import { colors, typography, spacing } from '../theme';
 import auth from '@react-native-firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import FirebaseService from '../services/FirebaseService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -44,12 +43,12 @@ const SignUpScreen = ({ navigation }) => {
     // const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        // Configure Google Sign-In
-        GoogleSignin.configure({
-            webClientId: '6867275830-tpr0c9h43d8m3rl3u8fpu2akt19vhekb.apps.googleusercontent.com',
-        });
-    }, []);
+    // useEffect(() => {
+    //     // Configure Google Sign-In
+    //     GoogleSignin.configure({
+    //         webClientId: '6867275830-tpr0c9h43d8m3rl3u8fpu2akt19vhekb.apps.googleusercontent.com',
+    //     });
+    // }, []);
 
     const navigateAfterAuth = async () => {
         try {
@@ -130,66 +129,26 @@ const SignUpScreen = ({ navigation }) => {
     //     console.log('Apple sign up');
     // };
 
-    const handleGoogleSignUp = async () => {
-        // if (!agreeToTerms) {
-        //     Alert.alert('Agreement Required', 'Please review and accept the Terms of Service and Privacy Policy to continue.');
-        //     return;
-        // }
-
-        setLoading(true);
-        try {
-            // Sign out from Google to clear cached account and show account picker
-            await GoogleSignin.signOut();
-
-            // Check if your device supports Google Play
-            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-            // Get user info - now with account picker
-            const userInfo = await GoogleSignin.signIn();
-
-            console.log('Full user info:', JSON.stringify(userInfo, null, 2));
-
-            // Try to get idToken from different possible locations
-            const idToken = userInfo.idToken || userInfo?.data?.idToken;
-
-            if (!idToken) {
-                console.error('User info structure:', userInfo);
-                throw new Error('No ID token received from Google Sign-In');
-            }
-
-            console.log('Got idToken:', idToken);
-
-            // Create a Google credential with the token
-            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-
-            // Sign-in the user with the credential
-            const userCredential = await auth().signInWithCredential(googleCredential);
-            console.log('User signed up with Google:', userCredential.user.email);
-
-            // For Google, treat re-using an existing account like sign-in and route based on onboarding status
-            await navigateAfterAuth();
-        } catch (error) {
-            console.error('Google sign up error:', error);
-            console.error('Error code:', error.code);
-            console.error('Error message:', error.message);
-
-            let errorMessage = 'Failed to sign up with Google';
-
-            if (error.code === 'sign_in_cancelled') {
-                return; // User cancelled, don't show error
-            } else if (error.code === 'in_progress') {
-                errorMessage = 'Sign up is already in progress';
-            } else if (error.code === 'play_services_not_available') {
-                errorMessage = 'Google Play Services not available';
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            Alert.alert('Google Sign Up Error', errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // const handleGoogleSignUp = async () => {
+    //     setLoading(true);
+    //     try {
+    //         await GoogleSignin.signOut();
+    //         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    //         const userInfo = await GoogleSignin.signIn();
+    //         const idToken = userInfo.idToken || userInfo?.data?.idToken;
+    //         if (!idToken) throw new Error('No ID token received from Google Sign-In');
+    //         const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+    //         const userCredential = await auth().signInWithCredential(googleCredential);
+    //         console.log('User signed up with Google:', userCredential.user.email);
+    //         await navigateAfterAuth();
+    //     } catch (error) {
+    //         console.error('Google sign up error:', error);
+    //         if (error.code === 'sign_in_cancelled') return;
+    //         Alert.alert('Google Sign Up Error', error.message || 'Failed to sign up with Google');
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
 
     return (
         <GradientBackground>
@@ -267,26 +226,7 @@ const SignUpScreen = ({ navigation }) => {
                         disabled={loading}
                     />
 
-                    {/* Divider */}
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>OR</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
 
-                    {/* Social Buttons */}
-
-                    {/*<SocialButton
-                        provider="apple"
-                        onPress={handleAppleSignUp}
-                        style={styles.socialButton}
-                    /> */}
-                    <SocialButton
-                        provider="google"
-                        onPress={handleGoogleSignUp}
-                        style={styles.socialButton}
-                        disabled={loading}
-                    />
 
                     {/* Sign In Link */}
                     <View style={styles.linkContainer}>

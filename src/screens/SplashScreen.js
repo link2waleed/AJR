@@ -4,12 +4,15 @@ import {
     StyleSheet,
     Image,
     Animated,
+    Easing,
     Dimensions
 } from 'react-native';
 import { GradientBackground } from '../components';
 import { spacing } from '../theme';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
+import firebase from '@react-native-firebase/app';
+import { ensureFirebaseApp } from '../services/FirebaseInit';
 
 const { width } = Dimensions.get('window');
 
@@ -25,10 +28,11 @@ const SplashScreen = ({ navigation }) => {
     // Animation values for "Water your soul" text
     const brandTextOpacity = useRef(new Animated.Value(0)).current;
 
-    // Animation values for leaf growing from crescent (appears last)
-    const leafScale = useRef(new Animated.Value(0)).current;
+    // Animation values for flower growing from crescent (grows slowly upward)
+    const leafScaleY = useRef(new Animated.Value(0)).current;  // scale from bottom
+    const leafScaleX = useRef(new Animated.Value(0)).current;  // width blooms in slightly after
     const leafOpacity = useRef(new Animated.Value(0)).current;
-    const leafTranslateY = useRef(new Animated.Value(20)).current;
+    const leafTranslateY = useRef(new Animated.Value(30)).current; // starts lower, rises up
 
     useEffect(() => {
         // Calmer, sequential animation flow
@@ -71,25 +75,40 @@ const SplashScreen = ({ navigation }) => {
                 useNativeDriver: true,
             }),
 
-            // Small pause before leaf appears
-            Animated.delay(300),
+            // Small pause before flower starts growing
+            Animated.delay(500),
 
-            // Phase 3: Leaf grows and blooms from the crescent (last, 1s)
+            // Phase 3: Flower slowly grows upward from the moon base
             Animated.parallel([
+                // Fade in gently as it starts growing
                 Animated.timing(leafOpacity, {
                     toValue: 1,
-                    duration: 500,
+                    duration: 600,
+                    easing: Easing.out(Easing.quad),
                     useNativeDriver: true,
                 }),
-                Animated.spring(leafScale, {
+                // Grow height (scaleY) slowly from 0 → 1, like a stem rising
+                Animated.timing(leafScaleY, {
                     toValue: 1,
-                    tension: 50,
-                    friction: 7,
+                    duration: 1800,
+                    easing: Easing.bezier(0.2, 0.0, 0.3, 1.0), // slow start, smooth finish
                     useNativeDriver: true,
                 }),
+                // Width blooms in slightly after height starts (feels organic)
+                Animated.sequence([
+                    Animated.delay(300),
+                    Animated.timing(leafScaleX, {
+                        toValue: 1,
+                        duration: 1500,
+                        easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+                        useNativeDriver: true,
+                    }),
+                ]),
+                // Rise upward as it grows
                 Animated.timing(leafTranslateY, {
                     toValue: 0,
-                    duration: 700,
+                    duration: 1800,
+                    easing: Easing.bezier(0.2, 0.0, 0.3, 1.0),
                     useNativeDriver: true,
                 }),
             ]),
@@ -97,6 +116,7 @@ const SplashScreen = ({ navigation }) => {
 
         // Check auth state and navigate after animation completes
         const timer = setTimeout(() => {
+            ensureFirebaseApp();
             const currentUser = auth().currentUser;
             if (currentUser) {
                 // User is logged in - check onboarding-process flag
@@ -119,13 +139,14 @@ const SplashScreen = ({ navigation }) => {
                 // User is not logged in - navigate to Welcome screen
                 navigation.replace('Welcome');
             }
-        }, 4000);
+        }, 5500);
 
         return () => clearTimeout(timer);
     }, [
         navigation,
         moonOpacity,
-        leafScale,
+        leafScaleY,
+        leafScaleX,
         leafOpacity,
         leafTranslateY,
         letterAOpacity,
@@ -146,7 +167,7 @@ const SplashScreen = ({ navigation }) => {
                         resizeMode="contain"
                     />
 
-                    {/* Leaf - positioned to grow from inside the crescent */}
+                    {/* Flower - grows slowly upward from the crescent moon */}
                     <Animated.Image
                         source={require('../../assets/images/leaf.png')}
                         style={[
@@ -154,8 +175,9 @@ const SplashScreen = ({ navigation }) => {
                             {
                                 opacity: leafOpacity,
                                 transform: [
-                                    { scale: leafScale },
                                     { translateY: leafTranslateY },
+                                    { scaleY: leafScaleY },
+                                    { scaleX: leafScaleX },
                                 ],
                             },
                         ]}
@@ -201,27 +223,26 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.xl,
     },
     logoContainer: {
-        width: 140,
-        height: 140,
+        width: 160,
+        height: 160,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
         marginBottom: spacing.md,
     },
     moon: {
-        width: 120,
-        height: 120,
+        width: 140,
+        height: 140,
         position: 'absolute',
     },
     leaf: {
-        width: 55,
-        height: 70,
+        width: 68,
+        height: 88,
         position: 'absolute',
-        // Center the leaf within the moon container
-        top: '50%',
+        // Anchor at the bottom-center of the flower so it grows upward from moon base
+        bottom: '26%',
         left: '50%',
-        marginTop: -35, // Half of height to center vertically
-        marginLeft: -27.5, // Half of width to center horizontally
+        marginLeft: -34, // Half of width to center horizontally
     },
     lettersContainer: {
         flexDirection: 'row',

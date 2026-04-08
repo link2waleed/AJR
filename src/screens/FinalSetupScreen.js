@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     Dimensions,
     Animated,
+    Easing,
     Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,10 +23,11 @@ const FinalSetupScreen = ({ navigation }) => {
     // Animation values for moon
     const moonOpacity = useRef(new Animated.Value(0.15)).current;
 
-    // Animation values for leaf growing from crescent
-    const leafScale = useRef(new Animated.Value(0)).current;
+    // Animation values for flower growing from crescent (grows slowly upward)
+    const leafScaleY = useRef(new Animated.Value(0)).current;  // height grows first
+    const leafScaleX = useRef(new Animated.Value(0)).current;  // width blooms after
     const leafOpacity = useRef(new Animated.Value(0)).current;
-    const leafTranslateY = useRef(new Animated.Value(15)).current;
+    const leafTranslateY = useRef(new Animated.Value(25)).current; // starts lower, rises up
 
     // Animation values for text and button
     const textOpacity = useRef(new Animated.Value(0)).current;
@@ -52,32 +54,50 @@ const FinalSetupScreen = ({ navigation }) => {
                 useNativeDriver: true,
             }),
 
-            // Phase 2: Leaf grows from the crescent
+            // Small pause before flower starts growing
+            Animated.delay(300),
+
+            // Phase 2: Flower slowly grows upward from the moon base
             Animated.parallel([
+                // Fade in gently as it starts growing
                 Animated.timing(leafOpacity, {
                     toValue: 1,
-                    duration: 400,
+                    duration: 500,
+                    easing: Easing.out(Easing.quad),
                     useNativeDriver: true,
                 }),
-                Animated.spring(leafScale, {
+                // Grow height (scaleY) slowly — like a stem rising
+                Animated.timing(leafScaleY, {
                     toValue: 1,
-                    tension: 60,
-                    friction: 8,
+                    duration: 1800,
+                    easing: Easing.bezier(0.2, 0.0, 0.3, 1.0),
                     useNativeDriver: true,
                 }),
+                // Width blooms in slightly after height (organic feel)
+                Animated.sequence([
+                    Animated.delay(300),
+                    Animated.timing(leafScaleX, {
+                        toValue: 1,
+                        duration: 1500,
+                        easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+                        useNativeDriver: true,
+                    }),
+                ]),
+                // Rise upward as it grows
                 Animated.timing(leafTranslateY, {
                     toValue: 0,
-                    duration: 600,
+                    duration: 1800,
+                    easing: Easing.bezier(0.2, 0.0, 0.3, 1.0),
                     useNativeDriver: true,
                 }),
             ]),
         ]).start();
 
-        // Phase 3: Text fades in
+        // Phase 3: Text fades in (delayed to wait for longer grow animation)
         Animated.timing(textOpacity, {
             toValue: 1,
             duration: 800,
-            delay: 800,
+            delay: 2200,
             useNativeDriver: true,
         }).start();
 
@@ -85,10 +105,10 @@ const FinalSetupScreen = ({ navigation }) => {
         Animated.timing(buttonOpacity, {
             toValue: 1,
             duration: 600,
-            delay: 1200,
+            delay: 2800,
             useNativeDriver: true,
         }).start();
-    }, [moonOpacity, leafScale, leafOpacity, leafTranslateY, textOpacity, buttonOpacity]);
+    }, [moonOpacity, leafScaleY, leafScaleX, leafOpacity, leafTranslateY, textOpacity, buttonOpacity]);
 
     const handleEnterSpace = async () => {
         setCompleting(true);
@@ -159,9 +179,10 @@ const FinalSetupScreen = ({ navigation }) => {
 
     return (
         <LinearGradient
-            colors={[colors.gradient.start, colors.gradient.end]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            colors={['#cdb469ff', '#a0aea0ff', '#2e543dff']}
+            locations={[0, 0.35, 0.95]}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={styles.container}
         >
             <View style={styles.content}>
@@ -183,7 +204,7 @@ const FinalSetupScreen = ({ navigation }) => {
                         resizeMode="contain"
                     />
 
-                    {/* Leaf - positioned to grow from inside the crescent */}
+                    {/* Flower - grows slowly upward from the crescent moon */}
                     <Animated.Image
                         source={require('../../assets/images/leaf.png')}
                         style={[
@@ -191,8 +212,9 @@ const FinalSetupScreen = ({ navigation }) => {
                             {
                                 opacity: leafOpacity,
                                 transform: [
-                                    { scale: leafScale },
                                     { translateY: leafTranslateY },
+                                    { scaleY: leafScaleY },
+                                    { scaleX: leafScaleX },
                                 ],
                             },
                         ]}
@@ -267,9 +289,9 @@ const styles = StyleSheet.create({
         width: 70,
         height: 90,
         position: 'absolute',
-        top: '50%',
+        // Anchor at the bottom-center so it grows upward from moon base
+        bottom: '26%',
         left: '50%',
-        marginTop: -45,
         marginLeft: -35,
         tintColor: 'rgba(255, 255, 255, 0.9)',
     },

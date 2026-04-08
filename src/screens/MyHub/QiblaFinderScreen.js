@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Ima
 import { Ionicons } from '@expo/vector-icons';
 import { Magnetometer } from 'expo-sensors';
 import * as Location from 'expo-location';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, typography } from '../../theme';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 import Svg, { Circle, Line, Text as SvgText, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -95,7 +95,7 @@ const QiblaFinderScreen = ({ navigation }) => {
     const compassRotation = -heading;
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -104,11 +104,7 @@ const QiblaFinderScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Qibla Finder</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* Compass Container */}
@@ -209,7 +205,7 @@ const QiblaFinderScreen = ({ navigation }) => {
                     </View>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -236,18 +232,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     compassContainer: {
         flex: 1,
         justifyContent: 'center',

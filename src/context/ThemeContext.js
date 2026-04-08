@@ -24,6 +24,7 @@ const ThemeContext = createContext({
     maghribTime: null,
     prayerData: null,
     cityName: null,
+    countryName: null,
     weather: null,
     isManualPreview: false,
     refreshTheme: async () => { },
@@ -58,6 +59,7 @@ export const ThemeProvider = ({ children }) => {
     const [maghribTime, setMaghribTime] = useState(null);
     const [prayerData, setPrayerData] = useState(null);
     const [cityName, setCityName] = useState(null);
+    const [countryName, setCountryName] = useState(null);
     const [weather, setWeather] = useState(null);
 
     // Track current date to detect midnight crossing
@@ -110,8 +112,12 @@ export const ThemeProvider = ({ children }) => {
 
             // Load raw cached city (no validation - get whatever is saved)
             const cachedCity = await CityService.getRawCachedCity();
+            const cachedLocationInfo = await CityService.getRawCachedCityAndCountry?.();
             if (cachedCity) {
                 setCityName(cachedCity);
+            }
+            if (cachedLocationInfo?.country) {
+                setCountryName(cachedLocationInfo.country);
             }
 
             // Load raw cached weather (no validation - get whatever is saved)
@@ -153,9 +159,10 @@ export const ThemeProvider = ({ children }) => {
      */
     const fetchCityName = useCallback(async (lat, lng) => {
         try {
-            const city = await CityService.getCityName(lat, lng);
-            setCityName(city);
-            return city;
+            const result = await CityService.getCityAndCountry(lat, lng);
+            setCityName(result.city);
+            setCountryName(result.country);
+            return result.city;
         } catch (error) {
             console.error('ThemeContext: Error fetching city name:', error);
             return null;
@@ -433,6 +440,7 @@ export const ThemeProvider = ({ children }) => {
         maghribTime,
         prayerData,
         cityName,
+        countryName,
         weather,
         isManualPreview,     // True if currently in manual preview mode
         refreshTheme,

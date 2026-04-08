@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, ActivityIndicator, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -16,6 +16,8 @@ async function bootstrapNotifications() {
   try {
     console.log('[APP] Starting notification bootstrap...');
     await NotificationService.setupChannels();
+    // Clear any stale queued prayer notifications from older app logic/text.
+    await NotificationService.cancelAllPrayerNotifications();
 
     // Load prayer settings from DB
     const info = await FirebaseService.getOnboardingInfo();
@@ -63,9 +65,25 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     Uthmanic: require('./assets/fonts/Uthmanic.otf'),
   });
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
     bootstrapNotifications();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasInBackground = appStateRef.current === 'background' || appStateRef.current === 'inactive';
+      if (wasInBackground && nextState === 'active') {
+        // Re-bootstrap on foreground so time/location changes re-schedule notifications.
+        bootstrapNotifications();
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   if (!fontsLoaded) {

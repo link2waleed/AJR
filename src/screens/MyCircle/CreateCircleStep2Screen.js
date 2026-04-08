@@ -17,7 +17,7 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 
 // Import assets
-import notifications from '../../../assets/images/notification-bing.png';
+
 import circlesImage from '../../../assets/images/main-circle.png';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -88,7 +88,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
         const fetchSlots = async () => {
             try {
                 const circles = await FirebaseService.getUserCircles();
-                setRemainingSlots(Math.max(0, 3 - circles.length));
+                setRemainingSlots(Math.max(0, 5 - circles.length));
             } catch (e) {
                 console.warn('Could not fetch circle count:', e);
             }
@@ -103,12 +103,32 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
         }
         setLoading(true);
         try {
-            await FirebaseService.createCircle(circleName.trim(), circleType);
-            Alert.alert('Success', 'Your circle has been created!', [
-                { text: 'OK', onPress: () => navigation.navigate('MainApp', { screen: 'MyCircle' }) },
+            const result = await FirebaseService.createCircle(circleName.trim(), circleType);
+            console.log('✅ Circle created successfully:', result);
+            Alert.alert('Circle Created!', `Your circle "${circleName.trim()}" is ready. Share the invite code with friends!`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        // Pop back through Step1 all the way to MyCircle
+                        // This triggers the focus listener which refreshes the circles list
+                        navigation.popToTop();
+                    }
+                },
             ]);
         } catch (error) {
-            Alert.alert('Error', error.message || 'Failed to create circle. Please try again.');
+            console.error('❌ Circle creation error:', error);
+            if (
+                error.message &&
+                error.message.includes('You can be part of up to 5 circles')
+            ) {
+                Alert.alert(
+                    'Circle Limit Reached',
+                    'You have reached the maximum of 5 circles. To create a new circle, please leave an existing one first.',
+                    [{ text: 'OK', style: 'default' }]
+                );
+            } else {
+                Alert.alert('Error', error.message || 'Failed to create circle. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -120,8 +140,8 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
 
     return (
         <LinearGradient
-            colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-            locations={[0, 0.7, 1]}
+            colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+            locations={[0, 1]}
             style={styles.container}
         >
             <ScrollView
@@ -140,11 +160,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
 
                     <Text style={styles.headerTitle}>Create Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
-                        <View style={styles.notificationBadge}>
-                            <Image source={notifications} style={styles.notificationIcon} />
-                        </View>
-                    </TouchableOpacity>
+                    <View style={{ width: 40 }} />
                 </View>
 
                 {/* Step Indicator */}
@@ -197,7 +213,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
                     {/* Info Message */}
                     <View style={styles.infoMessageContainer}>
                         <Ionicons name="information-circle-outline" size={18} color={colors.text.grey} />
-                        <Text style={styles.infoMessageText}>You can be part of up to 3 Circles total</Text>
+                        <Text style={styles.infoMessageText}>You can be part of up to 5 Circles total</Text>
                     </View>
                 </View>
             </ScrollView>
@@ -254,19 +270,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
     },
-    notificationButton: {},
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     // Step Indicator
     stepContainer: {
         flexDirection: 'row',

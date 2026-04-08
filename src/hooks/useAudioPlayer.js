@@ -13,30 +13,38 @@ export const useAudioPlayer = () => {
     const playlistRef = useRef([]);
     const currentIndexRef = useRef(0);
     const isLoadingRef = useRef(false);
+    const playbackTokenRef = useRef(0);
 
-    const playAudio = async (audioUrl, ayahNumber) => {
+    const playAudio = async (audioUrl, ayahNumber, options = {}) => {
         try {
+            const { forceLoad = false } = options;
+
             // Prevent multiple simultaneous loads
             if (isLoadingRef.current) {
                 console.log('Audio already loading, ignoring click');
                 return;
             }
 
-            // If same ayah is playing, pause it
-            if (currentlyPlaying === ayahNumber && isPlaying) {
-                if (soundRef.current) {
-                    await soundRef.current.pauseAsync();
+            if (!forceLoad) {
+                // If same ayah is playing, pause it
+                if (currentlyPlaying === ayahNumber && isPlaying) {
+                    if (soundRef.current) {
+                        await soundRef.current.pauseAsync();
+                    }
+                    setIsPlaying(false);
+                    return;
                 }
-                setIsPlaying(false);
-                return;
+
+                // If same ayah is paused, resume it
+                if (currentlyPlaying === ayahNumber && !isPlaying && soundRef.current) {
+                    await soundRef.current.playAsync();
+                    setIsPlaying(true);
+                    return;
+                }
             }
 
-            // If same ayah is paused, resume it
-            if (currentlyPlaying === ayahNumber && !isPlaying && soundRef.current) {
-                await soundRef.current.playAsync();
-                setIsPlaying(true);
-                return;
-            }
+            // Rotate token only when loading a fresh sound instance.
+            const playbackToken = ++playbackTokenRef.current;
 
             // Set loading state
             isLoadingRef.current = true;
@@ -54,6 +62,7 @@ export const useAudioPlayer = () => {
                 const previousSound = soundRef.current;
                 soundRef.current = null;
                 setSound(null);
+                previousSound.setOnPlaybackStatusUpdate(null);
                 // Unload in background without blocking - don't await
                 previousSound.unloadAsync().catch(err => console.log('Error unloading previous sound:', err));
             }
@@ -82,6 +91,8 @@ export const useAudioPlayer = () => {
 
             // Handle playback completion
             newSound.setOnPlaybackStatusUpdate((status) => {
+                if (playbackToken !== playbackTokenRef.current) return;
+
                 if (status.didJustFinish) {
                     // If in sequential mode, play next ayah
                     if (isSequentialModeRef.current && playlistRef.current.length > 0) {
@@ -92,7 +103,11 @@ export const useAudioPlayer = () => {
                             // Don't set isPlaying to false - keep it true for continuous playback
                             currentIndexRef.current = nextIndex;
                             // Play next ayah immediately
-                            playAudio(playlistRef.current[nextIndex].audio, playlistRef.current[nextIndex].numberInSurah);
+                            playAudio(
+                                playlistRef.current[nextIndex].audio,
+                                playlistRef.current[nextIndex].numberInSurah,
+                                { forceLoad: true }
+                            );
                         } else {
                             // Playlist finished - now we can set isPlaying to false
                             setIsPlaying(false);
@@ -128,7 +143,7 @@ export const useAudioPlayer = () => {
         isSequentialModeRef.current = true;
 
         const firstAyah = ayahs[startIndex];
-        await playAudio(firstAyah.audio, firstAyah.numberInSurah);
+        await playAudio(firstAyah.audio, firstAyah.numberInSurah, { forceLoad: true });
     };
 
     const pauseSequential = async () => {
@@ -146,6 +161,7 @@ export const useAudioPlayer = () => {
     };
 
     const stopSequential = async () => {
+        playbackTokenRef.current += 1;
         setIsSequentialMode(false);
         isSequentialModeRef.current = false;
         playlistRef.current = [];
@@ -160,6 +176,8 @@ export const useAudioPlayer = () => {
                 soundRef.current = null;
                 setSound(null);
 
+                currentSound.setOnPlaybackStatusUpdate(null);
+
                 // Then unload the captured sound instance
                 await currentSound.unloadAsync();
             } catch (error) {
@@ -171,9 +189,11 @@ export const useAudioPlayer = () => {
     };
 
     const cleanup = async () => {
+        playbackTokenRef.current += 1;
         if (soundRef.current) {
             const currentSound = soundRef.current;
             soundRef.current = null;
+            currentSound.setOnPlaybackStatusUpdate(null);
             await currentSound.unloadAsync();
         }
     };

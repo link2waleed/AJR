@@ -26,7 +26,6 @@ const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const LocationPermissionScreen = ({ navigation, route }) => {
     const [locationEnabled, setLocationEnabled] = useState(false);
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [isRequestingPermission, setIsRequestingPermission] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
 
@@ -133,8 +132,7 @@ const LocationPermissionScreen = ({ navigation, route }) => {
     const proceedToNextScreen = () => {
         navigation.navigate('SelectActivities', {
             userName,
-            locationEnabled,
-            notificationsEnabled
+            locationEnabled
         });
     };
 
@@ -294,28 +292,6 @@ const LocationPermissionScreen = ({ navigation, route }) => {
                             disabled={isRequestingPermission || !isInitialized}
                         />
                     </View>
-
-                    {/* Notifications Permission Card - only show in onboarding */}
-                    {!isFromSettings && (
-                        <View style={[styles.card]}>
-                            <View style={styles.cardIconContainer}>
-                                <Ionicons name="notifications-outline" size={24} color={colors.primary.sage} />
-                            </View>
-                            <View style={styles.cardContent}>
-                                <Text style={styles.cardTitle}>Allow Notifications & reminders</Text>
-                                {/* <TouchableOpacity>
-                                    <Text style={styles.learnMore}>Learn more</Text>
-                                </TouchableOpacity> */}
-                            </View>
-                            <Switch
-                                value={notificationsEnabled}
-                                onValueChange={setNotificationsEnabled}
-                                trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#E0E0E0"
-                            />
-                        </View>
-                    )}
                 </View>
 
                 {/* Privacy Promise */}

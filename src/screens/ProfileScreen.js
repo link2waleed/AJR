@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -7,16 +7,17 @@ import {
     TouchableOpacity,
     Image,
     Dimensions,
-    Switch,
     Alert,
+    Modal,
+    ActivityIndicator,
+    Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
 import StorageService from '../services/StorageService';
-import NotificationService from '../services/NotificationService';
-import NotificationPermissionModal from '../components/NotificationPermissionModal';
+import { useTheme } from '../context/ThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -47,12 +48,22 @@ const SectionHeader = ({ title }) => (
 );
 
 const ProfileScreen = ({ navigation }) => {
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
     const [selectedSchool, setSelectedSchool] = useState(1); // 0 = Shafi, 1 = Hanafi
+    const [weatherUnit, setWeatherUnit] = useState('C');
+    const [isWeatherUnitManual, setIsWeatherUnitManual] = useState(false);
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [showPermModal, setShowPermModal] = useState(false);
+
+    // Get country name from theme context
+    const { countryName } = useTheme();
+
+    // Delete account state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteCountdown, setDeleteCountdown] = useState(5);
+    const [deleting, setDeleting] = useState(false);
+    const countdownRef = useRef(null);
+    const deletingRef = useRef(false);
 
     useEffect(() => {
         const unsubscribe = auth().onAuthStateChanged(async (user) => {
@@ -106,7 +117,10 @@ const ProfileScreen = ({ navigation }) => {
                     });
                 }
             } else {
-                navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                // Don't navigate during account deletion — the deletion handler controls navigation
+                if (!deletingRef.current) {
+                    navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+                }
             }
             setLoading(false);
         });
@@ -120,7 +134,7 @@ const ProfileScreen = ({ navigation }) => {
             try {
                 const school = await StorageService.getSchoolPreference();
                 setSelectedSchool(school);
-                console.log('🕌 Loaded school preference:', school === 0 ? 'Shafi' : 'Hanafi');
+                console.log('🕌 Loaded school preference:', school === 0 ? 'Standard' : 'Hanafi');
             } catch (error) {
                 console.error('Error loading school preference:', error);
             }
@@ -129,62 +143,69 @@ const ProfileScreen = ({ navigation }) => {
         loadSchoolPreference();
     }, []);
 
-    // Load notification toggle state from AsyncStorage
-    useEffect(() => {
-        const loadNotifState = async () => {
-            try {
-                const saved = await StorageService.getPermissionStatus();
-                // re-use 'notifGlobalEnabled' key stored separately
-                const raw = await require('@react-native-async-storage/async-storage').default.getItem('@ajr_notif_global');
-                if (raw !== null) setNotificationsEnabled(JSON.parse(raw));
-            } catch (e) { }
-        };
-        loadNotifState();
-    }, []);
+    // Helper to get automatic weather unit based on country
+    const getAutomaticWeatherUnit = (country) => {
+        const fahrenheitCountries = new Set([
+            'united states',
+            'united states of america',
+            'usa',
+            'bahamas',
+            'cayman islands',
+            'liberia',
+        ]);
 
-    // Handle notification master toggle
-    const handleNotificationToggle = async (value) => {
-        if (value) {
-            const granted = await NotificationService.requestPermissions();
-            if (!granted) {
-                setShowPermModal(true);
-                return;
-            }
+        if (!country) {
+            return 'C';
         }
-        setNotificationsEnabled(value);
-        try {
-            await require('@react-native-async-storage/async-storage').default.setItem('@ajr_notif_global', JSON.stringify(value));
 
-            if (!value) {
-                await NotificationService.cancelAllPrayerNotifications();
-                console.log('ProfileScreen: all notifications cancelled');
-            } else {
-                const info = await FirebaseService.getOnboardingInfo();
-                const fullData = await StorageService.getFullTimings();
-                const prayer = info?.prayer;
-                if (prayer && fullData) {
-                    const { timings, timezone } = fullData;
-                    const parsePrayer = (val) => {
-                        if (val && typeof val === 'object') return val;
-                        return { enabled: val ?? false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' };
-                    };
-                    await NotificationService.schedulePrayerNotifications(
-                        {
-                            fajr: parsePrayer(prayer.fajr),
-                            duhur: parsePrayer(prayer.dhuhr),
-                            asr: parsePrayer(prayer.asr),
-                            mughrib: parsePrayer(prayer.maghrib),
-                            isha: parsePrayer(prayer.isha),
-                            soundMode: prayer.soundMode || 'athan',
-                        },
-                        timings,
-                        timezone
-                    );
-                    console.log('ProfileScreen: notifications re-enabled and rescheduled');
+        const normalizedCountry = country.trim().toLowerCase();
+        return fahrenheitCountries.has(normalizedCountry) ? 'F' : 'C';
+    };
+
+    // Load weather unit and detect country changes
+    useEffect(() => {
+        const loadWeatherUnit = async () => {
+            try {
+                // Check if country has changed and reset weather unit if needed
+                const { countryChanged, wasManuallySet } = await StorageService.checkAndResetWeatherUnitIfCountryChanged(countryName);
+                
+                // Load the saved weather unit (or null if auto-detect)
+                const unit = await StorageService.getWeatherUnit();
+                if (unit) {
+                    setWeatherUnit(unit);
+                    setIsWeatherUnitManual(true);
+                } else {
+                    // Auto-detect based on country
+                    const autoUnit = getAutomaticWeatherUnit(countryName);
+                    setWeatherUnit(autoUnit);
+                    setIsWeatherUnitManual(false);
                 }
+
+                // Log if country changed and manual override was reset
+                if (countryChanged && wasManuallySet) {
+                    console.log('🌍 Weather unit reset due to country change');
+                }
+            } catch (error) {
+                console.error('ProfileScreen: Error loading weather unit:', error);
+                setWeatherUnit(getAutomaticWeatherUnit(countryName));
+                setIsWeatherUnitManual(false);
             }
-        } catch (err) {
-            console.error('ProfileScreen: handleNotificationToggle error', err);
+        };
+
+        if (countryName) {
+            loadWeatherUnit();
+        }
+    }, [countryName]);
+
+    const toggleWeatherUnit = async () => {
+        const nextUnit = weatherUnit === 'C' ? 'F' : 'C';
+        setWeatherUnit(nextUnit);
+        hasSavedWeatherUnit.current = true;
+        try {
+            await StorageService.saveWeatherUnit(nextUnit);
+            console.log('Weather unit changed to:', nextUnit);
+        } catch (error) {
+            console.error('ProfileScreen: Error saving weather unit:', error);
         }
     };
 
@@ -214,7 +235,57 @@ const ProfileScreen = ({ navigation }) => {
     const handleSchoolChange = async (school) => {
         setSelectedSchool(school);
         await StorageService.saveSchoolPreference(school);
-        console.log('🕌 School preference changed to:', school === 0 ? 'Shafi' : 'Hanafi');
+        console.log('🕌 School preference changed to:', school === 0 ? 'Standard' : 'Hanafi');
+    };
+
+    const openDeleteModal = () => {
+        setDeleteCountdown(5);
+        setShowDeleteModal(true);
+
+        // Start countdown
+        let count = 5;
+        countdownRef.current = setInterval(() => {
+            count -= 1;
+            setDeleteCountdown(count);
+            if (count <= 0) {
+                clearInterval(countdownRef.current);
+                countdownRef.current = null;
+            }
+        }, 1000);
+    };
+
+    const closeDeleteModal = () => {
+        setShowDeleteModal(false);
+        if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeleting(true);
+        deletingRef.current = true;
+        try {
+            await FirebaseService.deleteAccountAndCleanup();
+            // Auth account deleted — close modal and navigate to Welcome screen
+            setShowDeleteModal(false);
+            navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        } catch (error) {
+            console.error('Account deletion error:', error);
+            deletingRef.current = false;
+            setDeleting(false);
+            setShowDeleteModal(false);
+
+            // If auth/requires-recent-login, prompt user to re-authenticate
+            if (error.code === 'auth/requires-recent-login') {
+                Alert.alert(
+                    'Re-authentication Required',
+                    'For security, please log out and log back in, then try deleting your account again.',
+                );
+            } else {
+                Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
+        }
     };
 
     return (<>
@@ -267,7 +338,7 @@ const ProfileScreen = ({ navigation }) => {
 
 
                 {/* Preferences Section */}
-                <SectionHeader title="Preferences" />
+                <SectionHeader title="Settings" />
                 <View style={styles.settingsSection}>
                     <SettingItem
                         icon="book-outline"
@@ -279,16 +350,7 @@ const ProfileScreen = ({ navigation }) => {
                         icon="notifications-outline"
                         title="Notifications"
                         subtitle="Prayer reminders, daily prompts"
-                        showArrow={false}
-                        rightComponent={
-                            <Switch
-                                value={notificationsEnabled}
-                                onValueChange={handleNotificationToggle}
-                                trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#E0E0E0"
-                            />
-                        }
+                        onPress={() => navigation.navigate('Notifications')}
                     />
                     <SettingItem
                         icon="location-outline"
@@ -297,9 +359,15 @@ const ProfileScreen = ({ navigation }) => {
                         onPress={() => navigation.navigate('LocationPermission', { fromSettings: true })}
                     />
                     <SettingItem
+                        icon="time-outline"
+                        title="Custom Prayer Adjustments"
+                        subtitle="Fine-tune individual prayer times"
+                        onPress={() => navigation.navigate('PrayerAdjustments')}
+                    />
+                    <SettingItem
                         icon="book-outline"
                         title="Prayer School"
-                        subtitle={selectedSchool === 0 ? 'Shafi' : 'Hanafi'}
+                        subtitle={selectedSchool === 0 ? 'Standard' : 'Hanafi'}
                         showArrow={false}
                         rightComponent={
                             <View style={styles.schoolToggleContainer}>
@@ -314,7 +382,7 @@ const ProfileScreen = ({ navigation }) => {
                                         styles.schoolToggleText,
                                         selectedSchool === 0 && styles.schoolToggleTextActive
                                     ]}>
-                                        Shafi
+                                        Standard
                                     </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
@@ -329,6 +397,58 @@ const ProfileScreen = ({ navigation }) => {
                                         selectedSchool === 1 && styles.schoolToggleTextActive
                                     ]}>
                                         Hanafi
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        }
+                    />
+                    <SettingItem
+                        icon="thermometer-outline"
+                        title="Temperature Unit"
+                        subtitle={isWeatherUnitManual ? `Manual: ${weatherUnit === 'C' ? 'Celsius' : 'Fahrenheit'}` : `Auto: ${weatherUnit}°`}
+                        showArrow={false}
+                        rightComponent={
+                            <View style={styles.weatherToggleContainer}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.weatherToggleButton,
+                                        weatherUnit === 'C' && styles.weatherToggleButtonActive
+                                    ]}
+                                    onPress={async () => {
+                                        if (weatherUnit !== 'C') {
+                                            setWeatherUnit('C');
+                                            setIsWeatherUnitManual(true);
+                                            await StorageService.saveWeatherUnit('C');
+                                            console.log('🌡️ ProfileScreen: Weather unit changed to Celsius');
+                                        }
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.weatherToggleText,
+                                        weatherUnit === 'C' && styles.weatherToggleTextActive
+                                    ]}>
+                                        °C
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.weatherToggleButton,
+                                        weatherUnit === 'F' && styles.weatherToggleButtonActive
+                                    ]}
+                                    onPress={async () => {
+                                        if (weatherUnit !== 'F') {
+                                            setWeatherUnit('F');
+                                            setIsWeatherUnitManual(true);
+                                            await StorageService.saveWeatherUnit('F');
+                                            console.log('🌡️ ProfileScreen: Weather unit changed to Fahrenheit');
+                                        }
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.weatherToggleText,
+                                        weatherUnit === 'F' && styles.weatherToggleTextActive
+                                    ]}>
+                                        °F
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -356,47 +476,29 @@ const ProfileScreen = ({ navigation }) => {
                     /> */}
                 </View>
 
-                {/* Support Section */}
-                <SectionHeader title="Support" />
-                <View style={styles.settingsSection}>
-                    <SettingItem
-                        icon="heart-outline"
-                        title="Support AJR"
-                        subtitle="Help us keep the app accessible"
-                        onPress={() => console.log('Support')}
-                    />
-                    <SettingItem
-                        icon="help-circle-outline"
-                        title="Help & FAQ"
-                        onPress={() => console.log('Help')}
-                    />
-                    {/* <SettingItem
-                        icon="chatbubble-outline"
-                        title="Contact Us"
-                        onPress={() => console.log('Contact')}
-                    /> */}
-                    <SettingItem
-                        icon="document-text-outline"
-                        title="Terms & Privacy Policy"
-                        onPress={() => console.log('Terms')}
-                    />
+                <SectionHeader title="Privacy & Terms" />
+                <View style={styles.legalSection}>
+                    <TouchableOpacity
+                        style={styles.legalButton}
+                        activeOpacity={0.7}
+                        onPress={() => Linking.openURL('https://ajrapp.com/policies/privacy-and-policy')}
+                    >
+                        <Text style={styles.legalButtonText}>Privacy and Policy</Text>
+                        <Ionicons name="open-outline" size={18} color={colors.primary.sage} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.legalButton, styles.legalButtonLast]}
+                        activeOpacity={0.7}
+                        onPress={() => Linking.openURL('https://ajrapp.com/terms-of-services')}
+                    >
+                        <Text style={styles.legalButtonText}>Terms of Services</Text>
+                        <Ionicons name="open-outline" size={18} color={colors.primary.sage} />
+                    </TouchableOpacity>
                 </View>
 
-                {/* Account Section */}
-                {/* <SectionHeader title="Account" />
-                <View style={styles.settingsSection}>
-                    <SettingItem
-                        icon="shield-checkmark-outline"
-                        title="Account Security"
-                        onPress={() => console.log('Security')}
-                    />
-                    <SettingItem
-                        icon="cloud-download-outline"
-                        title="Export My Data"
-                        onPress={() => console.log('Export')}
-                    />
 
-                </View> */}
+
+
 
                 {/* Logout Button */}
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -404,16 +506,86 @@ const ProfileScreen = ({ navigation }) => {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
 
+                {/* User Account Deletion */}
+                <SectionHeader title="User Account Deletion" />
+                <View style={styles.dangerSection}>
+                    <TouchableOpacity
+                        style={styles.dangerItem}
+                        onPress={openDeleteModal}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.dangerIconContainer}>
+                            <Ionicons name="trash-outline" size={22} color="#D32F2F" />
+                        </View>
+                        <View style={styles.settingContent}>
+                            <Text style={styles.dangerTitle}>Delete Account</Text>
+                            <Text style={styles.dangerSubtitle}>Permanently delete your account and data</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#D32F2F" />
+                    </TouchableOpacity>
+                </View>
+
                 {/* App Version */}
                 <Text style={styles.versionText}>AJR v1.0.0</Text>
             </ScrollView>
         </View>
 
-        {/* Permission Modal */}
-        <NotificationPermissionModal
-            visible={showPermModal}
-            onClose={() => setShowPermModal(false)}
-        />
+        {/* Delete Confirmation Modal */}
+        <Modal
+            visible={showDeleteModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={deleting ? undefined : closeDeleteModal}
+        >
+            <View style={styles.modalOverlay}>
+                <View style={styles.deleteModalContainer}>
+                    <View style={styles.deleteModalIconContainer}>
+                        <Ionicons name={deleting ? "hourglass-outline" : "warning"} size={36} color="#D32F2F" />
+                    </View>
+
+                    <Text style={styles.deleteModalTitle}>{deleting ? 'Deleting Account...' : 'Delete Account'}</Text>
+
+                    <Text style={styles.deleteModalMessage}>
+                        {deleting
+                            ? 'Please wait while we remove your data and clean up your circles. Do not close the app.'
+                            : 'Your account and all data will be permanently deleted, including removal from all circles. This action cannot be undone.'
+                        }
+                    </Text>
+
+                    {deleting ? (
+                        <View style={styles.deleteModalLoading}>
+                            <ActivityIndicator size="small" color="#D32F2F" />
+                            <Text style={styles.deleteModalLoadingText}>Deleting account...</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.deleteModalActions}>
+                            <TouchableOpacity
+                                style={styles.deleteModalCancelButton}
+                                onPress={closeDeleteModal}
+                            >
+                                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.deleteModalConfirmButton,
+                                    deleteCountdown > 0 && styles.deleteModalConfirmDisabled,
+                                ]}
+                                onPress={handleDeleteAccount}
+                                disabled={deleteCountdown > 0}
+                            >
+                                <Text style={[
+                                    styles.deleteModalConfirmText,
+                                    deleteCountdown > 0 && styles.deleteModalConfirmTextDisabled,
+                                ]}>
+                                    {deleteCountdown > 0 ? `Delete (${deleteCountdown}s)` : 'Delete'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </View>
+        </Modal>
     </>);
 };
 
@@ -609,6 +781,127 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: spacing.lg,
     },
+    deleteButton: {
+        // kept for reference, unused
+    },
+    deleteButtonText: {
+        // kept for reference, unused
+    },
+    dangerSection: {
+        backgroundColor: 'rgba(211, 47, 47, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(211, 47, 47, 0.15)',
+        borderRadius: borderRadius.lg,
+        overflow: 'hidden',
+        marginBottom: spacing.sm,
+    },
+    dangerItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+    },
+    dangerIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: borderRadius.md,
+        backgroundColor: 'rgba(211, 47, 47, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.md,
+    },
+    dangerTitle: {
+        fontSize: isSmallDevice ? 14 : 16,
+        fontWeight: typography.fontWeight.medium,
+        color: '#D32F2F',
+    },
+    dangerSubtitle: {
+        fontSize: isSmallDevice ? 11 : 12,
+        color: 'rgba(211, 47, 47, 0.7)',
+        marginTop: 2,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+    },
+    deleteModalContainer: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: borderRadius.xl,
+        padding: spacing.xl,
+        width: '100%',
+        maxWidth: 340,
+        alignItems: 'center',
+    },
+    deleteModalIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: 'rgba(211, 47, 47, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.md,
+    },
+    deleteModalTitle: {
+        fontSize: isSmallDevice ? 18 : 20,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+        marginBottom: spacing.sm,
+    },
+    deleteModalMessage: {
+        fontSize: isSmallDevice ? 13 : 14,
+        color: colors.text.grey,
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: spacing.xl,
+    },
+    deleteModalActions: {
+        flexDirection: 'row',
+        width: '100%',
+        gap: spacing.sm,
+    },
+    deleteModalCancelButton: {
+        flex: 1,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.lg,
+        backgroundColor: colors.primary.light,
+        alignItems: 'center',
+    },
+    deleteModalCancelText: {
+        fontSize: isSmallDevice ? 14 : 15,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+    },
+    deleteModalConfirmButton: {
+        flex: 1,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.lg,
+        backgroundColor: '#D32F2F',
+        alignItems: 'center',
+    },
+    deleteModalConfirmDisabled: {
+        backgroundColor: 'rgba(211, 47, 47, 0.3)',
+    },
+    deleteModalConfirmText: {
+        fontSize: isSmallDevice ? 14 : 15,
+        fontWeight: typography.fontWeight.medium,
+        color: '#FFFFFF',
+    },
+    deleteModalConfirmTextDisabled: {
+        color: 'rgba(255,255,255,0.6)',
+    },
+    deleteModalLoading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        paddingVertical: spacing.md,
+    },
+    deleteModalLoadingText: {
+        fontSize: isSmallDevice ? 13 : 14,
+        color: '#D32F2F',
+        fontWeight: typography.fontWeight.medium,
+    },
     schoolToggleContainer: {
         flexDirection: 'row',
         gap: spacing.xs,
@@ -635,6 +928,57 @@ const styles = StyleSheet.create({
     },
     schoolToggleTextActive: {
         color: '#FFFFFF',
+    },
+    weatherToggleContainer: {
+        flexDirection: 'row',
+        gap: spacing.xs,
+    },
+    weatherToggleButton: {
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderRadius: borderRadius.md,
+        backgroundColor: 'rgba(122, 158, 127, 0.1)',
+        borderWidth: 1,
+        borderColor: colors.primary.sage,
+        minWidth: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    weatherToggleButtonActive: {
+        backgroundColor: colors.primary.sage,
+        borderColor: colors.primary.sage,
+    },
+    weatherToggleText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.primary.sage,
+    },
+    weatherToggleTextActive: {
+        color: '#FFFFFF',
+    },
+    legalSection: {
+        backgroundColor: 'rgba(255,255,255,0.62)',
+        borderWidth: 1,
+        borderColor: '#ffffff',
+        borderRadius: borderRadius.lg,
+        overflow: 'hidden',
+        marginBottom: spacing.sm,
+    },
+    legalButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.05)',
+    },
+    legalButtonLast: {
+        borderBottomWidth: 0,
+    },
+    legalButtonText: {
+        fontSize: isSmallDevice ? 14 : 16,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
     },
 });
 

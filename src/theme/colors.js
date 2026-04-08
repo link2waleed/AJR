@@ -11,14 +11,14 @@ export const colors = {
   },
 
   gradient: {
-    start: '#7A9E7F',
-    middle: '#9AAF8F',
-    end: '#C4B896',
+    start: '#cdb469',   // warm sandy beige
+    middle: '#a0aea0',  // soft sage
+    end: '#2e543d',     // deep sage green
   },
 
   homeGradient: {
-    top: '#BEE5E3',
-    bottom: '#FBE3C0',
+    top: '#C0E5E2',    // Cooler light blue
+    bottom: '#f4de9bff', // Warmer tan/brown
   },
   cards: {
     cream: '#F5F3E8',

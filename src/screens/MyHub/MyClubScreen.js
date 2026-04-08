@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import RowItem from '../../components/RowItem';
 import { colors, spacing, typography, borderRadius } from '../../theme';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 // Icons matching the design
 const IMAGES = {
@@ -52,7 +52,7 @@ const MyClubScreen = ({ navigation }) => {
 
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -61,11 +61,7 @@ const MyClubScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>MyHub</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* Menu list */}
@@ -90,7 +86,7 @@ const MyClubScreen = ({ navigation }) => {
                     </View> */}
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -124,18 +120,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     listContent: {
         paddingHorizontal: spacing.lg,
         paddingBottom: 100,

@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Dimen
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { useSpeech } from '../../hooks/useSpeech';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 import auth from '@react-native-firebase/auth'; // Keep auth if used
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.65;
@@ -206,7 +206,7 @@ const DhikrScreen = ({ navigation }) => {
     const strokeDashoffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -215,11 +215,7 @@ const DhikrScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Dhikr</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* Main Card */}
@@ -234,10 +230,22 @@ const DhikrScreen = ({ navigation }) => {
                                 <Ionicons name="chevron-back-circle" size={32} color={colors.primary.sage} />
                             </TouchableOpacity>
 
-                            <View style={styles.textGroup}>
-                                <Text style={styles.arabicText} numberOfLines={2}>{details.arabic}</Text>
-                                <Text style={styles.transliteration} numberOfLines={1}>{activeDhikrItem.word}</Text>
-                                <Text style={styles.translation} numberOfLines={2}>"{details.translation}"</Text>
+                            <View style={[styles.textGroup, { height: 160, justifyContent: 'center' }]}>
+                                <Text
+                                    style={[styles.arabicText, activeDhikrItem.word.length > 40 && { fontSize: 21, marginBottom: 2 }]}
+                                >
+                                    {details.arabic}
+                                </Text>
+                                <Text
+                                    style={[styles.transliteration, activeDhikrItem.word.length > 40 && { fontSize: 13 }]}
+                                >
+                                    {activeDhikrItem.word}
+                                </Text>
+                                <Text
+                                    style={[styles.translation, activeDhikrItem.word.length > 40 && { fontSize: 12, marginTop: 2 }]}
+                                >
+                                    "{details.translation}"
+                                </Text>
                             </View>
 
                             <TouchableOpacity
@@ -323,7 +331,7 @@ const DhikrScreen = ({ navigation }) => {
                     </View>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -344,18 +352,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     mainCard: {
         backgroundColor: 'rgba(255, 255, 255, 0.65)',
         marginHorizontal: spacing.lg,
@@ -373,7 +370,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         width: '100%',
         paddingHorizontal: spacing.xs,
-        marginBottom: 20,
+        marginBottom: 40,
     },
     navButton: {
         padding: spacing.xs,
@@ -388,6 +385,7 @@ const styles = StyleSheet.create({
         fontSize: 30, // Slightly smaller to fit
         fontWeight: 'bold',
         color: colors.text.black,
+        marginTop: 10,
         marginBottom: 4,
         textAlign: 'center',
     },

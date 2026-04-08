@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Switch, ActivityIndicator, FlatList, Modal, ToastAndroid, Platform, TextInput, Image } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, FlatList, Modal, ToastAndroid, Platform, TextInput, Image } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { SURAHS } from '../../data/surahData';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
@@ -12,10 +12,10 @@ import { useTafsir } from '../../hooks/useTafsir';
 import { useSurahInfo } from '../../hooks/useSurahInfo';
 import { useReadingTimer } from '../../hooks/useReadingTimer';
 import FirebaseService from '../../services/FirebaseService';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const SurahDetailScreen = ({ navigation, route }) => {
-    const { surah, juz, initialTab } = route.params;
+    const { surah, juz, initialTab, initialAyahNumber, initialAyahSurahNumber } = route.params;
     const [activeTab, setActiveTab] = useState(initialTab || 'Translation');
 
     // Determine context (Surah vs Juz)
@@ -36,8 +36,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
         ? juz.range
         : surahArabicName;
 
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [fontSize, setFontSize] = useState(16);
+    const [fontSize, setFontSize] = useState(20);
     const [surahDetails, setSurahDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showFullSurah, setShowFullSurah] = useState(false);
@@ -48,6 +47,9 @@ const SurahDetailScreen = ({ navigation, route }) => {
 
     // Ref for ScrollView to enable scrolling to top
     const scrollViewRef = useRef(null);
+    const translationListRef = useRef(null);
+    const lastAutoScrollAyahRef = useRef(null);
+    const initialAyahJumpDoneRef = useRef(false);
 
     // Use audio hook
     const { playAudio, playSequential, pauseSequential, resumeSequential, stopSequential, currentlyPlaying, isPlaying, isLoading, isSequentialMode, cleanup } = useAudioPlayer();
@@ -209,17 +211,39 @@ const SurahDetailScreen = ({ navigation, route }) => {
         });
     };
 
-    const saveLastRead = async () => {
+    const saveLastRead = async (extraData = {}) => {
         try {
+            const key = isJuzMode ? 'lastReadJuz' : 'lastReadSurah';
+            const existingRaw = await AsyncStorage.getItem(key);
+            const existingData = existingRaw ? JSON.parse(existingRaw) : null;
+            const currentAyah = surahDetails?.ayahs?.find((ayah) => ayah.numberInSurah === currentlyPlaying);
+            const resolvedLastAyahNumber =
+                extraData.lastAyahNumber ??
+                currentAyah?.numberInSurah ??
+                currentlyPlaying ??
+                existingData?.lastAyahNumber;
+
+            const resolvedLastAyahSurahNumber =
+                extraData.lastAyahSurahNumber ??
+                (isJuzMode ? currentAyah?.surah?.number : targetId) ??
+                existingData?.lastAyahSurahNumber;
+
+            const resolvedLastAyahLabel =
+                extraData.lastAyahLabel ??
+                (resolvedLastAyahNumber ? `Ayah ${resolvedLastAyahNumber}` : existingData?.lastAyahLabel);
+
             const lastReadData = {
                 type: isJuzMode ? 'Juz' : 'Surah',
                 number: targetId,
                 name: isJuzMode ? `Juz ${juz.number}` : surahEnglishName,
                 subtitle: isJuzMode ? juz.range : surahArabicName,
                 data: isJuzMode ? juz : surah,
-                timestamp: new Date().getTime()
+                timestamp: new Date().getTime(),
+                lastAyahNumber: resolvedLastAyahNumber,
+                lastAyahSurahNumber: resolvedLastAyahSurahNumber,
+                lastAyahLabel: resolvedLastAyahLabel,
+                ...extraData
             };
-            const key = isJuzMode ? 'lastReadJuz' : 'lastReadSurah';
             await AsyncStorage.setItem(key, JSON.stringify(lastReadData));
         } catch (error) {
             console.error('Error saving last read:', error);
@@ -228,7 +252,6 @@ const SurahDetailScreen = ({ navigation, route }) => {
 
     React.useEffect(() => {
         fetchData();
-        saveLastRead();
 
         // Cleanup audio and pause timer on unmount
         return () => {
@@ -236,6 +259,49 @@ const SurahDetailScreen = ({ navigation, route }) => {
             pauseTimer();
         };
     }, [targetId]);
+
+    React.useEffect(() => {
+        if (!currentlyPlaying) return;
+
+        saveLastRead({
+            lastAyahNumber: currentlyPlaying,
+            lastAyahLabel: `Ayah ${currentlyPlaying}`,
+        });
+    }, [currentlyPlaying]);
+
+    React.useEffect(() => {
+        if (activeTab !== 'Translation' || !surahDetails?.ayahs?.length || !initialAyahNumber || initialAyahJumpDoneRef.current) {
+            return;
+        }
+
+        const visibleAyahs = surahDetails.ayahs.slice(0, displayedAyahsCount);
+        const targetIndex = visibleAyahs.findIndex((ayah) => {
+            if (isJuzMode) {
+                return ayah.numberInSurah === initialAyahNumber && (!initialAyahSurahNumber || ayah.surah?.number === initialAyahSurahNumber);
+            }
+
+            return ayah.numberInSurah === initialAyahNumber;
+        });
+
+        if (targetIndex < 0) {
+            if (displayedAyahsCount < surahDetails.ayahs.length) {
+                const nextCount = Math.min(Math.max(displayedAyahsCount, initialAyahNumber + 3), surahDetails.ayahs.length);
+                if (nextCount !== displayedAyahsCount) {
+                    setDisplayedAyahsCount(nextCount);
+                }
+            }
+            return;
+        }
+
+        initialAyahJumpDoneRef.current = true;
+        requestAnimationFrame(() => {
+            translationListRef.current?.scrollToIndex({
+                index: targetIndex,
+                animated: false,
+                viewPosition: 0.18,
+            });
+        });
+    }, [activeTab, initialAyahNumber, initialAyahSurahNumber, displayedAyahsCount, surahDetails]);
 
     // Start timer only after saved time is loaded
     React.useEffect(() => {
@@ -389,18 +455,64 @@ const SurahDetailScreen = ({ navigation, route }) => {
         });
     };
 
+    const handleTranslationAyahPlay = async (startIndex, ayahNumber) => {
+        const ayahsToPlay = surahDetails?.ayahs?.slice(0, displayedAyahsCount) || [];
+        if (!ayahsToPlay.length) return;
+
+        // Match Reading tab behavior: sequential playback with the same transition timing.
+        if (isSequentialMode && currentlyPlaying === ayahNumber) {
+            if (isPlaying) {
+                await pauseSequential();
+            } else {
+                await resumeSequential();
+            }
+            return;
+        }
+
+        if (isSequentialMode || isPlaying) {
+            await stopSequential();
+        }
+
+        await playSequential(ayahsToPlay, startIndex);
+    };
+
+    React.useEffect(() => {
+        if (activeTab !== 'Translation' || !currentlyPlaying || !surahDetails?.ayahs?.length) {
+            return;
+        }
+
+        const visibleAyahs = surahDetails.ayahs.slice(0, displayedAyahsCount);
+        const activeIndex = visibleAyahs.findIndex((ayah) => ayah.numberInSurah === currentlyPlaying);
+
+        if (activeIndex < 0 || lastAutoScrollAyahRef.current === currentlyPlaying) {
+            return;
+        }
+
+        lastAutoScrollAyahRef.current = currentlyPlaying;
+
+        requestAnimationFrame(() => {
+            translationListRef.current?.scrollToIndex({
+                index: activeIndex,
+                animated: true,
+                viewPosition: 0.18,
+            });
+        });
+    }, [activeTab, currentlyPlaying, displayedAyahsCount, surahDetails]);
+
     // Memoized component for Reading mode text to prevent re-renders
     const ReadingText = React.memo(({ ayahs, fontSize }) => {
+        const readingFontSize = fontSize + 4;
+        const readingLineHeight = Math.ceil(readingFontSize * 1.8);
 
         return (
-            <Text style={[styles.arabicReadingText, { fontSize: fontSize + 4 }]}>
+            <Text style={[styles.arabicReadingText, { fontSize: readingFontSize, lineHeight: readingLineHeight }]}>
                 {ayahs.map((ayah, index, array) => {
                     const isNewSurah = index === 0 || (ayah.surah && array[index - 1].surah && ayah.surah.number !== array[index - 1].surah.number);
 
                     return (
                         <React.Fragment key={`${ayah.number}-${index}`}>
                             {isNewSurah && isJuzMode && (
-                                <Text style={{ color: colors.primary.darkSage, fontSize: fontSize + 4, fontWeight: 'bold' }}>
+                                <Text style={{ color: colors.primary.darkSage, fontSize: readingFontSize, lineHeight: readingLineHeight, fontWeight: 'bold' }}>
                                     {index > 0 ? "\n" : ""}{ayah.surah.name}{"\n"}
                                 </Text>
                             )}
@@ -416,11 +528,12 @@ const SurahDetailScreen = ({ navigation, route }) => {
         );
     });
 
-    const AyahCard = React.memo(({ number, arabic, translation, audio, surahMeta }) => {
+    const AyahCard = React.memo(({ number, arabic, translation, audio, surahMeta, index }) => {
         const isThisPlaying = currentlyPlaying === number && isPlaying;
+        const isThisActive = currentlyPlaying === number;
 
         return (
-            <View style={styles.ayahCard}>
+            <View style={[styles.ayahCard, isThisActive && styles.activeAyahCard]}>
 
                 <View style={styles.ayahContent}>
                     {/* Left Action Sidebar */}
@@ -435,14 +548,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
                         {/* <TouchableOpacity style={styles.actionIcon}><Ionicons name="create-outline" size={18} color={colors.text.grey} /></TouchableOpacity> */}
                         <TouchableOpacity
                             style={styles.actionIcon}
-                            onPress={() => {
-                                // Stop sequential mode if active
-                                if (isSequentialMode) {
-                                    stopSequential();
-                                }
-                                // Play only this ayah
-                                playAudio(audio, number);
-                            }}
+                            onPress={() => handleTranslationAyahPlay(index, number)}
                         >
                             <Ionicons
                                 name={isThisPlaying ? "pause" : "play-outline"}
@@ -494,14 +600,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.playAudioRow}
-                                        onPress={() => {
-                                            // Stop sequential mode if active
-                                            if (isSequentialMode) {
-                                                stopSequential();
-                                            }
-                                            // Play this specific ayah
-                                            playAudio(audio, number);
-                                        }}
+                                        onPress={() => handleTranslationAyahPlay(index, number)}
                                     >
                                         <Ionicons
                                             name={currentlyPlaying === number && isPlaying ? "pause-circle" : "play-circle"}
@@ -516,8 +615,8 @@ const SurahDetailScreen = ({ navigation, route }) => {
 
                         {/* Arabic & Translation */}
                         <View style={styles.textsContainer}>
-                            <Text style={[styles.arabicText, { fontSize: fontSize + 8 }]}>{arabic}</Text>
-                            <Text style={[styles.translationText, { fontSize: fontSize }]}>{translation}</Text>
+                            <Text style={[styles.arabicText, { fontSize: fontSize + 8, lineHeight: Math.ceil((fontSize + 8) * 1.8) }]}>{arabic}</Text>
+                            <Text style={[styles.translationText, { fontSize: fontSize, lineHeight: Math.ceil(fontSize * 1.4) }]}>{translation}</Text>
                         </View>
                     </View>
                 </View>
@@ -526,7 +625,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
     });
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -537,11 +636,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
                         <View style={{ alignItems: 'center' }}>
                             <Text style={styles.headerTitle}>{headerTitle}</Text>
                         </View>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* Settings Bar */}
@@ -560,15 +655,6 @@ const SurahDetailScreen = ({ navigation, route }) => {
                                     <Text style={styles.stepperText}>+</Text>
                                 </TouchableOpacity>
                             </View>
-                        </View>
-                        <View style={styles.themeToggle}>
-                            <Ionicons name="sunny-outline" size={20} color={colors.text.grey} />
-                            <Switch
-                                value={isDarkMode}
-                                onValueChange={setIsDarkMode}
-                                trackColor={{ false: '#D1D1D1', true: colors.primary.darkSage }}
-                                thumbColor={isDarkMode ? '#FFFFFF' : '#F4F3F4'}
-                            />
                         </View>
                     </View>
 
@@ -607,16 +693,17 @@ const SurahDetailScreen = ({ navigation, route }) => {
                     ) : surahDetails ? (
                         activeTab === 'Translation' ? (
                             <FlatList
-                                ref={scrollViewRef}
+                                ref={translationListRef}
                                 data={surahDetails.ayahs.slice(0, displayedAyahsCount)}
                                 keyExtractor={(item) => item.number.toString()}
-                                renderItem={({ item }) => (
+                                renderItem={({ item, index }) => (
                                     <AyahCard
                                         number={item.numberInSurah}
                                         arabic={item.text}
                                         translation={item.translation}
                                         audio={item.audio}
                                         surahMeta={item.surah}
+                                        index={index}
                                     />
                                 )}
                                 ListHeaderComponent={
@@ -655,6 +742,21 @@ const SurahDetailScreen = ({ navigation, route }) => {
                                 maxToRenderPerBatch={10}
                                 windowSize={5}
                                 removeClippedSubviews={true}
+                                onScrollToIndexFailed={({ index, averageItemLength }) => {
+                                    const fallbackOffset = Math.max(0, index * (averageItemLength || 240));
+                                    translationListRef.current?.scrollToOffset({
+                                        offset: fallbackOffset,
+                                        animated: true,
+                                    });
+
+                                    setTimeout(() => {
+                                        translationListRef.current?.scrollToIndex({
+                                            index,
+                                            animated: true,
+                                            viewPosition: 0.18,
+                                        });
+                                    }, 120);
+                                }}
                                 onEndReached={() => {
                                     if (displayedAyahsCount < surahDetails.ayahs.length) {
                                         setDisplayedAyahsCount(prev => Math.min(prev + 10, surahDetails.ayahs.length));
@@ -772,7 +874,19 @@ const SurahDetailScreen = ({ navigation, route }) => {
                             </ScrollView>
                         )
                     ) : (
-                        <Text style={styles.errorText}>Failed to load Surah data.</Text>
+                        <View style={styles.errorContainer}>
+                            <View style={styles.errorIconWrapper}>
+                                <Ionicons name="cloud-offline-outline" size={48} color={colors.text.grey} />
+                            </View>
+                            <Text style={styles.errorTitle}>No internet connection</Text>
+                            <Text style={styles.errorMessage}>
+                                Please check your connection and try again to view this Surah.
+                            </Text>
+                            <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
+                                <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+                                <Text style={styles.retryButtonText}>Try Again</Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* Tafsir Modal */}
@@ -947,7 +1061,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
 
                 </View>
             </SafeAreaView>
-        </GradientBackground >
+        </HomeGradient>
     );
 };
 
@@ -974,23 +1088,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    bellContainer: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        padding: 6,
-        borderRadius: 20,
-        position: 'relative',
-    },
-    notificationDot: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        width: 8,
-        height: 8,
-        backgroundColor: colors.accent.coral,
-        borderRadius: 4,
-        borderWidth: 1.5,
-        borderColor: '#FFFFFF',
-    },
+
     settingsBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1004,6 +1102,8 @@ const styles = StyleSheet.create({
     fontSizeControls: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        flex: 1,
     },
     fontSizeIconContainer: {
         backgroundColor: 'rgba(122, 158, 127, 0.1)',
@@ -1042,10 +1142,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         color: colors.text.black,
-    },
-    themeToggle: {
-        flexDirection: 'row',
-        alignItems: 'center',
     },
     tabContainer: {
         flexDirection: 'row',
@@ -1118,6 +1214,16 @@ const styles = StyleSheet.create({
         padding: 15,
         paddingBottom: 8,
         marginBottom: spacing.md,
+    },
+    activeAyahCard: {
+        backgroundColor: 'rgba(244, 248, 245, 0.92)',
+        borderWidth: 1,
+        borderColor: colors.primary.darkSage,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
     },
     ayahContent: {
         flexDirection: 'row',
@@ -1200,7 +1306,6 @@ const styles = StyleSheet.create({
     translationText: {
         textAlign: 'left',
         color: colors.text.black,
-        lineHeight: 22,
         width: '100%',
     },
     readingSubHeader: {
@@ -1221,7 +1326,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     readingCard: {
-        backgroundColor: 'rgba(223, 228, 224, 0.6)',
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
         borderRadius: borderRadius.lg,
         padding: 20,
         marginBottom: 20,
@@ -1232,7 +1337,6 @@ const styles = StyleSheet.create({
     arabicReadingText: {
         textAlign: 'center',
         color: colors.text.black,
-        lineHeight: 45,
         fontFamily: 'Uthmanic',
     },
     ayahMarker: {
@@ -1308,11 +1412,49 @@ const styles = StyleSheet.create({
         color: colors.text.grey,
         fontSize: 14,
     },
-    errorText: {
+    errorContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
+        marginTop: 40,
+    },
+    errorIconWrapper: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(122, 158, 127, 0.12)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.lg,
+    },
+    errorTitle: {
+        fontSize: 18,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+        marginBottom: spacing.sm,
         textAlign: 'center',
-        marginTop: 50,
-        color: colors.accent.coral,
+    },
+    errorMessage: {
+        fontSize: 15,
+        color: colors.text.grey,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: spacing.xl,
+    },
+    retryButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary.sage,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: borderRadius.lg,
+        gap: 8,
+    },
+    retryButtonText: {
+        color: '#FFFFFF',
         fontSize: 16,
+        fontWeight: typography.fontWeight.semibold,
     },
     continueReadingMainBtn: {
         backgroundColor: '#7A9181',

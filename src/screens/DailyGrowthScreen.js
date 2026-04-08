@@ -21,7 +21,6 @@ import prayerIcon from '../../assets/images/habits.png';
 import quranIcon from '../../assets/images/quran-pak.png';
 import dhikrIcon from '../../assets/images/dhikr.png';
 import journalIcon from '../../assets/images/journal.png';
-import notificationIcon from '../../assets/images/notification-bing.png';
 import note from '../../assets/images/inspiration.png';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -78,10 +77,27 @@ const ActivityCard = ({
     );
 };
 
+
 const DailyGrowthScreen = ({ navigation }) => {
-    // Get user name from Firebase Auth
+    // User name state (from Firestore)
+    const [userName, setUserName] = useState('Friend');
     const user = auth().currentUser;
-    const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Friend';
+    // Fetch real user name from Firestore (on mount)
+    useEffect(() => {
+        const fetchUserName = async () => {
+            if (user) {
+                try {
+                    const firestoreData = await FirebaseService.getUserRootData();
+                    const name = firestoreData?.name?.split(' ')[0] || 'Friend';
+                    setUserName(name);
+                } catch (error) {
+                    console.error('Error fetching Firestore user name:', error);
+                    setUserName('Friend');
+                }
+            }
+        };
+        fetchUserName();
+    }, [user]);
 
     // State for activity data
     const [selectedActivities, setSelectedActivities] = useState({
@@ -412,12 +428,7 @@ const DailyGrowthScreen = ({ navigation }) => {
                     <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Your Daily Growth</Text>
-                <TouchableOpacity
-                    style={styles.notificationButton}
-                    onPress={() => navigation.navigate('Notifications')}
-                >
-                    <Image source={notificationIcon} style={styles.notificationIcon} resizeMode="contain" />
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             <ScrollView
@@ -463,9 +474,9 @@ const DailyGrowthScreen = ({ navigation }) => {
                 {/* Personalized Message Card - Only show if not all activities completed */}
                 {weakestActivity.progress < 100 && (
                     <View style={styles.messageCard}>
-                        <Text style={styles.messageGreeting}>Hey, {userName}</Text>
+                        <Text style={styles.messageGreeting}>Hey {userName},</Text>
                         <Text style={styles.messageText}>
-                            Your {weakestActivity.title} reading could use a little love today. Spend a few moments connecting with the {weakestActivity.title}.
+                            Your {weakestActivity.title === 'Quran' ? 'Quran' : (weakestActivity.title === 'Journaling' ? 'journaling' : weakestActivity.title.toLowerCase())} could use a little love today. Spend a few moments connecting with it.
                         </Text>
                         <TouchableOpacity
                             style={styles.messageButton}
@@ -512,19 +523,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
     },
-    notificationButton: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.primary.sage,
-        borderRadius: 20,
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-        tintColor: '#FFFFFF',
-    },
+
     scrollView: {
         flex: 1,
     },

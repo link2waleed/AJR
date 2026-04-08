@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert, Modal, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const AddDonationScreen = ({ navigation }) => {
     const [organizationName, setOrganizationName] = useState('');
@@ -107,7 +107,7 @@ const AddDonationScreen = ({ navigation }) => {
     };
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -116,11 +116,7 @@ const AddDonationScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Add Donations</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     <ScrollView
@@ -266,7 +262,7 @@ const AddDonationScreen = ({ navigation }) => {
 
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -293,18 +289,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     scrollContent: {
         paddingHorizontal: spacing.lg,
         paddingBottom: 40,

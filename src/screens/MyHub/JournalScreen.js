@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 import { useFocusEffect } from '@react-navigation/native';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 
 const JournalScreen = ({ navigation }) => {
@@ -80,7 +80,7 @@ const JournalScreen = ({ navigation }) => {
     const handleBack = () => navigation.goBack();
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -89,11 +89,7 @@ const JournalScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Journal</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     <ScrollView
@@ -142,7 +138,11 @@ const JournalScreen = ({ navigation }) => {
                             entries.map((entry) => {
                                 const dateObj = formatDate(entry.createdAt);
                                 return (
-                                    <View key={entry.id} style={styles.entryCard}>
+                                    <TouchableOpacity
+                                        key={entry.id}
+                                        style={styles.entryCard}
+                                        onPress={() => navigation.navigate('JournalDetail', { entry })}
+                                    >
                                         <View style={styles.entryHeader}>
                                             <View style={styles.dateContainer}>
                                                 <Text style={styles.dateDay}>{dateObj.day}</Text>
@@ -161,15 +161,15 @@ const JournalScreen = ({ navigation }) => {
                                         <Text style={styles.entryTitle}>
                                             {entry.themeTitle ? `${entry.themeTitle} Reflection` : (entry.mode === 'Guided' ? 'Guided Reflection' : 'Free Write')}
                                         </Text>
-                                        <Text style={styles.entryContent} numberOfLines={3}>{entry.content}</Text>
-                                    </View>
+                                        <Text style={styles.entryContent} numberOfLines={2}>{entry.content}</Text>
+                                    </TouchableOpacity>
                                 );
                             })
                         )}
                     </ScrollView>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -196,28 +196,17 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     scrollContent: {
         paddingHorizontal: spacing.lg,
         paddingBottom: 100,
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
         color: colors.text.black,
         marginBottom: 12,
-        marginTop: 8,
+        marginTop: 12,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -260,52 +249,52 @@ const styles = StyleSheet.create({
     entryCard: {
         backgroundColor: 'rgba(255,255,255,0.5)',
         borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
+        padding: 10,
+        marginBottom: 10,
     },
     entryHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 12,
+        marginBottom: 4,
     },
     dateContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     dateDay: {
-        fontSize: 36,
+        fontSize: 18,
         fontWeight: 'bold', // or use a serif font if available, e.g. fontFamily: 'serif'
         color: colors.text.black,
-        marginRight: 8,
+        marginRight: 6,
         fontFamily: 'serif', // Trying serif to match the image style
     },
     dateRightColumn: {
         justifyContent: 'center',
     },
     dateMonth: {
-        fontSize: 13,
+        fontSize: 10,
         fontWeight: 'bold',
         color: colors.text.black, // Darker color for month as per image
         marginBottom: 0,
     },
     dateWeekday: {
-        fontSize: 13,
+        fontSize: 9,
         color: colors.text.grey,
     },
     deleteButton: {
         padding: 4,
     },
     entryTitle: {
-        fontSize: 16,
+        fontSize: 13,
         fontWeight: '600',
         color: colors.text.black,
-        marginBottom: 8,
+        marginBottom: 2,
     },
     entryContent: {
-        fontSize: 13,
+        fontSize: 11,
         color: colors.text.grey,
-        lineHeight: 20,
+        lineHeight: 16,
     },
     bottomNav: {
         position: 'absolute',

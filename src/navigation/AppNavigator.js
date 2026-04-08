@@ -34,11 +34,13 @@ import {
     DuaCollectionScreen,
     JournalScreen,
     AddJournalEntryScreen,
+    JournalDetailScreen,
     AddOrganizationScreen,
     AddDonationScreen,
     QiblaFinderScreen,
     PrayerTimesScreen,
     NotificationsScreen,
+    PrayerAdjustmentsScreen,
 } from '../screens';
 
 import BottomTabNavigator from './BottomTabNavigator';
@@ -108,6 +110,10 @@ const AppNavigator = () => {
                     component={AddJournalEntryScreen}
                 />
                 <Stack.Screen
+                    name="JournalDetail"
+                    component={JournalDetailScreen}
+                />
+                <Stack.Screen
                     name="AddOrganization"
                     component={AddOrganizationScreen}
                 />
@@ -121,6 +127,7 @@ const AppNavigator = () => {
                 />
                 <Stack.Screen name="PrayerTimes" component={PrayerTimesScreen} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="PrayerAdjustments" component={PrayerAdjustmentsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

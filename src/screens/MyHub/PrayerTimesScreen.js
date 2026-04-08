@@ -10,7 +10,7 @@ import {
     Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import PrayerTimeService from '../../services/PrayerTimeService';
 import FirebaseService from '../../services/FirebaseService';
@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 
 const PrayerTimesScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [prayerData, setPrayerData] = useState(null);
     const [location, setLocation] = useState(null);
     const [customAlarms, setCustomAlarms] = useState([]);
@@ -27,6 +28,69 @@ const PrayerTimesScreen = ({ navigation }) => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedSchool, setSelectedSchool] = useState(1); // 0 = Shafi, 1 = Hanafi
     const schoolLoadedRef = React.useRef(false);
+    const didFocusRef = React.useRef(false);
+
+    const getLocationForPrayerTimes = async () => {
+        if (location?.latitude && location?.longitude) {
+            return location;
+        }
+
+        const savedLocation = await StorageService.getLocation();
+        if (savedLocation?.latitude && savedLocation?.longitude) {
+            setLocation(savedLocation);
+            return savedLocation;
+        }
+
+        return null;
+    };
+
+    const loadCachedPrayerData = async (savedLocation) => {
+        try {
+            const fullData = await StorageService.getFullTimings();
+            if (!fullData || !fullData.timings) {
+                return false;
+            }
+
+            const cachedSummary = savedLocation
+                ? await StorageService.getPrayerTimes(savedLocation.latitude, savedLocation.longitude)
+                : null;
+
+            const mergedData = {
+                city: cachedSummary?.city || 'Your Location',
+                country: cachedSummary?.country || '',
+                hijriDate: cachedSummary?.hijriDate || '',
+                gregorianDate: cachedSummary?.gregorianDate || '',
+                timings: fullData.timings,
+                timezone: fullData.timezone || 'UTC',
+                nextPrayer: cachedSummary?.nextPrayer || '',
+                nextPrayerTime: cachedSummary?.nextPrayerTime || '',
+                maghribTime: fullData.timings?.Maghrib || '',
+                isLondonApi: false,
+            };
+
+            setPrayerData(mergedData);
+
+            const initialStates = {};
+            Object.keys(fullData.timings).forEach(prayer => {
+                if (prayer !== 'Sunrise') {
+                    initialStates[prayer] = true;
+                }
+            });
+            setNotificationStates(initialStates);
+
+            return true;
+        } catch (error) {
+            console.error('Error loading cached prayer data:', error);
+            return false;
+        }
+    };
+
+    const refreshPrayerTimesInBackground = async () => {
+        if (!prayerData) {
+            return;
+        }
+        await loadPrayerTimes(selectedDate, selectedSchool, { background: true });
+    };
 
     useEffect(() => {
         // Load school preference and prayer times only once on mount
@@ -35,12 +99,22 @@ const PrayerTimesScreen = ({ navigation }) => {
                 const school = await StorageService.getSchoolPreference();
                 setSelectedSchool(school);
                 schoolLoadedRef.current = true;
-                setLoading(true);
-                await loadPrayerTimes(new Date(), school);
+
+                const savedLocation = await StorageService.getLocation();
+                if (savedLocation?.latitude && savedLocation?.longitude) {
+                    setLocation(savedLocation);
+                }
+
+                const cacheLoaded = await loadCachedPrayerData(savedLocation);
+                if (!cacheLoaded) {
+                    await loadPrayerTimes(new Date(), school);
+                } else {
+                    setLoading(false);
+                    refreshPrayerTimesInBackground();
+                }
             } catch (error) {
                 console.error('Error initializing screen:', error);
                 schoolLoadedRef.current = true;
-                setLoading(true);
                 await loadPrayerTimes(new Date(), 1);
             }
         };
@@ -55,6 +129,18 @@ const PrayerTimesScreen = ({ navigation }) => {
         }
     }, [selectedDate]);
 
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (!didFocusRef.current) {
+                didFocusRef.current = true;
+                return;
+            }
+            refreshPrayerTimesInBackground();
+        });
+
+        return unsubscribe;
+    }, [navigation, selectedDate, selectedSchool]);
+
     // Update current time every second for countdown
     useEffect(() => {
         const timer = setInterval(() => {
@@ -64,13 +150,20 @@ const PrayerTimesScreen = ({ navigation }) => {
         return () => clearInterval(timer);
     }, []);
 
-    const loadPrayerTimes = async (date = new Date(), schoolOverride = null) => {
-        try {
+    const loadPrayerTimes = async (date = new Date(), schoolOverride = null, options = {}) => {
+        const isBackground = options.background === true;
+        if (isBackground && prayerData) {
+            setRefreshing(true);
+        } else {
             setLoading(true);
+        }
+
+        try {
             console.log('🕌 Starting to load prayer times for date:', date.toDateString());
 
-            let lat = location?.latitude;
-            let lng = location?.longitude;
+            const savedLocation = await getLocationForPrayerTimes();
+            let lat = savedLocation?.latitude;
+            let lng = savedLocation?.longitude;
 
             // Get location if not already available
             if (!lat || !lng) {
@@ -86,7 +179,11 @@ const PrayerTimesScreen = ({ navigation }) => {
                             { text: 'OK', onPress: () => navigation.goBack() }
                         ]
                     );
-                    setLoading(false);
+                    if (isBackground) {
+                        setRefreshing(false);
+                    } else {
+                        setLoading(false);
+                    }
                     return;
                 }
 
@@ -97,7 +194,9 @@ const PrayerTimesScreen = ({ navigation }) => {
                 lat = currentLocation.coords.latitude;
                 lng = currentLocation.coords.longitude;
                 console.log('Location obtained:', { lat, lng });
-                setLocation({ latitude: lat, longitude: lng });
+                const updatedLocation = { latitude: lat, longitude: lng };
+                setLocation(updatedLocation);
+                await StorageService.saveLocation(lat, lng);
             }
 
             // Fetch prayer times for specific date
@@ -126,39 +225,23 @@ const PrayerTimesScreen = ({ navigation }) => {
         } catch (error) {
             console.error('❌ Error loading prayer times:', error);
             console.error('❌ Error details:', error.message);
-            Alert.alert(
-                'Error Loading Prayer Times',
-                `Unable to fetch prayer times. Please check your internet connection and try again.\n\nError: ${error.message}`,
-                [
-                    { text: 'Retry', onPress: () => loadPrayerTimes(selectedDate) },
-                    { text: 'Go Back', onPress: () => navigation.goBack() }
-                ]
-            );
+            if (!isBackground) {
+                Alert.alert(
+                    'Error Loading Prayer Times',
+                    `Unable to fetch prayer times. Please check your internet connection and try again.\n\nError: ${error.message}`,
+                    [
+                        { text: 'Retry', onPress: () => loadPrayerTimes(selectedDate) },
+                        { text: 'Go Back', onPress: () => navigation.goBack() }
+                    ]
+                );
+            }
         } finally {
-            setLoading(false);
+            if (isBackground) {
+                setRefreshing(false);
+            } else {
+                setLoading(false);
+            }
         }
-    };
-
-    const handleBack = () => navigation.goBack();
-
-    const handleRefresh = () => {
-        // Clear location to force re-fetch, update times for current selected date
-        setLocation(null);
-        setTimeout(() => loadPrayerTimes(selectedDate), 0);
-    };
-
-    const handlePrevDay = () => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(selectedDate.getDate() - 1);
-        console.log('⬅️ Previous day clicked. New date:', newDate.toDateString());
-        setSelectedDate(newDate);
-    };
-
-    const handleNextDay = () => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(selectedDate.getDate() + 1);
-        console.log('➡️ Next day clicked. New date:', newDate.toDateString());
-        setSelectedDate(newDate);
     };
 
     const handleSettings = () => {
@@ -438,40 +521,33 @@ const PrayerTimesScreen = ({ navigation }) => {
 
     if (loading && !prayerData) { // Only show full screen loading if no prayerData is available yet
         return (
-            <GradientBackground>
+            <HomeGradient>
                 <SafeAreaView style={styles.safeArea}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={colors.primary.sage} />
                         <Text style={styles.loadingText}>Loading Prayer Times...</Text>
                     </View>
                 </SafeAreaView>
-            </GradientBackground>
+            </HomeGradient>
         );
     }
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIcon}>
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Prayer Times</Text>
-                        <View style={styles.headerRight}>
-                            <TouchableOpacity onPress={handleRefresh} style={styles.headerIcon}>
-                                <Ionicons name="refresh" size={24} color={colors.text.black} />
-                            </TouchableOpacity>
-                            {/* <TouchableOpacity onPress={handleSettings} style={styles.headerIcon}>
-                                <Ionicons name="settings-outline" size={24} color={colors.text.black} />
-                            </TouchableOpacity> */}
-                        </View>
+                        <View style={{ width: 32 }} />
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                         {/* Loading State for date changes */}
-                        {loading && prayerData && (
+                        {refreshing && prayerData && (
                             <View style={styles.inlineLoadingContainer}>
                                 <ActivityIndicator size="small" color={colors.primary.darkSage} />
                                 <Text style={styles.inlineLoadingText}>Updating...</Text>
@@ -502,9 +578,6 @@ const PrayerTimesScreen = ({ navigation }) => {
                         {/* Date Display */}
                         {prayerData && (
                             <View style={styles.dateContainer}>
-                                <TouchableOpacity style={styles.dateArrow} onPress={handlePrevDay}>
-                                    <Ionicons name="chevron-back" size={24} color={colors.text.black} />
-                                </TouchableOpacity>
                                 <View style={styles.dateTextContainer}>
                                     <Text style={styles.dateGregorian}>
                                         {prayerData.gregorianDate || selectedDate.toLocaleDateString('en-GB', {
@@ -517,9 +590,6 @@ const PrayerTimesScreen = ({ navigation }) => {
                                         {prayerData.hijriDate ? `${prayerData.hijriDate} AH` : 'Hijri Date'}
                                     </Text>
                                 </View>
-                                <TouchableOpacity style={styles.dateArrow} onPress={handleNextDay}>
-                                    <Ionicons name="chevron-forward" size={24} color={colors.text.black} />
-                                </TouchableOpacity>
                             </View>
                         )}
 
@@ -556,11 +626,27 @@ const PrayerTimesScreen = ({ navigation }) => {
                             <Text style={styles.addAlarmText}>Alarm</Text>
                         </TouchableOpacity> */}
 
+                        {/* Prayer Times Info Message */}
+                        <View style={styles.prayerInfoMessageContainer}>
+                            <Ionicons name="information-circle-outline" size={18} color={colors.text.grey} style={styles.prayerInfoIcon} />
+                            <View style={styles.prayerInfoTextContainer}>
+                                <Text style={styles.prayerInfoMessage}>
+                                    Prayer times are calculated based on your location and standard methods. Times may differ from your local mosque. Please verify your times and adjust them in{' '}
+                                    <Text
+                                        style={styles.prayerInfoLink}
+                                        onPress={() => navigation.navigate('PrayerAdjustments', { onGoBack: refreshPrayerTimesInBackground })}
+                                    >
+                                        Prayer Settings
+                                    </Text>
+                                    {' '}if needed.
+                                </Text>
+                            </View>
+                        </View>
 
                     </ScrollView>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -597,10 +683,6 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.lg,
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
-    },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
     },
     scrollContent: {
         paddingHorizontal: spacing.lg,
@@ -644,17 +726,13 @@ const styles = StyleSheet.create({
     dateContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.5)',
         borderRadius: borderRadius.lg,
         padding: spacing.md,
         marginBottom: spacing.xl,
     },
-    dateArrow: {
-        padding: spacing.xs,
-    },
     dateTextContainer: {
-        flex: 1,
         alignItems: 'center',
     },
     dateGregorian: {
@@ -810,6 +888,38 @@ const styles = StyleSheet.create({
     inlineLoadingText: {
         fontSize: typography.fontSize.sm,
         color: colors.text.grey,
+    },
+    prayerInfoMessageContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+        borderWidth: 1,
+        borderColor: 'rgba(122, 158, 127, 0.3)',
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginTop: spacing.lg,
+        marginBottom: spacing.md,
+        alignItems: 'flex-start',
+    },
+    prayerInfoIcon: {
+        marginRight: spacing.sm,
+        marginTop: 2,
+        flexShrink: 0,
+    },
+    prayerInfoTextContainer: {
+        flex: 1,
+    },
+    prayerInfoMessage: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.grey,
+        lineHeight: 20,
+        fontWeight: '400',
+    },
+    prayerInfoLink: {
+        fontSize: typography.fontSize.sm,
+        lineHeight: 20,
+        color: colors.primary.sage,
+        fontWeight: typography.fontWeight.semibold,
+        textDecorationLine: 'underline',
     },
 });
 

@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import PrayerTimeService from './PrayerTimeService';
+import StorageService from './StorageService';
 
 // ─── Android Notification Channels ───────────────────────────────────────────
 const CHANNELS = {
@@ -45,9 +47,9 @@ const REMINDER_OFFSET_MINUTES = 20;
 
 const PRAYER_LABELS = {
     fajr: 'Fajr',
-    duhur: 'Dhuhr',
+    dhuhr: 'Dhuhr',
     asr: 'Asr',
-    mughrib: 'Maghrib',
+    maghrib: 'Maghrib',
     isha: 'Isha',
 };
 
@@ -143,14 +145,16 @@ const NotificationService = {
 
     /**
      * Schedule a single notification at a future Date.
-     * Uses seconds-based trigger for maximum compatibility.
+     * Uses DATE trigger so notifications track real clock time correctly.
+     * Skips any notification that is in the past (e.g. when device comes online after prayer time).
      */
     async scheduleAt({ title, body, date, soundMode, data = {} }) {
         const now = new Date();
         const secondsFromNow = Math.floor((date.getTime() - now.getTime()) / 1000);
+        const BUFFER_SECONDS = 5; // Keep small buffer so near-time manual tests are not skipped
 
-        if (secondsFromNow <= 5) {
-            console.log(`[NOTIFICATION] Skipping past notification "${title}" (scheduled ${secondsFromNow}s ago, now=${now.toISOString()}, scheduled=${date.toISOString()})`);
+        if (secondsFromNow < BUFFER_SECONDS) {
+            console.log(`[NOTIFICATION] Skipping past notification "${title}" (${secondsFromNow}s from now, now=${now.toISOString()}, scheduled=${date.toISOString()})`);
             return null;
         }
 
@@ -167,13 +171,13 @@ const NotificationService = {
                     ...(Platform.OS === 'android' && { channelId: channel.id }),
                 },
                 trigger: {
-                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                    seconds: secondsFromNow,
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date,
                 },
             });
 
             console.log(
-                `[NOTIFICATION] Scheduled "${title}" in ${Math.round(secondsFromNow / 60)}min (id=${id}, soundMode=${soundMode}, channel=${channel.id})`
+                `[NOTIFICATION] Scheduled "${title}" at ${date.toISOString()} (${Math.round(secondsFromNow / 60)}min from now, id=${id}, soundMode=${soundMode}, channel=${channel.id})`
             );
             return id;
         } catch (err) {
@@ -183,53 +187,30 @@ const NotificationService = {
     },
 
     /**
-     * Parse "HH:MM" time string into Date object with timezone awareness.
-     * Gets current time in the prayer location's timezone for accurate notification scheduling.
-     * @param {string} timeStr - Time in HH:MM format (in prayer location's timezone)
-     * @param {string} timezone - IANA timezone (e.g., 'Europe/London', 'Asia/Karachi')
+     * Parse "HH:MM" time string into Date using PrayerTimeService's reliable timezone logic.
+     * Uses provided base date for day/month/year context.
      */
-    _parseTime(timeStr, timezone = 'UTC') {
-        if (!timeStr) return null;
-        const clean = timeStr.split(' ')[0];
-        const parts = clean.split(':').map(Number);
-        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-
-        if (timezone === 'UTC') {
-            // Simple UTC case - just use local time
-            const d = new Date();
-            d.setHours(parts[0], parts[1], 0, 0);
-            return d;
+    _parseTime(timeStr, timezone = 'UTC', baseDate = new Date()) {
+        const result = PrayerTimeService.parseTimeToDateWithTimezone(timeStr, timezone);
+        if (result) {
+            // Adjust the result to the correct day if baseDate is not today
+            const dayDiff = Math.floor((baseDate.getTime() - new Date().setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000));
+            if (dayDiff !== 0) {
+                result.setDate(result.getDate() + dayDiff);
+            }
+            console.log(`[NOTIFICATION] Parsed ${timeStr} for day +${dayDiff} in ${timezone} -> ${result.toISOString()}`);
         }
+        return result;
+    },
 
-        // Get current time in the prayer location's timezone
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        });
-
-        const tzParts = formatter.formatToParts(now);
-        const tzYear = parseInt(tzParts.find(p => p.type === 'year').value, 10);
-        const tzMonth = parseInt(tzParts.find(p => p.type === 'month').value, 10) - 1;
-        const tzDay = parseInt(tzParts.find(p => p.type === 'day').value, 10);
-
-        // Create a prayer time in the prayer location's timezone
-        const prayerTimeInTz = new Date(tzYear, tzMonth, tzDay, parts[0], parts[1], 0);
-
-        // Calculate offset between device timezone and prayer location timezone
-        const offset = now.getTime() - new Date(tzYear, tzMonth, tzDay).getTime();
-
-        // Adjust prayer time to device timezone
-        const prayerTimeInDeviceTz = new Date(prayerTimeInTz.getTime() + offset);
-
-        console.log(`[NOTIFICATION] Parsed ${timeStr} in ${timezone} timezone -> ${prayerTimeInDeviceTz.toISOString()}`);
-        return prayerTimeInDeviceTz;
+    /**
+     * Check if a prayer time has already passed (relative to now).
+     */
+    _hasPrayerPassed(prayerTimeStr, timezone, baseDate = new Date()) {
+        if (!prayerTimeStr) return true;
+        const prayerDate = this._parseTime(prayerTimeStr, timezone, baseDate);
+        if (!prayerDate) return true;
+        return prayerDate < new Date();
     },
 
     /**
@@ -240,10 +221,7 @@ const NotificationService = {
      * @param {string} timezone        IANA timezone (e.g., 'Europe/London', 'Asia/Karachi')
      */
     async schedulePrayerNotifications(prayerSettings, prayerTimings, timezone = 'UTC') {
-        console.log('[NOTIFICATION] Starting schedulePrayerNotifications...');
-        console.log('[NOTIFICATION] Timezone:', timezone);
-        console.log('[NOTIFICATION] Timings:', JSON.stringify(prayerTimings));
-        console.log('[NOTIFICATION] Settings:', JSON.stringify(prayerSettings));
+        console.log('[NOTIFICATION] Starting schedulePrayerNotifications (Bulk 10-day)...');
 
         const granted = await this.requestPermissions();
         if (!granted) {
@@ -254,6 +232,54 @@ const NotificationService = {
         await this.setupChannels();
         await this.cancelAllPrayerNotifications();
 
+        // Get coordinates to fetch future timings
+        const location = await StorageService.getLocation();
+        const school = await StorageService.getSchoolPreference();
+
+        let totalScheduled = 0;
+
+        // Schedule for today + next 9 days
+        for (let dayOffset = 0; dayOffset < 10; dayOffset++) {
+            const date = new Date();
+            date.setDate(date.getDate() + dayOffset);
+
+            let dayTimings = prayerTimings;
+            let dayTimezone = timezone;
+
+            // Fetch timings for future days or if location is available
+            if (dayOffset > 0 && location?.latitude && location?.longitude) {
+                try {
+                    const data = await PrayerTimeService.getCompletePrayerData(
+                        location.latitude,
+                        location.longitude,
+                        date,
+                        school
+                    );
+                    if (data) {
+                        dayTimings = data.timings;
+                        dayTimezone = data.timezone;
+                    } else {
+                        console.warn(`[NOTIFICATION] Failed to fetch timings for day +${dayOffset}, skipping`);
+                        continue;
+                    }
+                } catch (err) {
+                    console.error(`[NOTIFICATION] Error fetching timings for day +${dayOffset}:`, err);
+                    continue;
+                }
+            }
+
+            const dailyCount = await this._scheduleSingleDay(prayerSettings, dayTimings, dayTimezone, date);
+            totalScheduled += dailyCount;
+        }
+
+        const total = await this.getScheduledCount();
+        console.log(`[NOTIFICATION] SUCCESS: ${totalScheduled} scheduled across 10 days, ${total} total in queue`);
+    },
+
+    /**
+     * Internal helper to schedule notifications for a specific date.
+     */
+    async _scheduleSingleDay(prayerSettings, prayerTimings, timezone, date) {
         const soundMode = prayerSettings.soundMode || 'athan';
         let scheduledCount = 0;
 
@@ -261,7 +287,7 @@ const NotificationService = {
             { local: 'fajr', timingKey: 'Fajr' },
             { local: 'duhur', timingKey: 'Dhuhr' },
             { local: 'asr', timingKey: 'Asr' },
-            { local: 'mughrib', timingKey: 'Maghrib' },
+            { local: 'maghrib', timingKey: 'Maghrib' },
             { local: 'isha', timingKey: 'Isha' },
         ];
 
@@ -270,23 +296,18 @@ const NotificationService = {
             const settings = prayerSettings[local];
             const label = PRAYER_LABELS[local] || timingKey;
 
-            if (!settings?.enabled) {
-                console.log(`  [NOTIFICATION] ⏭ ${label}: disabled`);
-                continue;
-            }
+            if (!settings?.enabled) continue;
 
             const prayerTimeStr = prayerTimings?.[timingKey];
-            const prayerDate = this._parseTime(prayerTimeStr, timezone);
+            const prayerDate = this._parseTime(prayerTimeStr, timezone, date);
 
-            console.log(`  [NOTIFICATION] ✅ ${label}: enabled | time=${prayerTimeStr} | athanEnabled=${settings.athanEnabled} | reminderEnabled=${settings.reminderEnabled}`);
+            const prayerAlreadyPassed = this._hasPrayerPassed(prayerTimeStr, timezone, date);
 
             // 1️⃣  Start-of-prayer notification
-            if (settings.athanEnabled !== false && prayerDate) {
+            if (!prayerAlreadyPassed && settings.athanEnabled !== false && prayerDate) {
                 const id = await this.scheduleAt({
                     title: `🕌 ${label} Prayer`,
-                    body: soundMode === 'silent'
-                        ? `It's time for ${label} prayer`
-                        : `It's time for ${label} prayer — Allahu Akbar`,
+                    body: `It's time for ${label} prayer`,
                     date: prayerDate,
                     soundMode,
                     data: { prayer: local, notifType: 'start' },
@@ -294,31 +315,37 @@ const NotificationService = {
                 if (id) scheduledCount++;
             }
 
-            // 2️⃣  End-time reminder — 20 min before NEXT prayer
+            // 2️⃣  End-time reminder
             if (settings.reminderEnabled !== false) {
                 const nextTimingKey = i + 1 < prayerMap.length
                     ? prayerMap[i + 1].timingKey
                     : null;
 
                 if (nextTimingKey) {
-                    const nextDate = this._parseTime(prayerTimings?.[nextTimingKey], timezone);
-                    if (nextDate) {
-                        const reminderDate = new Date(nextDate.getTime() - REMINDER_OFFSET_MINUTES * 60 * 1000);
-                        const id = await this.scheduleAt({
-                            title: `⏰ ${label} Ending Soon`,
-                            body: `${REMINDER_OFFSET_MINUTES} minutes left in ${label} prayer time`,
-                            date: reminderDate,
-                            soundMode: 'beep',
-                            data: { prayer: local, notifType: 'reminder' },
-                        });
-                        if (id) scheduledCount++;
+                    const nextTimeStr = prayerTimings?.[nextTimingKey];
+                    const reminderAlreadyPassed = this._hasPrayerPassed(nextTimeStr, timezone, date);
+
+                    if (!reminderAlreadyPassed) {
+                        const nextDate = this._parseTime(nextTimeStr, timezone, date);
+                        if (nextDate) {
+                            const reminderDate = new Date(nextDate.getTime() - REMINDER_OFFSET_MINUTES * 60 * 1000);
+                            // Verify reminder date hasn't passed (it could be in the past if prayer is very soon)
+                            if (reminderDate > new Date()) {
+                                const id = await this.scheduleAt({
+                                    title: `⏰ ${label} Ending Soon`,
+                                    body: `${REMINDER_OFFSET_MINUTES} minutes left in ${label} prayer time`,
+                                    date: reminderDate,
+                                    soundMode: 'beep',
+                                    data: { prayer: local, notifType: 'reminder' },
+                                });
+                                if (id) scheduledCount++;
+                            }
+                        }
                     }
                 }
             }
         }
-
-        const total = await this.getScheduledCount();
-        console.log(`[NOTIFICATION] SUCCESS: ${scheduledCount} scheduled this run, ${total} total in queue`);
+        return scheduledCount;
     },
 
     /**
@@ -362,6 +389,36 @@ const NotificationService = {
             return id;
         } catch (err) {
             console.error('[NOTIFICATION] sendTestNotification error:', err);
+            return null;
+        }
+    },
+
+    /**
+     * Get the next upcoming scheduled prayer notification.
+     */
+    async getNextNotification() {
+        try {
+            const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+            const prayerNotifs = scheduled
+                .filter(n => n.content?.data?.type === 'prayer')
+                .map(n => {
+                    let triggerDate = null;
+                    if (n.trigger.type === 'date') {
+                        triggerDate = new Date(n.trigger.value);
+                    } else if (n.trigger.type === 'calendar') {
+                        // Handle calendar trigger if needed, but we mostly use DATE
+                    } else if (n.trigger.type === 'timeInterval') {
+                        // For test notifications
+                        triggerDate = new Date(Date.now() + n.trigger.seconds * 1000);
+                    }
+                    return { ...n, triggerDate };
+                })
+                .filter(n => n.triggerDate && n.triggerDate > new Date())
+                .sort((a, b) => a.triggerDate - b.triggerDate);
+
+            return prayerNotifs.length > 0 ? prayerNotifs[0] : null;
+        } catch (err) {
+            console.error('[NOTIFICATION] getNextNotification error:', err);
             return null;
         }
     },

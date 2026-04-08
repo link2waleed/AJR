@@ -2,7 +2,7 @@
   "expo": {
     "name": "AJR",
     "slug": "AJR",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "6",
+      "buildNumber": "11",
       "bundleIdentifier": "com.my.AJR",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {

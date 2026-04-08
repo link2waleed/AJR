@@ -24,7 +24,7 @@ import auth from '@react-native-firebase/auth';
 import challengesData from '../../data/challanges.json';
 
 // Import notification icon
-import notifications from '../../../assets/images/notification-bing.png';
+
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -140,6 +140,11 @@ const CircleDetailScreen = ({ navigation, route }) => {
     // Group activity stats state
     const [memberActivityStats, setMemberActivityStats] = useState(null);
 
+    // Averaged ring percentages across all circle members
+    const [circleRingAverages, setCircleRingAverages] = useState({
+        prayers: 0, quran: 0, dhikr: 0, journal: 0, overall: 0,
+    });
+
     // Weekly Challenge state
     const [challengeParticipants, setChallengeParticipants] = useState([]);
     const [joiningChallenge, setJoiningChallenge] = useState(false);
@@ -220,12 +225,28 @@ const CircleDetailScreen = ({ navigation, route }) => {
         setTogglingActivity(activity);
         try {
             const newStatus = !activityCompletion[activity];
-            await FirebaseService.updateActivityCompletion(activity, newStatus);
-            // Refresh group stats after toggling so UI updates immediately
+
+            // Calculate the percentage for this ring after toggle
+            let ringPercentage = 0;
+            if (newStatus) {
+                ringPercentage = 100;
+            } else {
+                if (activity === 'prayers') ringPercentage = getPrayerPercentage();
+                else if (activity === 'quran') ringPercentage = getQuranPercentage();
+                else if (activity === 'dhikr') ringPercentage = getDhikrPercentage();
+                else if (activity === 'journaling') ringPercentage = getJournalingPercentage();
+            }
+
+            await FirebaseService.updateActivityCompletion(activity, newStatus, ringPercentage);
+            // Refresh group stats + ring averages after toggling so UI updates immediately
             if (circleId) {
-                FirebaseService.getCircleMemberActivityStats(circleId)
-                    .then(stats => setMemberActivityStats(stats))
-                    .catch(() => { });
+                Promise.all([
+                    FirebaseService.getCircleMemberActivityStats(circleId),
+                    FirebaseService.getCircleMemberRingAverages(circleId),
+                ]).then(([stats, averages]) => {
+                    setMemberActivityStats(stats);
+                    setCircleRingAverages(averages);
+                }).catch(() => { });
             }
         } catch (error) {
             console.error(`Error toggling ${activity}:`, error);
@@ -250,15 +271,17 @@ const CircleDetailScreen = ({ navigation, route }) => {
             if (!circleId) return;
             try {
                 setLoading(true);
-                const [details, activityStats] = await Promise.all([
+                const [details, activityStats, ringAverages] = await Promise.all([
                     FirebaseService.getCircleDetails(circleId),
                     FirebaseService.getCircleMemberActivityStats(circleId),
+                    FirebaseService.getCircleMemberRingAverages(circleId),
                 ]);
                 setCircleData(details.circle);
                 setMembers(details.members);
                 setStreak(details.streak);
                 setInviteCode(details.circle.inviteCode || '');
                 setMemberActivityStats(activityStats);
+                setCircleRingAverages(ringAverages);
 
                 // Initialize/fetch circle challenge doc and participants for current week
                 const weekIndex = Math.floor(details.streak / 7) % challengesData.length;
@@ -384,8 +407,8 @@ const CircleDetailScreen = ({ navigation, route }) => {
     if (loading) {
         return (
             <LinearGradient
-                colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-                locations={[0, 0.7, 1]}
+                colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+                locations={[0, 1]}
                 style={styles.container}
             >
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -397,8 +420,8 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
     return (
         <LinearGradient
-            colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-            locations={[0, 0.7, 1]}
+            colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+            locations={[0, 1]}
             style={styles.container}
         >
             <ScrollView
@@ -417,11 +440,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
                     <Text style={styles.headerTitle}>My Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
-                        <View style={styles.notificationBadge}>
-                            <Image source={notifications} style={styles.notificationIcon} />
-                        </View>
-                    </TouchableOpacity>
+                    <View style={{ width: 40 }} />
                 </View>
 
                 {/* Stats Row */}
@@ -431,7 +450,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                     {/* <StatCard icon="checkmark-circle-outline" value={`${circle.progress}%`} label="Complete" /> */}
                 </View>
 
-                {/* Today's Group Progress */}
+                {/* AJR Rings */}
                 <View style={styles.section}>
                     <View style={styles.progressCard}>
                         <Text style={styles.progressSectionTitle}>Today's Group Progress</Text>
@@ -439,60 +458,52 @@ const CircleDetailScreen = ({ navigation, route }) => {
                         <View style={styles.progressContent}>
                             <AJRRings
                                 variant="detailed"
-                                progress={ajrProgress}
-                                layer1Completed={isPrayerCompleted}
-                                layer2Completed={isQuranCompleted}
-                                layer3Completed={isDhikrCompleted}
-                                layer1Progress={getPrayerPercentage()}
-                                layer2Progress={getQuranPercentage()}
-                                layer3Progress={getDhikrPercentage()}
-                                journalingProgress={getJournalingPercentage()}
-                                layer1Visible={selectedActivities.prayers}
-                                layer2Visible={selectedActivities.quran}
-                                layer3Visible={selectedActivities.dhikr}
-                                journalingVisible={selectedActivities.journaling}
+                                progress={circleRingAverages.overall}
+                                layer1Completed={circleRingAverages.prayers >= 100}
+                                layer2Completed={circleRingAverages.quran >= 100}
+                                layer3Completed={circleRingAverages.dhikr >= 100}
+                                layer1Progress={circleRingAverages.prayers}
+                                layer2Progress={circleRingAverages.quran}
+                                layer3Progress={circleRingAverages.dhikr}
+                                journalingProgress={circleRingAverages.journal}
+                                layer1Visible={true}
+                                layer2Visible={true}
+                                layer3Visible={true}
+                                journalingVisible={true}
                             />
                             <View style={styles.legendContainer}>
-                                {selectedActivities.prayers && (
-                                    <LegendItem
-                                        color={colors.rings.layer1}
-                                        label="Prayers"
-                                        completed={isPrayerCompleted}
-                                        activity="prayers"
-                                        onToggle={handleToggleActivity}
-                                        disabled={togglingActivity === 'prayers' || isPrayerCompleted}
-                                    />
-                                )}
-                                {selectedActivities.quran && (
-                                    <LegendItem
-                                        color={colors.rings.layer2}
-                                        label="Quran"
-                                        completed={isQuranCompleted}
-                                        activity="quran"
-                                        onToggle={handleToggleActivity}
-                                        disabled={togglingActivity === 'quran' || isQuranCompleted}
-                                    />
-                                )}
-                                {selectedActivities.dhikr && (
-                                    <LegendItem
-                                        color={colors.rings.layer3}
-                                        label="Dhikr"
-                                        completed={isDhikrCompleted}
-                                        activity="dhikr"
-                                        onToggle={handleToggleActivity}
-                                        disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
-                                    />
-                                )}
-                                {selectedActivities.journaling && (
-                                    <LegendItem
-                                        color={colors.rings.innerCircle}
-                                        label="Journal"
-                                        completed={isJournalCompleted}
-                                        activity="journaling"
-                                        onToggle={handleToggleActivity}
-                                        disabled={togglingActivity === 'journaling' || isJournalCompleted}
-                                    />
-                                )}
+                                <LegendItem
+                                    color={colors.rings.layer1}
+                                    label="Prayers"
+                                    completed={isPrayerCompleted}
+                                    activity="prayers"
+                                    onToggle={handleToggleActivity}
+                                    disabled={togglingActivity === 'prayers' || isPrayerCompleted}
+                                />
+                                <LegendItem
+                                    color={colors.rings.layer2}
+                                    label="Quran"
+                                    completed={isQuranCompleted}
+                                    activity="quran"
+                                    onToggle={handleToggleActivity}
+                                    disabled={togglingActivity === 'quran' || isQuranCompleted}
+                                />
+                                <LegendItem
+                                    color={colors.rings.layer3}
+                                    label="Dhikr"
+                                    completed={isDhikrCompleted}
+                                    activity="dhikr"
+                                    onToggle={handleToggleActivity}
+                                    disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
+                                />
+                                <LegendItem
+                                    color={colors.rings.innerCircle}
+                                    label="Journal"
+                                    completed={isJournalCompleted}
+                                    activity="journaling"
+                                    onToggle={handleToggleActivity}
+                                    disabled={togglingActivity === 'journaling' || isJournalCompleted}
+                                />
                             </View>
                         </View>
                     </View>
@@ -737,19 +748,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
     },
-    notificationButton: {},
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     // Stats Row
     statsRow: {
         flexDirection: 'row',
@@ -793,23 +792,22 @@ const styles = StyleSheet.create({
     // Progress Card
     progressCard: {
         backgroundColor: colors.primary.light,
-        borderRadius: borderRadius.xl,
+        borderRadius: borderRadius.lg,
         borderWidth: 1.5,
         borderColor: '#fff',
         padding: spacing.md,
     },
     progressSectionTitle: {
-        fontSize: isSmallDevice ? 15 : 17,
+        fontSize: isSmallDevice ? 16 : 18,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
-        paddingHorizontal: spacing.xs,
+
     },
     progressDivider: {
         height: 1,
         backgroundColor: colors.border.grey,
         marginTop: spacing.sm,
         marginBottom: spacing.sm,
-        marginHorizontal: spacing.xxs
     },
     Divider: {
         height: 1,
@@ -822,20 +820,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: spacing.xs,
-        gap: spacing.md,
+        gap: spacing.xs,
     },
     legendContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'flex-start',
-        padding: spacing.md,
+        padding: spacing.xs,
     },
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: spacing.xs,
-        marginBottom: spacing.xxs,
-        flexWrap: 'wrap',
+        marginBottom: spacing.xs,
+        flexWrap: 'nowrap',
         width: '100%',
     },
     legendCheck: {
@@ -845,11 +843,11 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: spacing.sm,
+        marginRight: spacing.xxs,
     },
     legendText: {
-        fontSize: isSmallDevice ? 12 : 13,
-        color: colors.text.dark,
+        fontSize: isSmallDevice ? 10 : 12,
+        color: colors.text.black,
         flexShrink: 1,
     },
     legendTextInactive: {

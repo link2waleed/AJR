@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 // Import notification icon
-import notifications from '../../../assets/images/notification-bing.png';
+
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -130,8 +130,8 @@ const CreateCircleScreen = ({ navigation }) => {
 
     return (
         <LinearGradient
-            colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-            locations={[0, 0.7, 1]}
+            colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+            locations={[0, 1]}
             style={styles.container}
         >
             <ScrollView
@@ -150,11 +150,7 @@ const CreateCircleScreen = ({ navigation }) => {
 
                     <Text style={styles.headerTitle}>Create Circle</Text>
 
-                    <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
-                        <View style={styles.notificationBadge}>
-                            <Image source={notifications} style={styles.notificationIcon} />
-                        </View>
-                    </TouchableOpacity>
+                    <View style={{ width: 40 }} />
                 </View>
 
                 {/* Step Indicator */}
@@ -231,19 +227,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
     },
-    notificationButton: {},
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     // Step Indicator
     stepContainer: {
         flexDirection: 'row',

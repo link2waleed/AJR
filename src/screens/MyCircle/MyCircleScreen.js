@@ -18,7 +18,7 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 
 // Import notification icon
-import notifications from '../../../assets/images/notification-bing.png';
+
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -154,11 +154,7 @@ const MyCircleScreen = ({ navigation }) => {
 
                 <Text style={styles.headerTitle}>My Circle</Text>
 
-                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
-                    <View style={styles.notificationBadge}>
-                        <Image source={notifications} style={styles.notificationIcon} />
-                    </View>
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             {/* Featured Circle Section */}
@@ -214,11 +210,7 @@ const MyCircleScreen = ({ navigation }) => {
 
                 <Text style={styles.headerTitle}>My Circle</Text>
 
-                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
-                    <View style={styles.notificationBadge}>
-                        <Image source={notifications} style={styles.notificationIcon} />
-                    </View>
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             {/* Your Circles Section */}
@@ -319,8 +311,8 @@ const MyCircleScreen = ({ navigation }) => {
 
     return (
         <LinearGradient
-            colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-            locations={[0, 0.7, 1]}
+            colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+            locations={[0, 1]}
             style={styles.container}
         >
             {loading ? (
@@ -416,21 +408,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
     },
-    notificationButton: {
-        // Wrapper for notification icon
-    },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     // Section
     section: {
         marginBottom: spacing.md,
@@ -734,7 +712,7 @@ const styles = StyleSheet.create({
         color: colors.text.black,
         marginBottom: spacing.lg,
         textAlign: 'center',
-        
+
     },
     // Buttons
     buttonContainer: {

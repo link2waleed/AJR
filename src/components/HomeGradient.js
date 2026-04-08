@@ -1,17 +1,15 @@
 import React from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 
 const { height, width } = Dimensions.get('window');
 
-const GradientBackground = ({ children, style }) => {
+const HomeGradient = ({ children, style }) => {
     return (
         <LinearGradient
-            colors={['#cdb469', '#a0aea0', '#2e543d']}
-            locations={[0, 0.35, 0.95]}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0, y: 1 }}
+            colors={[colors.homeGradient.top, colors.homeGradient.bottom]}
+            locations={[0, 1]}
             style={[styles.gradient, style]}
         >
             {children}
@@ -27,4 +25,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default GradientBackground;
+export default HomeGradient;

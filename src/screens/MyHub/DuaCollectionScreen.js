@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const DuaCollectionScreen = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -44,8 +44,11 @@ const DuaCollectionScreen = ({ navigation }) => {
     const [isFilterVisible, setIsFilterVisible] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('All');
 
-    // Extract unique categories
-    const categories = ['All', ...new Set(savedDuas.map(d => d.category || 'Uncategorized'))];
+    // Extract unique categories (Map legacy 'Dua of the Day' to 'Hadith of the Day')
+    const categories = ['All', ...new Set(savedDuas.map(d => {
+        const cat = d.category || 'Uncategorized';
+        return cat === 'Dua of the Day' ? 'Hadith of the Day' : cat;
+    }))];
 
     // ... (existing loadSavedDuas)
 
@@ -54,14 +57,17 @@ const DuaCollectionScreen = ({ navigation }) => {
             dua.english?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             dua.arabic?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        const matchesCategory = selectedCategory === 'All' || (dua.category || 'Uncategorized') === selectedCategory;
+        let cat = dua.category || 'Uncategorized';
+        if (cat === 'Dua of the Day') cat = 'Hadith of the Day';
+        const matchesCategory = selectedCategory === 'All' || cat === selectedCategory;
 
         return matchesSearch && matchesCategory;
     });
 
     // Group duas by category
     const groupedDuas = filteredDuas.reduce((acc, dua) => {
-        const category = dua.category || 'Uncategorized';
+        let category = dua.category || 'Uncategorized';
+        if (category === 'Dua of the Day') category = 'Hadith of the Day';
         if (!acc[category]) {
             acc[category] = [];
         }
@@ -70,7 +76,7 @@ const DuaCollectionScreen = ({ navigation }) => {
     }, {});
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -79,11 +85,7 @@ const DuaCollectionScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Hadith Collection</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* Search Bar with Filter */}
@@ -160,7 +162,7 @@ const DuaCollectionScreen = ({ navigation }) => {
                                         <View key={dua.id} style={styles.duaCard}>
                                             <View style={[styles.cardHeader, { justifyContent: 'flex-end' }]}>
                                                 <TouchableOpacity onPress={() => handleRemoveDua(dua.id)}>
-                                                    <Ionicons name="heart" size={20} color="#4CAF50" />
+                                                    <Ionicons name="heart" size={20} color={colors.primary.darkSage} />
                                                 </TouchableOpacity>
                                             </View>
 
@@ -174,7 +176,7 @@ const DuaCollectionScreen = ({ navigation }) => {
                     </ScrollView>
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -201,18 +203,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',

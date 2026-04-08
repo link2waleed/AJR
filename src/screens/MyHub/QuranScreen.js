@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Fla
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
-import GradientBackground from '../../components/GradientBackground';
+import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { SURAHS } from '../../data/surahData';
 import { JUZS } from '../../data/juzData';
-import notificationImg from '../../../assets/images/notification-bing.png';
+
 
 const QuranScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('Surah');
@@ -41,10 +41,18 @@ const QuranScreen = ({ navigation }) => {
     const handleContinuePress = () => {
         const currentLastRead = activeTab === 'Surah' ? lastReadSurah : lastReadJuz;
         if (currentLastRead) {
+            const ayahParams = currentLastRead.lastAyahNumber
+                ? {
+                    initialAyahNumber: currentLastRead.lastAyahNumber,
+                    initialAyahSurahNumber: currentLastRead.lastAyahSurahNumber,
+                    initialTab: 'Translation',
+                }
+                : { initialTab: 'Translation' };
+
             if (currentLastRead.type === 'Juz') {
-                navigation.navigate('SurahDetail', { juz: currentLastRead.data });
+                navigation.navigate('SurahDetail', { juz: currentLastRead.data, ...ayahParams });
             } else {
-                navigation.navigate('SurahDetail', { surah: currentLastRead.data });
+                navigation.navigate('SurahDetail', { surah: currentLastRead.data, ...ayahParams });
             }
         }
     };
@@ -116,7 +124,7 @@ const QuranScreen = ({ navigation }) => {
     };
 
     return (
-        <GradientBackground>
+        <HomeGradient>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     {/* Header */}
@@ -125,11 +133,7 @@ const QuranScreen = ({ navigation }) => {
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Quran</Text>
-                        <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications', { source: 'hub' })}>
-                            <View style={styles.notificationBadge}>
-                                <Image source={notificationImg} style={styles.notificationIcon} />
-                            </View>
-                        </TouchableOpacity>
+                        <View style={{ width: 40 }} />
                     </View>
 
                     <FlatList
@@ -152,7 +156,9 @@ const QuranScreen = ({ navigation }) => {
                                                     {activeTab === 'Surah' ? lastReadSurah.name : lastReadJuz.name}
                                                 </Text>
                                                 <Text style={styles.continueAyah}>
-                                                    {activeTab === 'Surah' ? 'Tap to continue' : lastReadJuz.subtitle}
+                                                    {activeTab === 'Surah'
+                                                        ? (lastReadSurah.lastAyahLabel || 'Tap to continue')
+                                                        : (lastReadJuz.lastAyahLabel || lastReadJuz.subtitle)}
                                                 </Text>
                                             </View>
                                             <Ionicons name="arrow-forward" size={20} color={colors.text.black} />
@@ -181,7 +187,7 @@ const QuranScreen = ({ navigation }) => {
 
                 </View>
             </SafeAreaView>
-        </GradientBackground>
+        </HomeGradient>
     );
 };
 
@@ -215,18 +221,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
-    },
+
     scrollContent: {
         paddingHorizontal: spacing.lg,
         paddingBottom: 20,

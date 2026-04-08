@@ -33,24 +33,105 @@ const PRAYER_DISPLAY_NAMES = {
  * Uses a simple lat-based guess as fallback when API doesn't provide timezone
  */
 const estimateTimezoneFromCoordinates = (latitude, longitude) => {
-    // Common locations mapping
+    // London
     if (isInLondon(latitude, longitude)) {
         return 'Europe/London';
     }
-    
-    // Pakistan coordinates approximation
+
+    // Pakistan
     if (latitude >= 23 && latitude <= 37 && longitude >= 61 && longitude <= 77) {
         return 'Asia/Karachi';
     }
-    
-    // General approximation based on longitude
-    // Each 15 degrees of longitude = 1 hour offset
-    const baseOffset = Math.round(longitude / 15);
-    const offset = baseOffset > 0 ? `+${baseOffset}:00` : `${baseOffset}:00`;
-    
-    console.warn('PrayerTimeService: Using estimated timezone offset for', { latitude, longitude, offset });
-    
-    // Return UTC as extremely safe fallback
+
+    // Turkey
+    if (latitude >= 36 && latitude <= 42 && longitude >= 26 && longitude <= 45) {
+        return 'Europe/Istanbul';
+    }
+
+    // Middle East / Gulf
+    if (latitude >= 12 && latitude <= 42 && longitude >= 35 && longitude <= 60) {
+        if (longitude >= 54) return 'Asia/Dubai';       // UAE, Oman
+        if (longitude >= 43 && latitude <= 30) return 'Asia/Riyadh'; // Saudi, Yemen
+        if (longitude >= 43) return 'Asia/Baghdad';     // Iraq
+        return 'Asia/Riyadh';
+    }
+
+    // North Africa
+    if (latitude >= 15 && latitude <= 37 && longitude >= -17 && longitude <= 35) {
+        if (longitude <= 0) return 'Africa/Casablanca';
+        if (longitude <= 12) return 'Africa/Algiers';
+        return 'Africa/Cairo';
+    }
+
+    // Sub-Saharan Africa
+    if (latitude >= -35 && latitude <= 15 && longitude >= -17 && longitude <= 52) {
+        if (longitude <= 15) return 'Africa/Lagos';
+        if (longitude <= 35) return 'Africa/Nairobi';
+        return 'Africa/Nairobi';
+    }
+
+    // Western Europe (excluding London)
+    if (latitude >= 36 && latitude <= 71 && longitude >= -10 && longitude <= 25) {
+        if (longitude <= 0) return 'Europe/Lisbon';
+        if (longitude <= 8) return 'Europe/Paris';
+        if (longitude <= 15) return 'Europe/Berlin';
+        return 'Europe/Athens';
+    }
+
+    // Eastern Europe / Russia west
+    if (latitude >= 36 && latitude <= 71 && longitude >= 25 && longitude <= 60) {
+        if (longitude <= 35) return 'Europe/Moscow';
+        return 'Europe/Moscow';
+    }
+
+    // South Asia (India, Bangladesh, Sri Lanka)
+    if (latitude >= 5 && latitude <= 35 && longitude >= 68 && longitude <= 92) {
+        if (longitude <= 82) return 'Asia/Kolkata';
+        return 'Asia/Dhaka';
+    }
+
+    // Southeast Asia
+    if (latitude >= -10 && latitude <= 28 && longitude >= 92 && longitude <= 141) {
+        if (longitude <= 105) return 'Asia/Bangkok';
+        if (longitude <= 120) return 'Asia/Kuala_Lumpur';
+        return 'Asia/Tokyo';
+    }
+
+    // East Asia
+    if (latitude >= 18 && latitude <= 54 && longitude >= 100 && longitude <= 150) {
+        if (longitude <= 125) return 'Asia/Shanghai';
+        return 'Asia/Tokyo';
+    }
+
+    // North America
+    if (latitude >= 15 && latitude <= 72 && longitude >= -170 && longitude <= -50) {
+        if (longitude >= -80) return 'America/New_York';
+        if (longitude >= -100) return 'America/Chicago';
+        if (longitude >= -115) return 'America/Denver';
+        return 'America/Los_Angeles';
+    }
+
+    // South America
+    if (latitude >= -56 && latitude <= 15 && longitude >= -82 && longitude <= -34) {
+        if (longitude >= -50) return 'America/Sao_Paulo';
+        return 'America/Bogota';
+    }
+
+    // Australia / Oceania
+    if (latitude >= -50 && latitude <= -10 && longitude >= 110 && longitude <= 180) {
+        return 'Australia/Sydney';
+    }
+
+    // Last resort: try device timezone (better than raw UTC)
+    try {
+        const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (deviceTz) {
+            console.log('PrayerTimeService: Using device timezone as fallback:', deviceTz);
+            return deviceTz;
+        }
+    } catch (e) { /* ignore */ }
+
+    console.warn('PrayerTimeService: Could not determine timezone, using UTC');
     return 'UTC';
 };
 
@@ -176,7 +257,7 @@ const formatTo12Hour = (timeString) => {
 const isBetweenMaghribAndIsha = async (latitude, longitude) => {
     try {
         console.log('isBetweenMaghribAndIsha called with coords:', { latitude, longitude });
-        
+
         const prayerData = await PrayerTimeService.getCompletePrayerData(latitude, longitude);
         if (!prayerData?.maghribTime || !prayerData?.timings?.Isha) {
             console.warn('No Maghrib or Isha time available');
@@ -185,14 +266,14 @@ const isBetweenMaghribAndIsha = async (latitude, longitude) => {
 
         const timezone = prayerData.timezone || 'UTC';
         console.log('isBetweenMaghribAndIsha - Using timezone:', timezone, 'for city:', prayerData.city);
-        
+
         // Parse Maghrib time
-        const maghribDate = timezone && timezone !== 'UTC' 
+        const maghribDate = timezone && timezone !== 'UTC'
             ? parseTimeToDateWithTimezone(prayerData.maghribTime, timezone)
             : parseTimeToDate(prayerData.maghribTime);
 
         // Parse Isha time (next day's Fajr is considered as end of Isha)
-        let ishaDate = timezone && timezone !== 'UTC' 
+        let ishaDate = timezone && timezone !== 'UTC'
             ? parseTimeToDateWithTimezone(prayerData.timings.Isha, timezone)
             : parseTimeToDate(prayerData.timings.Isha);
 
@@ -240,19 +321,19 @@ const PrayerTimeService = {
     fetchLondonPrayerTimes: async (school = DEFAULT_SCHOOL) => {
         try {
             // Get today's date in London timezone
-            const londonDate = new Date().toLocaleDateString('en-GB', { 
+            const londonDate = new Date().toLocaleDateString('en-GB', {
                 timeZone: 'Europe/London',
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit'
             });
-            
+
             // Convert DD/MM/YYYY to YYYY-MM-DD
             const [day, month, year] = londonDate.split('/');
             const formattedDate = `${year}-${month}-${day}`;
-            
+
             const apiUrl = `${LONDON_API}&date=${formattedDate}`;
-            
+
             console.log('[LONDON API] Fetching London prayer times for:', formattedDate, 'School:', school === 1 ? 'Hanafi' : 'Shafi');
             const response = await fetch(apiUrl);
 
@@ -262,7 +343,7 @@ const PrayerTimeService = {
 
             const data = await response.json();
             console.log('[LONDON API] Raw Response:', JSON.stringify(data, null, 2));
-            
+
             // London API format (CORRECTED):
             // - asr: Shafi Asr time
             // - asr_2: Hanafi Asr time
@@ -274,9 +355,9 @@ const PrayerTimeService = {
             // If a time is too early for its prayer type, add 12 hours
             const correctTimeIfNeeded = (timeStr, prayerName) => {
                 if (!timeStr) return timeStr;
-                
+
                 const [hours, minutes] = timeStr.split(':').map(Number);
-                
+
                 // Prayers that should naturally be afternoon/evening
                 // If they appear as early morning times, add 12 hours
                 const shouldBeAfternoon = {
@@ -284,7 +365,7 @@ const PrayerTimeService = {
                     'Maghrib': { minExpected: 15, maxExpected: 21 },
                     'Isha': { minExpected: 18, maxExpected: 23 }
                 };
-                
+
                 const expectedRange = shouldBeAfternoon[prayerName];
                 if (expectedRange && hours < expectedRange.minExpected) {
                     const correctedHours = hours + 12;
@@ -292,7 +373,7 @@ const PrayerTimeService = {
                     console.log(`[LONDON API] Corrected ${prayerName}: ${timeStr} → ${correctedStr} (added 12 hours)`);
                     return correctedStr;
                 }
-                
+
                 return timeStr;
             };
 
@@ -312,12 +393,12 @@ const PrayerTimeService = {
                 const [hours] = timeStr.split(':').map(Number);
                 // Reasonable bounds for London: Maghrib 15-21, Isha 18-23, Fajr 04-07, Dhuhr 11-14, Asr 13-18
                 const bounds = {
-                    Maghrib: { min: 15, max: 21 },
-                    Isha: { min: 18, max: 23 },
-                    Fajr: { min: 4, max: 7 },
+                    Maghrib: { min: 15, max: 22 },
+                    Isha: { min: 18, max: 24 },
+                    Fajr: { min: 1, max: 7 },
                     Dhuhr: { min: 11, max: 14 },
-                    Asr: { min: 13, max: 18 },
-                    Sunrise: { min: 4, max: 9 }
+                    Asr: { min: 13, max: 19 },
+                    Sunrise: { min: 3, max: 9 }
                 };
                 const bound = bounds[prayerName];
                 if (bound && (hours < bound.min || hours > bound.max)) {
@@ -344,8 +425,8 @@ const PrayerTimeService = {
 
             // Parse the date string to create hijri/gregorian format
             const dateObj = new Date(data.date);
-            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                          'July', 'August', 'September', 'October', 'November', 'December'];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
 
             return {
                 timings: standardTimings,
@@ -373,17 +454,22 @@ const PrayerTimeService = {
         }
     },
 
-   
-    fetchAladhanPrayerTimes: async (latitude, longitude, school = DEFAULT_SCHOOL) => {
+
+    fetchAladhanPrayerTimes: async (latitude, longitude, date = new Date(), school = DEFAULT_SCHOOL) => {
         try {
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const dateStr = `${day}-${month}-${year}`;
+
             const url =
-                `${ALADHAN_API_BASE}/timings?latitude=${latitude}` +
+                `${ALADHAN_API_BASE}/timings/${dateStr}?latitude=${latitude}` +
                 `&longitude=${longitude}` +
                 `&method=${DEFAULT_METHOD}` +
                 `&school=${school}`;
 
-            console.log('Fetching Aladhan prayer times for:', { latitude, longitude, school: school === 1 ? 'Hanafi' : 'Shafi' });
-            
+            console.log('Fetching Aladhan prayer times for:', { dateStr, latitude, longitude, school: school === 1 ? 'Hanafi' : 'Shafi' });
+
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -403,10 +489,13 @@ const PrayerTimeService = {
      * London API is tried first for London (with validation)
      * Falls back to Aladhan if London API fails or returns invalid data
      */
-    fetchPrayerTimes: async (latitude, longitude, school = DEFAULT_SCHOOL) => {
+    fetchPrayerTimes: async (latitude, longitude, date = new Date(), school = DEFAULT_SCHOOL) => {
         if (isInLondon(latitude, longitude)) {
             console.log('[PRAYER TIMES] Using London Prayer Times API');
             const londonData = await PrayerTimeService.fetchLondonPrayerTimes(school);
+            // Note: fetchLondonPrayerTimes currently only fetches today's. 
+            // If date is not today, we might need to adjust it there too, 
+            // but for now let's focus on the main API for multi-day support if needed.
             if (londonData) {
                 console.log('[PRAYER TIMES] London API successful - using it');
                 return londonData;
@@ -414,12 +503,12 @@ const PrayerTimeService = {
             console.warn('[PRAYER TIMES] London API failed or returned invalid data, falling back to Aladhan');
         }
         console.log('[PRAYER TIMES] Using Aladhan API');
-        return await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, school);
+        return await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, date, school);
     },
 
     getCompletePrayerData: async (latitude, longitude, date = new Date(), school = DEFAULT_SCHOOL) => {
         try {
-            const apiData = await PrayerTimeService.fetchPrayerTimes(latitude, longitude, school);
+            const apiData = await PrayerTimeService.fetchPrayerTimes(latitude, longitude, date, school);
 
             if (!apiData) return null;
 
@@ -489,6 +578,32 @@ const PrayerTimeService = {
                 console.log('PrayerTimeService: Estimated timezone for', `${latitude},${longitude}:`, timezone);
             }
 
+            // ─── Apply user's custom prayer adjustments ───
+            const adjustments = await StorageService.getPrayerAdjustments();
+            const adjustmentMap = {
+                Fajr: adjustments.fajr || 0,
+                Sunrise: adjustments.sunrise || 0,
+                Dhuhr: adjustments.dhuhr || 0,
+                Asr: adjustments.asr || 0,
+                Maghrib: adjustments.maghrib || 0,
+                Isha: adjustments.isha || 0,
+            };
+
+            const hasAdjustments = Object.values(adjustmentMap).some(v => v !== 0);
+            if (hasAdjustments) {
+                console.log('PrayerTimeService: Applying custom prayer adjustments:', adjustmentMap);
+                for (const [prayer, offset] of Object.entries(adjustmentMap)) {
+                    if (offset !== 0 && cleanTimings[prayer]) {
+                        const [h, m] = cleanTimings[prayer].split(':').map(Number);
+                        const totalMinutes = h * 60 + m + offset;
+                        const newH = Math.floor(totalMinutes / 60) % 24;
+                        const newM = totalMinutes % 60;
+                        cleanTimings[prayer] = `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+                        console.log(`  ${prayer}: adjusted by ${offset > 0 ? '+' : ''}${offset}min → ${cleanTimings[prayer]}`);
+                    }
+                }
+            }
+
             // Calculate next prayer with timezone awareness
             const nextPrayer = PrayerTimeService.calculateNextPrayer(
                 cleanTimings,
@@ -517,10 +632,28 @@ const PrayerTimeService = {
                 school: school === 1 ? 'Hanafi' : 'Shafi'
             });
 
-            await StorageService.savePrayerTimes(result, latitude, longitude);
-            // Also cache full timings for NotificationService (with timezone)
-            const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            await StorageService.saveFullTimings(cleanTimings, todayDate, timezone);
+            const isToday = new Date(date).setHours(0, 0, 0, 0) === new Date().setHours(0, 0, 0, 0);
+            if (isToday) {
+                await StorageService.savePrayerTimes(result, latitude, longitude);
+                // Use timezone-aware date for full timings cache
+                let todayDate;
+                try {
+                    const parts = new Intl.DateTimeFormat('en-US', {
+                        timeZone: timezone || undefined,
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                    }).formatToParts(new Date());
+                    const y = parts.find(p => p.type === 'year').value;
+                    const m = parts.find(p => p.type === 'month').value;
+                    const d = parts.find(p => p.type === 'day').value;
+                    todayDate = `${y}-${m}-${d}`;
+                } catch (e) {
+                    const now = new Date();
+                    todayDate = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')}`;
+                }
+                await StorageService.saveFullTimings(cleanTimings, todayDate, timezone);
+            }
 
             return result;
         } catch (error) {
@@ -615,9 +748,9 @@ const PrayerTimeService = {
             if (!prayerData?.maghribTime) return null;
 
             const timezone = prayerData.timezone || 'UTC';
-            
+
             console.log('Getting Maghrib time for', prayerData.city, 'Timezone:', timezone);
-            
+
             // Use timezone-aware parsing if timezone is available
             if (timezone && timezone !== 'UTC') {
                 return parseTimeToDateWithTimezone(prayerData.maghribTime, timezone);
@@ -633,7 +766,7 @@ const PrayerTimeService = {
     isAfterMaghrib: async (latitude, longitude) => {
         try {
             console.log('isAfterMaghrib called with coords:', { latitude, longitude });
-            
+
             const prayerData = await PrayerTimeService.getCompletePrayerData(latitude, longitude);
             if (!prayerData?.maghribTime) {
                 console.warn('No Maghrib time available');
@@ -642,8 +775,8 @@ const PrayerTimeService = {
 
             const timezone = prayerData.timezone || 'UTC';
             console.log('isAfterMaghrib - Using timezone:', timezone, 'for city:', prayerData.city);
-            
-            const maghribDate = timezone && timezone !== 'UTC' 
+
+            const maghribDate = timezone && timezone !== 'UTC'
                 ? parseTimeToDateWithTimezone(prayerData.maghribTime, timezone)
                 : parseTimeToDate(prayerData.maghribTime);
 
@@ -654,7 +787,7 @@ const PrayerTimeService = {
 
             const now = new Date();
             const isAfter = now >= maghribDate;
-            
+
             console.log('Maghrib check FINAL:', {
                 city: prayerData.city,
                 timezone,

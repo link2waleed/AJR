@@ -77,6 +77,8 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update: if isAuthenticated()
           && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
       }
     }
 
@@ -85,6 +87,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Circle Challenges - weekly challenge join tracking
@@ -97,6 +100,7 @@ service cloud.firestore {
       match /participants/{userId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
 

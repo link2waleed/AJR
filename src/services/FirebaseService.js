@@ -51,8 +51,23 @@
 
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import { ensureFirebaseApp } from './FirebaseInit';
+
+function ensureFirebaseInitialized() {
+    ensureFirebaseApp();
+}
 
 class FirebaseService {
+    static getLocalDateKey(date = new Date()) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    static getYesterdayDateKey() {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        return this.getLocalDateKey(yesterday);
+    }
+
     /**
      * Initialize user profile after signup
      * Creates user root document and onboarding-info subcollection document
@@ -296,6 +311,7 @@ class FirebaseService {
      */
     static async getUserRootData() {
         try {
+            ensureFirebaseInitialized();
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
@@ -317,6 +333,7 @@ class FirebaseService {
      */
     static async getOnboardingInfo() {
         try {
+            ensureFirebaseInitialized();
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
@@ -635,6 +652,7 @@ class FirebaseService {
                     (doc) => {
                         if (doc.exists) {
                             const data = doc.data();
+                            if (!data) { callback({}); return; }
 
                             // Check if Quran reading data is from today
                             if (data.quran && data.quran.lastReadingDate) {
@@ -714,15 +732,31 @@ class FirebaseService {
     /**
      * Update activity completion status (auto-save per ring)
      * Stores completion status in root user document
+     * Also stores the ring's percentage in dailyProgress
      */
-    static async updateActivityCompletion(activity, completed) {
+    static async updateActivityCompletion(activity, completed, percentage) {
         try {
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
+            // Map activity key to dailyProgress field name
+            const percentageFieldMap = {
+                prayers: 'dailyProgress.prayersPercentage',
+                quran: 'dailyProgress.quranPercentage',
+                dhikr: 'dailyProgress.dhikrPercentage',
+                journaling: 'dailyProgress.journalPercentage',
+            };
+
             const updateData = {
                 [`activityProgress.${activity}`]: completed,
             };
+
+            // Also write the ring's percentage if provided
+            const percentageField = percentageFieldMap[activity];
+            if (percentageField !== undefined && percentage !== undefined) {
+                updateData[percentageField] = percentage;
+                updateData['dailyProgress.lastUpdated'] = firestore.FieldValue.serverTimestamp();
+            }
 
             await firestore()
                 .collection('users')
@@ -766,6 +800,33 @@ class FirebaseService {
                 return () => { };
             }
 
+            let lastCheckedDate = this.getLocalDateKey();
+            const checkForReset = async () => {
+                const todayStr = this.getLocalDateKey();
+                if (todayStr !== lastCheckedDate) {
+                    lastCheckedDate = todayStr;
+                    console.log('ActivityProgress: local date changed, resetting all to false');
+                    const resetData = {
+                        activityProgress: {
+                            prayers: false,
+                            quran: false,
+                            dhikr: false,
+                            journaling: false,
+                        },
+                        lastActivityResetDate: todayStr,
+                    };
+                    try {
+                        await firestore()
+                            .collection('users')
+                            .doc(user.uid)
+                            .update(resetData);
+                        callback({ prayers: false, quran: false, dhikr: false, journaling: false });
+                    } catch (resetErr) {
+                        console.error('ActivityProgress: reset error', resetErr);
+                    }
+                }
+            };
+
             const unsubscribe = firestore()
                 .collection('users')
                 .doc(user.uid)
@@ -775,14 +836,10 @@ class FirebaseService {
                             const userData = doc.data();
                             const progress = userData.activityProgress || {};
                             const lastReset = userData.lastActivityResetDate;
-
-                            // Check if we need a daily reset
-                            const today = new Date();
-                            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                            const todayStr = this.getLocalDateKey();
 
                             if (lastReset !== todayStr) {
-                                // New day — reset all activity progress
-                                console.log('ActivityProgress: new day detected, resetting all to false');
+                                console.log('ActivityProgress: new day detected in snapshot, resetting all to false');
                                 const resetData = {
                                     activityProgress: {
                                         prayers: false,
@@ -800,7 +857,6 @@ class FirebaseService {
                                 } catch (resetErr) {
                                     console.error('ActivityProgress: reset error', resetErr);
                                 }
-                                // Return reset values immediately
                                 callback({ prayers: false, quran: false, dhikr: false, journaling: false });
                             } else {
                                 callback(progress);
@@ -813,7 +869,12 @@ class FirebaseService {
                     }
                 );
 
-            return unsubscribe;
+            const interval = setInterval(checkForReset, 60000);
+
+            return () => {
+                clearInterval(interval);
+                unsubscribe();
+            };
         } catch (error) {
             console.error('FirebaseService: Error setting up activity progress listener:', error);
             errorCallback(error);
@@ -914,29 +975,32 @@ class FirebaseService {
      * Save a dua to user's favorites collection
      * @param {Object} dua - Dua object with arabic, english, transliteration, etc.
      */
-    static async saveFavoriteDua(dua) {
-        try {
-            const user = auth().currentUser;
-            if (!user) throw new Error('No authenticated user');
+        static async saveFavoriteDua(dua) {
+            try {
+                const user = auth().currentUser;
+                if (!user) throw new Error('No authenticated user');
 
-            const duaId = `dua_${Date.now()}`;
-            await firestore()
-                .collection('users')
-                .doc(user.uid)
-                .collection('saved-duas')
-                .doc(duaId)
-                .set({
-                    ...dua,
-                    savedAt: firestore.FieldValue.serverTimestamp()
-                });
+                // Use custom ID if provided (to prevent duplicates), otherwise fallback
+                const duaId = dua.id || (dua.hadithNumber ? `hadith_${dua.hadithNumber}` : `dua_${Date.now()}`);
+                
+                await firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('saved-duas')
+                    .doc(duaId)
+                    .set({
+                        ...dua,
+                        id: duaId, // Store ID inside the doc as well
+                        savedAt: firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
 
-            console.log('Saved dua to collection');
-            return duaId;
-        } catch (error) {
-            console.error('FirebaseService: Error saving favorite dua:', error);
-            throw error;
+                console.log('Saved favored item to collection with ID:', duaId);
+                return duaId;
+            } catch (error) {
+                console.error('FirebaseService: Error saving favorite item:', error);
+                throw error;
+            }
         }
-    }
 
     /**
      * Remove a dua from user's favorites
@@ -1468,53 +1532,77 @@ class FirebaseService {
             const user = auth().currentUser;
             if (!user) return () => { };
 
-            const todayDate = new Date();
-            const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
-            const yesterdayDate = new Date();
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
+            let currentDateKey = this.getLocalDateKey();
+            let unsubscribe = null;
 
-            const unsubscribe = firestore()
-                .collection('users')
-                .doc(user.uid)
-                .collection('daily-journals')
-                .doc(today)
-                .onSnapshot(async (doc) => {
-                    let completedToday = false;
-                    let streak = 0;
+            const getYesterdayKey = (dateKey) => {
+                const [year, month, day] = dateKey.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                date.setDate(date.getDate() - 1);
+                return this.getLocalDateKey(date);
+            };
 
-                    if (doc.exists) {
-                        const data = doc.data();
-                        if (data) {
-                            if (data.entries && data.entries.length > 0) {
-                                completedToday = true;
-                            }
-                            streak = data.streak || 0;
-                        }
-                    }
+            const subscribeToDate = (dateKey) => {
+                if (unsubscribe) unsubscribe();
 
-                    if (streak === 0) {
-                        try {
-                            const yesterdayDoc = await firestore()
-                                .collection('users')
-                                .doc(user.uid)
-                                .collection('daily-journals')
-                                .doc(yesterday)
-                                .get();
+                const yesterdayKey = getYesterdayKey(dateKey);
+                unsubscribe = firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('daily-journals')
+                    .doc(dateKey)
+                    .onSnapshot(async (doc) => {
+                        let completedToday = false;
+                        let streak = 0;
 
-                            if (yesterdayDoc.exists) {
-                                const yData = yesterdayDoc.data();
-                                if (yData && yData.streak !== undefined) {
-                                    streak = yData.streak;
+                        if (doc.exists) {
+                            const data = doc.data();
+                            if (data) {
+                                if (data.entries && data.entries.length > 0) {
+                                    completedToday = true;
                                 }
+                                streak = data.streak || 0;
                             }
-                        } catch (e) { console.error(e); }
-                    }
+                        }
 
-                    onUpdate({ completedToday, streak });
-                });
+                        if (streak === 0) {
+                            try {
+                                const yesterdayDoc = await firestore()
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .collection('daily-journals')
+                                    .doc(yesterdayKey)
+                                    .get();
 
-            return unsubscribe;
+                                if (yesterdayDoc.exists) {
+                                    const yData = yesterdayDoc.data();
+                                    if (yData && yData.streak !== undefined) {
+                                        streak = yData.streak;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }
+
+                        onUpdate({ completedToday, streak });
+                    });
+            };
+
+            const resetCheckInterval = setInterval(() => {
+                const newDateKey = this.getLocalDateKey();
+                if (newDateKey !== currentDateKey) {
+                    currentDateKey = newDateKey;
+                    subscribeToDate(currentDateKey);
+                }
+            }, 60000);
+
+            subscribeToDate(currentDateKey);
+
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (unsubscribe) unsubscribe();
+            };
         } catch (error) {
             console.error('Error listening to daily journal:', error);
             return () => { };
@@ -1834,27 +1922,37 @@ class FirebaseService {
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
-            // Get today's date in YYYY-MM-DD format
-            const today = new Date();
-            const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            let currentDateKey = this.getLocalDateKey();
+            let unsubscribe = null;
 
-            const unsubscribe = firestore()
-                .collection('users')
-                .doc(user.uid)
-                .collection('daily-prayers')
-                .doc(dateKey)
-                .onSnapshot(
-                    (doc) => {
-                        if (doc.exists) {
-                            const data = doc.data();
-                            if (data) {
-                                onUpdate({
-                                    Fajr: data.Fajr || false,
-                                    Dhuhr: data.Dhuhr || false,
-                                    Asr: data.Asr || false,
-                                    Maghrib: data.Maghrib || false,
-                                    Isha: data.Isha || false,
-                                });
+            const subscribeToDate = (dateKey) => {
+                if (unsubscribe) unsubscribe();
+                unsubscribe = firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('daily-prayers')
+                    .doc(dateKey)
+                    .onSnapshot(
+                        (doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                if (data) {
+                                    onUpdate({
+                                        Fajr: data.Fajr || false,
+                                        Dhuhr: data.Dhuhr || false,
+                                        Asr: data.Asr || false,
+                                        Maghrib: data.Maghrib || false,
+                                        Isha: data.Isha || false,
+                                    });
+                                } else {
+                                    onUpdate({
+                                        Fajr: false,
+                                        Dhuhr: false,
+                                        Asr: false,
+                                        Maghrib: false,
+                                        Isha: false,
+                                    });
+                                }
                             } else {
                                 onUpdate({
                                     Fajr: false,
@@ -1864,23 +1962,28 @@ class FirebaseService {
                                     Isha: false,
                                 });
                             }
-                        } else {
-                            onUpdate({
-                                Fajr: false,
-                                Dhuhr: false,
-                                Asr: false,
-                                Maghrib: false,
-                                Isha: false,
-                            });
+                        },
+                        (error) => {
+                            console.error('Error listening to prayer completion:', error);
+                            if (onError) onError(error);
                         }
-                    },
-                    (error) => {
-                        console.error('Error listening to prayer completion:', error);
-                        if (onError) onError(error);
-                    }
-                );
+                    );
+            };
 
-            return unsubscribe;
+            const resetCheckInterval = setInterval(() => {
+                const newDateKey = this.getLocalDateKey();
+                if (newDateKey !== currentDateKey) {
+                    currentDateKey = newDateKey;
+                    subscribeToDate(currentDateKey);
+                }
+            }, 60000);
+
+            subscribeToDate(currentDateKey);
+
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (unsubscribe) unsubscribe();
+            };
         } catch (error) {
             console.error('FirebaseService: Error setting up prayer completion listener:', error);
             if (onError) onError(error);
@@ -1896,54 +1999,73 @@ class FirebaseService {
             const user = auth().currentUser;
             if (!user) return () => { };
 
-            const todayDate = new Date();
-            const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+            let currentDateKey = this.getLocalDateKey();
+            let unsubscribe = null;
 
-            // Also need yesterday for streak if today's streak is 0
-            const yesterdayDate = new Date();
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
+            const getYesterdayKey = (dateKey) => {
+                const [year, month, day] = dateKey.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                date.setDate(date.getDate() - 1);
+                return this.getLocalDateKey(date);
+            };
 
-            const unsubscribe = firestore()
-                .collection('users')
-                .doc(user.uid)
-                .collection('daily-quran')
-                .doc(today)
-                .onSnapshot(async (doc) => {
-                    let seconds = 0;
-                    let streak = 0;
+            const subscribeToDate = (dateKey) => {
+                if (unsubscribe) unsubscribe();
 
-                    if (doc.exists) {
-                        const data = doc.data();
-                        seconds = data.actualSecondsDay || 0;
-                        streak = data.streak || 0;
-                    }
+                const yesterdayKey = getYesterdayKey(dateKey);
+                unsubscribe = firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('daily-quran')
+                    .doc(dateKey)
+                    .onSnapshot(async (doc) => {
+                        let seconds = 0;
+                        let streak = 0;
 
-                    // If streak is 0, check yesterday just to show active streak count
-                    if (streak === 0) {
-                        try {
-                            const yesterdayDoc = await firestore()
-                                .collection('users')
-                                .doc(user.uid)
-                                .collection('daily-quran')
-                                .doc(yesterday)
-                                .get();
-
-                            if (yesterdayDoc.exists) {
-                                const yData = yesterdayDoc.data();
-                                if (yData && yData.streak !== undefined) {
-                                    streak = yData.streak;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Error fetching yesterday streak in listener:', e);
+                        if (doc.exists) {
+                            const data = doc.data();
+                            seconds = data.actualSecondsDay || 0;
+                            streak = data.streak || 0;
                         }
-                    }
 
-                    onUpdate({ seconds, streak });
-                });
+                        if (streak === 0) {
+                            try {
+                                const yesterdayDoc = await firestore()
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .collection('daily-quran')
+                                    .doc(yesterdayKey)
+                                    .get();
 
-            return unsubscribe;
+                                if (yesterdayDoc.exists) {
+                                    const yData = yesterdayDoc.data();
+                                    if (yData && yData.streak !== undefined) {
+                                        streak = yData.streak;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error fetching yesterday streak in listener:', e);
+                            }
+                        }
+
+                        onUpdate({ seconds, streak });
+                    });
+            };
+
+            const resetCheckInterval = setInterval(() => {
+                const newDateKey = this.getLocalDateKey();
+                if (newDateKey !== currentDateKey) {
+                    currentDateKey = newDateKey;
+                    subscribeToDate(currentDateKey);
+                }
+            }, 60000);
+
+            subscribeToDate(currentDateKey);
+
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (unsubscribe) unsubscribe();
+            };
         } catch (error) {
             console.error('Error listening to daily quran:', error);
             return () => { };
@@ -2143,7 +2265,7 @@ class FirebaseService {
     /**
      * Update overall daily progress (from DailyGrowthScreen)
      */
-    static async updateOverallProgress(percentage) {
+    static async updateOverallProgress(percentage, ringPercentages = {}) {
         try {
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
@@ -2153,6 +2275,10 @@ class FirebaseService {
 
             const updateData = {
                 'dailyProgress.overallPercentage': percentage,
+                'dailyProgress.prayersPercentage': ringPercentages.prayers ?? 0,
+                'dailyProgress.quranPercentage': ringPercentages.quran ?? 0,
+                'dailyProgress.dhikrPercentage': ringPercentages.dhikr ?? 0,
+                'dailyProgress.journalPercentage': ringPercentages.journal ?? 0,
                 'dailyProgress.lastUpdated': firestore.FieldValue.serverTimestamp(),
             };
 
@@ -2184,7 +2310,13 @@ class FirebaseService {
                     (doc) => {
                         if (doc.exists) {
                             const progress = doc.data()?.dailyProgress?.overallPercentage || 0;
-                            callback(progress);
+                            const ringPercentages = {
+                                prayers: doc.data()?.dailyProgress?.prayersPercentage || 0,
+                                quran: doc.data()?.dailyProgress?.quranPercentage || 0,
+                                dhikr: doc.data()?.dailyProgress?.dhikrPercentage || 0,
+                                journal: doc.data()?.dailyProgress?.journalPercentage || 0,
+                            };
+                            callback(progress, ringPercentages);
                         }
                     },
                     (error) => {
@@ -2228,14 +2360,14 @@ class FirebaseService {
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
-            // 1. Check user's circle count (max 3)
+            // 1. Check user's circle count (max 5)
             const membershipSnapshot = await firestore()
                 .collection('circleMembers')
                 .where('userId', '==', user.uid)
                 .get();
 
-            if (membershipSnapshot.size >= 3) {
-                throw new Error('You can be part of up to 3 circles. Please leave a circle before creating a new one.');
+            if (membershipSnapshot.size >= 5) {
+                throw new Error('You can be part of up to 5 circles. Please leave a circle before creating a new one.');
             }
 
             // 2. Generate unique invite code
@@ -2322,14 +2454,14 @@ class FirebaseService {
                 throw new Error('This circle is full (10 members max). Ask the admin to create a new one.');
             }
 
-            // 3. Check user's total circle count < 3
+            // 3. Check user's total circle count < 5
             const userMembershipsSnapshot = await firestore()
                 .collection('circleMembers')
                 .where('userId', '==', user.uid)
                 .get();
 
-            if (userMembershipsSnapshot.size >= 3) {
-                throw new Error('You can be part of up to 3 circles. Please leave a circle before joining a new one.');
+            if (userMembershipsSnapshot.size >= 5) {
+                throw new Error('You can be part of up to 5 circles. Please leave a circle before joining a new one.');
             }
 
             // 4. Check user is not already a member
@@ -2461,11 +2593,10 @@ class FirebaseService {
                 .where('circleId', '==', circleId)
                 .get();
 
-            // 4. Fetch user data for each member
+            // 4. Fetch user data for each member (skip deleted users)
             const members = [];
             for (const memberDoc of membersSnapshot.docs) {
                 const memberData = memberDoc.data();
-                let userName = 'Unknown';
 
                 try {
                     const userDoc = await firestore()
@@ -2475,19 +2606,18 @@ class FirebaseService {
 
                     if (userDoc.exists) {
                         const userData = userDoc.data();
-                        userName = userData?.name || 'Unknown';
+                        members.push({
+                            id: memberDoc.id,
+                            userId: memberData.userId,
+                            name: userData?.name || 'Member',
+                            role: memberData.role,
+                            joinedAt: memberData.joinedAt,
+                        });
                     }
+                    // If user doc doesn't exist (deleted account), skip this member
                 } catch (e) {
                     console.warn('Could not fetch user data for:', memberData.userId);
                 }
-
-                members.push({
-                    id: memberDoc.id,
-                    userId: memberData.userId,
-                    name: userName,
-                    role: memberData.role,
-                    joinedAt: memberData.joinedAt,
-                });
             }
 
             return {
@@ -2626,6 +2756,64 @@ class FirebaseService {
         }
     }
 
+    /**
+     * Get averaged ring percentages across all members of a circle
+     * Reads each member's dailyProgress from their user document
+     * @param {string} circleId - Circle document ID
+     * @returns {Object} { prayers, quran, dhikr, journal, overall } — averaged percentages
+     */
+    static async getCircleMemberRingAverages(circleId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Fetch all circle members
+            const membersSnapshot = await firestore()
+                .collection('circleMembers')
+                .where('circleId', '==', circleId)
+                .get();
+
+            let totalPrayers = 0, totalQuran = 0, totalDhikr = 0, totalJournal = 0;
+            let memberCount = 0;
+
+            for (const memberDoc of membersSnapshot.docs) {
+                const memberData = memberDoc.data();
+                try {
+                    const userDoc = await firestore()
+                        .collection('users')
+                        .doc(memberData.userId)
+                        .get();
+
+                    if (userDoc.exists) {
+                        const dp = userDoc.data()?.dailyProgress || {};
+                        totalPrayers += dp.prayersPercentage || 0;
+                        totalQuran += dp.quranPercentage || 0;
+                        totalDhikr += dp.dhikrPercentage || 0;
+                        totalJournal += dp.journalPercentage || 0;
+                        memberCount++;
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch ring percentages for:', memberData.userId);
+                }
+            }
+
+            if (memberCount === 0) {
+                return { prayers: 0, quran: 0, dhikr: 0, journal: 0, overall: 0 };
+            }
+
+            const prayers = Math.round(totalPrayers / memberCount);
+            const quran = Math.round(totalQuran / memberCount);
+            const dhikr = Math.round(totalDhikr / memberCount);
+            const journal = Math.round(totalJournal / memberCount);
+            const overall = Math.round((prayers + quran + dhikr + journal) / 4);
+
+            return { prayers, quran, dhikr, journal, overall };
+        } catch (error) {
+            console.error('FirebaseService: Error getting circle member ring averages:', error);
+            return { prayers: 0, quran: 0, dhikr: 0, journal: 0, overall: 0 };
+        }
+    }
+
     // ==================== CIRCLE CHALLENGE TRACKING ====================
 
     /**
@@ -2648,11 +2836,20 @@ class FirebaseService {
             if (doc.exists) {
                 const data = doc.data();
                 if (data) {
-                    // Update totalMembers if it changed
-                    if (data.totalMembers !== totalMembers) {
-                        await docRef.update({ totalMembers });
+                    // Recount actual participants to ensure joinedCount is accurate (force server to avoid stale cache)
+                    const participantsSnap = await docRef.collection('participants').get({ source: 'server' });
+                    const actualJoinedCount = participantsSnap.size;
+
+                    // Update totalMembers and joinedCount if they changed
+                    const updates = {};
+                    if (data.totalMembers !== totalMembers) updates.totalMembers = totalMembers;
+                    if (data.joinedCount !== actualJoinedCount) updates.joinedCount = actualJoinedCount;
+
+                    if (Object.keys(updates).length > 0) {
+                        await docRef.update(updates);
                     }
-                    return { id: doc.id, ...data, totalMembers };
+
+                    return { id: doc.id, ...data, totalMembers, joinedCount: actualJoinedCount };
                 }
             }
 
@@ -2755,6 +2952,218 @@ class FirebaseService {
             return [];
         }
     }
+
+    // ==================== ACCOUNT DELETION ====================
+
+    /**
+     * Helper: delete all documents in a subcollection of a user document
+     * @param {string} userId - User ID
+     * @param {string} subcollectionName - Name of the subcollection under users/{userId}
+     */
+    static async _deleteUserSubcollection(userId, subcollectionName) {
+        try {
+            const snapshot = await firestore()
+                .collection('users')
+                .doc(userId)
+                .collection(subcollectionName)
+                .get();
+
+            const batch = firestore().batch();
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            if (snapshot.docs.length > 0) {
+                await batch.commit();
+                console.log(`🗑️ Deleted ${snapshot.docs.length} docs from users/${userId}/${subcollectionName}`);
+            }
+        } catch (error) {
+            console.warn(`Could not delete subcollection ${subcollectionName}:`, error.message);
+        }
+    }
+
+    /**
+     * Remove a user from all circles they belong to, updating circle data properly:
+     * - Remove circleMembers documents for the user
+     * - Decrement memberCount on circle documents
+     * - Remove user from circleChallenges participants and update counts
+     * - Remove user's dailyActivity entries from circles
+     * @param {string} userId - User ID being deleted
+     * @returns {Array} Array of circleIds the user was removed from
+     */
+    static async _removeUserFromAllCircles(userId) {
+        const removedFromCircleIds = [];
+
+        try {
+            // 1. Find all circleMembers documents for this user
+            const membershipsSnapshot = await firestore()
+                .collection('circleMembers')
+                .where('userId', '==', userId)
+                .get();
+
+            if (membershipsSnapshot.empty) {
+                console.log('👤 User is not in any circles');
+                return removedFromCircleIds;
+            }
+
+            for (const memberDoc of membershipsSnapshot.docs) {
+                const memberData = memberDoc.data();
+                const circleId = memberData.circleId;
+
+                try {
+                    // 2. Delete the circleMembers document
+                    await firestore().collection('circleMembers').doc(memberDoc.id).delete();
+                    await firestore().waitForPendingWrites();
+                    console.log(`🗑️ Deleted circleMembers doc ${memberDoc.id} for circle: ${circleId}`);
+
+                    // 3. Update memberCount on the circle document using actual recount
+                    const circleRef = firestore().collection('circles').doc(circleId);
+                    const circleDoc = await circleRef.get();
+
+                    if (circleDoc.exists) {
+                        // Recount actual members from server
+                        const actualMembersSnap = await firestore()
+                            .collection('circleMembers')
+                            .where('circleId', '==', circleId)
+                            .get({ source: 'server' });
+                        const actualCount = actualMembersSnap.size;
+                        await circleRef.update({ memberCount: actualCount });
+                        console.log(`📉 Circle ${circleId} memberCount updated to: ${actualCount}`);
+                    }
+
+                    // 4. Remove user from dailyActivity subcollection of this circle
+                    try {
+                        const dailyActivitySnapshot = await firestore()
+                            .collection('circles')
+                            .doc(circleId)
+                            .collection('dailyActivity')
+                            .get();
+
+                        const activityBatch = firestore().batch();
+                        let activityDeleteCount = 0;
+                        dailyActivitySnapshot.docs.forEach(doc => {
+                            // dailyActivity docs are named {date}_{userId}
+                            if (doc.id.endsWith(`_${userId}`)) {
+                                activityBatch.delete(doc.ref);
+                                activityDeleteCount++;
+                            }
+                        });
+                        if (activityDeleteCount > 0) {
+                            await activityBatch.commit();
+                            console.log(`🗑️ Deleted ${activityDeleteCount} dailyActivity entries for user in circle ${circleId}`);
+                        }
+                    } catch (e) {
+                        console.warn('Could not clean dailyActivity for circle:', circleId, e.message);
+                    }
+
+                    // 5. Handle circleChallenges: find all challenge docs for this circle
+                    try {
+                        const challengesSnapshot = await firestore()
+                            .collection('circleChallenges')
+                            .where('circleId', '==', circleId)
+                            .get();
+
+                        for (const challengeDoc of challengesSnapshot.docs) {
+                            const challengeData = challengeDoc.data();
+                            const challengeRef = challengeDoc.ref;
+
+                            // Check if this user is a participant in this challenge
+                            const participantRef = challengeRef.collection('participants').doc(userId);
+                            const participantDoc = await participantRef.get({ source: 'server' });
+
+                            let userJoinedThisChallenge = false;
+
+                            if (participantDoc.exists) {
+                                // User joined this challenge - remove participant doc
+                                await participantRef.delete();
+                                await firestore().waitForPendingWrites();
+                                userJoinedThisChallenge = true;
+                                console.log(`🗑️ Deleted participant doc: ${challengeDoc.id}/participants/${userId}`);
+                            }
+
+                            // Now recount actual participants from server to get accurate count
+                            const remainingParticipants = await challengeRef.collection('participants').get({ source: 'server' });
+                            const actualRemainingCount = remainingParticipants.size;
+
+                            // Get actual circleMembers count for this circle (after our deletion)
+                            const remainingMembers = await firestore()
+                                .collection('circleMembers')
+                                .where('circleId', '==', circleId)
+                                .get({ source: 'server' });
+                            const actualMemberCount = remainingMembers.size;
+
+                            // Set absolute counts instead of decrementing to avoid drift
+                            await challengeRef.update({
+                                totalMembers: actualMemberCount,
+                                joinedCount: actualRemainingCount,
+                            });
+                            console.log(`📉 Updated circleChallenges ${challengeDoc.id}: totalMembers -> ${actualMemberCount}, joinedCount -> ${actualRemainingCount}`);
+                        }
+                    } catch (e) {
+                        console.warn('Could not clean circleChallenges for circle:', circleId, e.message);
+                    }
+
+                    removedFromCircleIds.push(circleId);
+                } catch (e) {
+                    console.warn('Error removing user from circle:', circleId, e.message);
+                }
+            }
+
+            console.log(`✅ User removed from ${removedFromCircleIds.length} circle(s)`);
+            return removedFromCircleIds;
+        } catch (error) {
+            console.error('FirebaseService: Error removing user from circles:', error);
+            return removedFromCircleIds;
+        }
+    }
+
+    /**
+     * Fully delete a user's account and all associated data:
+     * 1. Remove user from all circles (with proper cleanup)
+     * 2. Delete all user subcollections
+     * 3. Delete the user root document
+     * 4. Delete Firebase Auth account
+     */
+    static async deleteAccountAndCleanup() {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+            const userId = user.uid;
+
+            console.log('🚨 Starting account deletion for user:', userId);
+
+            // Step 1: Remove user from all circles (updates circle data, challenges, etc.)
+            await FirebaseService._removeUserFromAllCircles(userId);
+
+            // Step 2: Delete all user subcollections
+            const subcollections = [
+                'onboarding-info',
+                'journals',
+                'daily-journals',
+                'daily-quran',
+                'daily-prayers',
+                'daily-dhikr',
+                'donations',
+                'organizations',
+                'saved-duas',
+            ];
+
+            for (const sub of subcollections) {
+                await FirebaseService._deleteUserSubcollection(userId, sub);
+            }
+
+            // Step 3: Delete the user root document from Firestore
+            await firestore().collection('users').doc(userId).delete();
+            console.log('🗑️ Deleted user root document');
+
+            // Step 4: Delete Firebase Auth account
+            await user.delete();
+            console.log('✅ Firebase Auth account deleted');
+
+            return { success: true };
+        } catch (error) {
+            console.error('FirebaseService: Error deleting account:', error);
+            throw error;
+        }
+    }
+
 }
 
 export default FirebaseService;

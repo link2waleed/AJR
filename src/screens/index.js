@@ -25,6 +25,7 @@ export { default as CircleDetailScreen } from './MyCircle/CircleDetailScreen';
 export { default as CreateCircleScreen } from './MyCircle/CreateCircleScreen';
 export { default as CreateCircleStep2Screen } from './MyCircle/CreateCircleStep2Screen';
 export { default as ProfileScreen } from './ProfileScreen';
+export { default as PrayerAdjustmentsScreen } from './PrayerAdjustmentsScreen';
 export { default as DailyGrowthScreen } from './DailyGrowthScreen';
 
 // ================= MY HUB FEATURES =================
@@ -36,6 +37,7 @@ export { default as DhikrScreen } from './MyHub/DhikrScreen';
 export { default as DuaCollectionScreen } from './MyHub/DuaCollectionScreen';
 export { default as JournalScreen } from './MyHub/JournalScreen';
 export { default as AddJournalEntryScreen } from './MyHub/AddJournalEntryScreen';
+export { default as JournalDetailScreen } from './MyHub/JournalDetailScreen';
 export { default as AddOrganizationScreen } from './MyHub/AddOrganizationScreen';
 export { default as AddDonationScreen } from './MyHub/AddDonationScreen';
 export { default as QiblaFinderScreen } from './MyHub/QiblaFinderScreen';

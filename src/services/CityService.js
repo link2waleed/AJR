@@ -61,6 +61,81 @@ const CityService = {
         }
     },
 
+    getCityAndCountry: async (latitude, longitude) => {
+        try {
+            const cached = await CityService.getCachedCityAndCountry(latitude, longitude);
+            if (cached) {
+                console.log('CityService: Using cached city/country:', cached);
+                return cached;
+            }
+
+            const results = await Location.reverseGeocodeAsync({
+                latitude,
+                longitude,
+            });
+
+            if (!results || results.length === 0) {
+                console.log('CityService: No geocoding results');
+                return { city: null, country: null };
+            }
+
+            const location = results[0];
+            const city = location.city || location.subregion || location.region || location.district || null;
+            const country = location.country || null;
+
+            if (city) {
+                await CityService.cacheCityAndCountry(latitude, longitude, city, country);
+                console.log('CityService: Resolved city/country:', city, country);
+            }
+
+            return { city, country };
+        } catch (error) {
+            console.error('CityService: Error getting city and country:', error);
+            return { city: null, country: null };
+        }
+    },
+
+    getCachedCityAndCountry: async (latitude, longitude) => {
+        try {
+            const data = await AsyncStorage.getItem(STORAGE_KEY);
+            if (!data) return null;
+
+            const cached = JSON.parse(data);
+            const now = Date.now();
+
+            const latMatch = Math.abs(cached.latitude - latitude) < 0.01;
+            const lngMatch = Math.abs(cached.longitude - longitude) < 0.01;
+            const notExpired = (now - cached.timestamp) < CACHE_DURATION_MS;
+
+            if (latMatch && lngMatch && notExpired) {
+                return {
+                    city: cached.cityName || null,
+                    country: cached.country || null,
+                };
+            }
+
+            return null;
+        } catch (error) {
+            console.error('CityService: Error reading cached city and country:', error);
+            return null;
+        }
+    },
+
+    cacheCityAndCountry: async (latitude, longitude, cityName, country) => {
+        try {
+            const data = {
+                latitude,
+                longitude,
+                cityName,
+                country,
+                timestamp: Date.now(),
+            };
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+            console.error('CityService: Error caching city and country:', error);
+        }
+    },
+
     /**
      * Get cached city if valid
      */
@@ -97,6 +172,7 @@ const CityService = {
                 latitude,
                 longitude,
                 cityName,
+                country: null,
                 timestamp: Date.now(),
             };
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));

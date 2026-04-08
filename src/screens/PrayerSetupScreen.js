@@ -20,7 +20,7 @@ import volumeImage from '../../assets/images/volume.png';
 import fajrIcon from '../../assets/images/fajr.png';
 import duhurIcon from '../../assets/images/duhur.png';
 import asrIcon from '../../assets/images/asr.png';
-import mughribIcon from '../../assets/images/mughrib.png';
+import maghribIcon from '../../assets/images/mughrib.png';
 import ishaIcon from '../../assets/images/isha.png';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -31,7 +31,7 @@ const prayers = [
     { id: 'fajr', name: 'Fajr', icon: fajrIcon },
     { id: 'duhur', name: 'Duhur', icon: duhurIcon },
     { id: 'asr', name: 'Asr', icon: asrIcon },
-    { id: 'mughrib', name: 'Mughrib', icon: mughribIcon },
+    { id: 'maghrib', name: 'Maghrib', icon: maghribIcon },
     { id: 'isha', name: 'Isha', icon: ishaIcon },
 ];
 
@@ -140,7 +140,7 @@ const PrayerSetupScreen = ({ navigation, route }) => {
         fajr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
         duhur: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
         asr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
-        mughrib: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        maghrib: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
         isha: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
@@ -183,7 +183,7 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                 fajr: { enabled: prayerSettings.fajr.enabled, athanEnabled: prayerSettings.fajr.athanEnabled, reminderEnabled: prayerSettings.fajr.reminderEnabled, soundMode: prayerSettings.fajr.soundMode },
                 dhuhr: { enabled: prayerSettings.duhur.enabled, athanEnabled: prayerSettings.duhur.athanEnabled, reminderEnabled: prayerSettings.duhur.reminderEnabled, soundMode: prayerSettings.duhur.soundMode },
                 asr: { enabled: prayerSettings.asr.enabled, athanEnabled: prayerSettings.asr.athanEnabled, reminderEnabled: prayerSettings.asr.reminderEnabled, soundMode: prayerSettings.asr.soundMode },
-                maghrib: { enabled: prayerSettings.mughrib.enabled, athanEnabled: prayerSettings.mughrib.athanEnabled, reminderEnabled: prayerSettings.mughrib.reminderEnabled, soundMode: prayerSettings.mughrib.soundMode },
+                maghrib: { enabled: prayerSettings.maghrib.enabled, athanEnabled: prayerSettings.maghrib.athanEnabled, reminderEnabled: prayerSettings.maghrib.reminderEnabled, soundMode: prayerSettings.maghrib.soundMode },
                 isha: { enabled: prayerSettings.isha.enabled, athanEnabled: prayerSettings.isha.athanEnabled, reminderEnabled: prayerSettings.isha.reminderEnabled, soundMode: prayerSettings.isha.soundMode },
                 soundMode: prayerSettings.fajr.soundMode,
             });
@@ -271,6 +271,14 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                             onSoundModeChange={handleSoundModeChange}
                         />
                     ))}
+                </View>
+
+                {/* Prayer Times Info Message */}
+                <View style={styles.infoMessageContainer}>
+                    <Ionicons name="information-circle-outline" size={18} color={colors.text.grey} style={styles.infoIcon} />
+                    <Text style={styles.infoMessage}>
+                        Prayer times are calculated based on your location and standard methods. Times may differ from your local mosque. Please verify your times and adjust them in Settings if needed.
+                    </Text>
                 </View>
             </ScrollView>
 
@@ -485,6 +493,29 @@ const styles = StyleSheet.create({
         flex: 1,
         margin: spacing.sm,
 
+    },
+    infoMessageContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        borderWidth: 1,
+        borderColor: 'rgba(122, 158, 127, 0.3)',
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginTop: spacing.lg,
+        marginBottom: spacing.md,
+        alignItems: 'flex-start',
+    },
+    infoIcon: {
+        marginRight: spacing.sm,
+        marginTop: 2,
+        flexShrink: 0,
+    },
+    infoMessage: {
+        flex: 1,
+        fontSize: isSmallDevice ? 12 : 13,
+        color: colors.text.grey,
+        lineHeight: 18,
+        fontWeight: '400',
     },
 });
 

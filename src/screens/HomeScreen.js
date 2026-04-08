@@ -12,6 +12,7 @@ import {
     Alert,
     Modal,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +23,11 @@ import { colors, typography, spacing, borderRadius } from '../theme';
 import { useTheme } from '../context';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
+import StorageService from '../services/StorageService';
 import duaData from '../data/dua.json';
 import AJRRings from '../components/AJRRings';
 import { Audio } from 'expo-av';
 import whiteClock from '../../assets/images/white-clock.png';
-import notifications from '../../assets/images/notification-bing.png';
 import themeChange from '../../assets/images/theme-change.png';
 import darkBackground from '../../assets/images/dark.png';
 
@@ -335,6 +336,7 @@ const HomeScreen = ({ navigation }) => {
         setYtModalVisible(true);
     };
     const [todayDua, setTodayDua] = useState(null);
+    const [isSavingHadith, setIsSavingHadith] = useState(false);
     const [isDuaSaved, setIsDuaSaved] = useState(false);
     const [savedDuaId, setSavedDuaId] = useState(null);
     const [selectedActivities, setSelectedActivities] = useState({
@@ -357,12 +359,98 @@ const HomeScreen = ({ navigation }) => {
         journaling: false,
     });
     const [togglingActivity, setTogglingActivity] = useState(null);
+    const [weatherUnit, setWeatherUnit] = useState('C');
+    const hasSavedWeatherUnit = useRef(false);
     const [minuteTick, setMinuteTick] = useState(0); // For triggering re-renders every minute based on location timezone
     const hasAlertShownRef = useRef(false);
     const saveProgressTimeoutRef = useRef(null);
 
+    const getAutomaticWeatherUnit = (country) => {
+        const fahrenheitCountries = new Set([
+            'united states',
+            'united states of america',
+            'usa',
+            'bahamas',
+            'cayman islands',
+            'liberia',
+        ]);
+
+        if (!country) {
+            return 'C';
+        }
+
+        const normalizedCountry = country.trim().toLowerCase();
+        return fahrenheitCountries.has(normalizedCountry) ? 'F' : 'C';
+    };
+
+    useEffect(() => {
+        const loadWeatherUnit = async () => {
+            try {
+                // Check if country has changed and reset weather unit if needed
+                const { countryChanged, wasManuallySet } = await StorageService.checkAndResetWeatherUnitIfCountryChanged(countryName);
+                
+                // Load the saved weather unit (or null if auto-detect)
+                const unit = await StorageService.getWeatherUnit();
+                if (unit) {
+                    setWeatherUnit(unit);
+                    hasSavedWeatherUnit.current = true;
+                } else {
+                    // Auto-detect based on country
+                    const autoUnit = getAutomaticWeatherUnit(countryName);
+                    setWeatherUnit(autoUnit);
+                    hasSavedWeatherUnit.current = false;
+                }
+
+                // Log if country changed and manual override was reset
+                if (countryChanged && wasManuallySet) {
+                    console.log('🌍 HomeScreen: Weather unit reset due to country change');
+                }
+            } catch (error) {
+                console.error('HomeScreen: Error loading weather unit:', error);
+                setWeatherUnit(getAutomaticWeatherUnit(countryName));
+            }
+        };
+
+        if (countryName) {
+            loadWeatherUnit();
+        }
+    }, [countryName]);
+
+    // Reload weather unit when screen comes back into focus (in case it was changed in ProfileScreen)
+    useFocusEffect(
+        React.useCallback(() => {
+            const reloadWeatherUnit = async () => {
+                try {
+                    const unit = await StorageService.getWeatherUnit();
+                    if (unit) {
+                        setWeatherUnit(unit);
+                        hasSavedWeatherUnit.current = true;
+                    } else {
+                        // No manual override, use auto-detection
+                        const autoUnit = getAutomaticWeatherUnit(countryName);
+                        setWeatherUnit(autoUnit);
+                        hasSavedWeatherUnit.current = false;
+                    }
+                    console.log('🌡️ HomeScreen: Weather unit refreshed on focus:', unit || 'auto');
+                } catch (error) {
+                    console.error('HomeScreen: Error reloading weather unit on focus:', error);
+                }
+            };
+
+            reloadWeatherUnit();
+        }, [countryName])
+    );
+
+    const formatTemperature = (celsius, unit) => {
+        if (typeof celsius !== 'number') return '--';
+        if (unit === 'F') {
+            return `${Math.round((celsius * 9) / 5 + 32)}°F`;
+        }
+        return `${Math.round(celsius)}°C`;
+    };
+
     // Use theme context for dynamic Day/Evening switching, prayer data, city, and weather
-    const { isEvening, isLoading, isLocationEnabled, hasNoData, location, maghribTime, prayerData, cityName, weather, isManualPreview, refreshTheme, toggleThemePreview } = useTheme();
+    const { isEvening, isLoading, isLocationEnabled, hasNoData, location, maghribTime, prayerData, cityName, countryName, weather, isManualPreview, refreshTheme, toggleThemePreview } = useTheme();
 
     // Derived completion status
     // Derived completion status based on toggle
@@ -432,10 +520,22 @@ const HomeScreen = ({ navigation }) => {
         return calculateProgressPercentage();
     }, [selectedActivities, prayerCompletion, quranStats, dhikrStats, journalStats, activityCompletion]);
 
+    // Memoize individual ring percentages
+    const currentRingPercentages = useMemo(() => ({
+        prayers: prayerCompletion.percentage,
+        quran: getQuranPercentage(),
+        dhikr: getDhikrPercentage(),
+        journal: getJournalingPercentage(),
+    }), [prayerCompletion, quranStats, dhikrStats, journalStats, activityCompletion]);
+
+    // Track last saved ring percentages to detect changes
+    const savedRingPercentagesRef = useRef(null);
+
     // Listen to overall progress from Firebase (synced from DailyGrowthScreen)
     useEffect(() => {
-        const unsubscribeProgress = FirebaseService.listenToOverallProgress((progress) => {
+        const unsubscribeProgress = FirebaseService.listenToOverallProgress((progress, ringPercentages) => {
             setOverallProgress(progress);
+            savedRingPercentagesRef.current = ringPercentages;
         });
 
         return () => {
@@ -443,10 +543,17 @@ const HomeScreen = ({ navigation }) => {
         };
     }, []);
 
-    // Save overall progress to Firebase ONLY when percentage actually changes
+    // Save progress to Firebase when overall OR individual percentages change
     useEffect(() => {
-        // Only update if the calculated progress is different from the last saved progress
-        if (calculatedProgress !== overallProgress) {
+        const ringChanged = !savedRingPercentagesRef.current ||
+            currentRingPercentages.prayers !== savedRingPercentagesRef.current.prayers ||
+            currentRingPercentages.quran !== savedRingPercentagesRef.current.quran ||
+            currentRingPercentages.dhikr !== savedRingPercentagesRef.current.dhikr ||
+            currentRingPercentages.journal !== savedRingPercentagesRef.current.journal;
+
+        const overallChanged = calculatedProgress !== overallProgress;
+
+        if (overallChanged || ringChanged) {
             // Clear existing timeout
             if (saveProgressTimeoutRef.current) {
                 clearTimeout(saveProgressTimeoutRef.current);
@@ -455,8 +562,9 @@ const HomeScreen = ({ navigation }) => {
             // Set new timeout to save progress after 1 second of no changes
             saveProgressTimeoutRef.current = setTimeout(async () => {
                 try {
-                    await FirebaseService.updateOverallProgress(calculatedProgress);
+                    await FirebaseService.updateOverallProgress(calculatedProgress, currentRingPercentages);
                     setOverallProgress(calculatedProgress);
+                    savedRingPercentagesRef.current = { ...currentRingPercentages };
                 } catch (error) {
                     console.error('Error saving overall progress:', error);
                 }
@@ -469,7 +577,7 @@ const HomeScreen = ({ navigation }) => {
                 clearTimeout(saveProgressTimeoutRef.current);
             }
         };
-    }, [calculatedProgress, overallProgress]);
+    }, [calculatedProgress, overallProgress, currentRingPercentages]);
 
     // Use the calculated progress for real-time updates
     const progress = calculatedProgress;
@@ -528,7 +636,14 @@ const HomeScreen = ({ navigation }) => {
         }
     };
 
-    // Check if dua is saved only when screen is focused (not on mount)
+    // Check if dua is saved when todayDua loads (on mount)
+    useEffect(() => {
+        if (todayDua) {
+            checkIfDuaSaved();
+        }
+    }, [todayDua]);
+
+    // Check if dua is saved when returning to this screen (from collection)
     useEffect(() => {
         return navigation.addListener('focus', () => {
             if (todayDua) checkIfDuaSaved();
@@ -714,7 +829,7 @@ const HomeScreen = ({ navigation }) => {
     const displayCity = cityName || prayerData?.city || (isLoading ? 'Loading...' : (showPermissionMessage ? 'Enable location' : '--'));
 
     // Weather: use Open-Meteo data with dynamic icon
-    const displayTemperature = weather ? `${weather.temperature}°C` : (isLoading ? '--' : (showPermissionMessage ? '--' : '--'));
+    const displayTemperature = weather ? formatTemperature(weather.temperature, weatherUnit) : (isLoading ? '--' : (showPermissionMessage ? '--' : '--'));
     const weatherIcon = weather?.icon || 'cloud-outline';
 
     // Gregorian date from device (always available, no API dependency)
@@ -741,7 +856,7 @@ const HomeScreen = ({ navigation }) => {
         const PRAYER_ORDER = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
         const PRAYER_DISPLAY_NAMES = {
             Fajr: 'Fajr',
-            Dhuhr: 'Dhuhr', 
+            Dhuhr: 'Dhuhr',
             Asr: 'Asr',
             Maghrib: 'Maghrib',
             Isha: 'Isha',
@@ -890,25 +1005,25 @@ const HomeScreen = ({ navigation }) => {
      */
     const convertTo24Hour = (timeStr) => {
         if (!timeStr) return '--:--';
-        
+
         // If already in 24-hour format (no AM/PM), return as is
         if (!timeStr.includes('AM') && !timeStr.includes('PM')) {
             return timeStr.split(' ')[0]; // Remove any extra spaces
         }
-        
+
         const parts = timeStr.trim().split(' ');
         const timePart = parts[0];
         const period = parts[1]?.toUpperCase() || '';
-        
+
         const [hours, minutes] = timePart.split(':').map(Number);
         let hour24 = hours;
-        
+
         if (period === 'PM' && hours !== 12) {
             hour24 = hours + 12;
         } else if (period === 'AM' && hours === 12) {
             hour24 = 0;
         }
-        
+
         return `${hour24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     };
 
@@ -961,10 +1076,10 @@ const HomeScreen = ({ navigation }) => {
 
                 const [prayerHours, prayerMinutes] = prayerTimeStr.split(':').map(Number);
                 const prayerDate = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
-                
+
                 // Check if this is the upcoming prayer
                 const isUpcoming = prayerDate > nowInLocationTz;
-                
+
                 // Time in 24-hour format
                 const time24 = `${prayerHours.toString().padStart(2, '0')}:${prayerMinutes.toString().padStart(2, '0')}`;
 
@@ -1030,7 +1145,12 @@ const HomeScreen = ({ navigation }) => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good Morning';
         if (hour < 17) return 'Good Afternoon';
-        return 'Good Evening';
+
+        // If it's evening time (after 5 PM) but theme is still 'Day' (before Maghrib),
+        // we stay with 'Good Afternoon' to match the bright UI.
+        // Once Maghrib hits and theme becomes 'Evening', we say 'Good Evening'.
+        if (isEvening) return 'Good Evening';
+        return 'Good Afternoon';
     };
 
     /**
@@ -1072,7 +1192,21 @@ const HomeScreen = ({ navigation }) => {
         setTogglingActivity(activity);
         try {
             const newStatus = !activityCompletion[activity];
-            await FirebaseService.updateActivityCompletion(activity, newStatus);
+
+            // Calculate the percentage for this ring after toggle
+            let ringPercentage = 0;
+            if (newStatus) {
+                // Toggling ON means 100%
+                ringPercentage = 100;
+            } else {
+                // Toggling OFF — use the actual calculated percentage
+                if (activity === 'prayers') ringPercentage = getPrayerStats().percentage;
+                else if (activity === 'quran') ringPercentage = getQuranPercentage();
+                else if (activity === 'dhikr') ringPercentage = getDhikrPercentage();
+                else if (activity === 'journaling') ringPercentage = getJournalingPercentage();
+            }
+
+            await FirebaseService.updateActivityCompletion(activity, newStatus, ringPercentage);
             // UI updates automatically via real-time listener
         } catch (error) {
             console.error(`Error toggling ${activity}:`, error);
@@ -1105,11 +1239,7 @@ const HomeScreen = ({ navigation }) => {
                     <Text style={[styles.userName, { color: themeColors.userName }]}>{displayData.name}</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('Notifications')}>
-                        <View style={styles.notificationBadge}>
-                            <Image source={notifications} style={styles.notificationIcon} />
-                        </View>
-                    </TouchableOpacity>
+
                     <TouchableOpacity
                         style={[
                             styles.headerIconButtonOutline,
@@ -1129,7 +1259,16 @@ const HomeScreen = ({ navigation }) => {
             </View>
 
             {/* Location Card */}
-            <View style={styles.locationCard}>
+            <TouchableOpacity
+                style={styles.locationCard}
+                onPress={() => {
+                    if (!isLocationEnabled) {
+                        navigation.navigate('LocationPermission', { fromSettings: true });
+                    }
+                }}
+                activeOpacity={isLocationEnabled ? 1 : 0.7}
+                disabled={isLocationEnabled}
+            >
                 <View style={styles.locationCardContent}>
                     <View style={styles.locationLeft}>
                         <Text style={styles.locationCity}>{displayData.city}</Text>
@@ -1143,7 +1282,13 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.gregorianDate}>{displayData.gregorianDate}</Text>
                     </View>
                 </View>
-            </View>
+                {!isLocationEnabled && (
+                    <View style={styles.locationTapHint}>
+                        <Ionicons name="location-outline" size={14} color={colors.primary.sage} />
+                        <Text style={styles.locationTapHintText}>Tap to enable location</Text>
+                    </View>
+                )}
+            </TouchableOpacity>
 
             {/* Next Prayer Card with Refresh Button */}
             <View style={styles.nextPrayerCard}>
@@ -1177,40 +1322,45 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </View>
 
-         
+
             {/* Dua of the Day */}
             <View
                 style={styles.duaCard}
             >
                 <View style={styles.duaHeader}>
                     <Text style={styles.duaTitle}>Hadith of the Day</Text>
-                    <TouchableOpacity onPress={async () => {
-                        try {
-                            if (!todayDua) return;
+                    <TouchableOpacity
+                        disabled={isSavingHadith}
+                        onPress={async () => {
+                            try {
+                                if (!todayDua || isSavingHadith) return;
+                                setIsSavingHadith(true);
 
-                            if (isDuaSaved && savedDuaId) {
-                                await FirebaseService.removeFavoriteDua(savedDuaId);
-                                setIsDuaSaved(false);
-                                setSavedDuaId(null);
-                            } else {
-                                const newId = await FirebaseService.saveFavoriteDua({
-                                    arabic: todayDua.arabic?.body || '',
-                                    english: todayDua.english?.body || '',
-                                    category: 'Dua of the Day',
-                                    hadithNumber: todayDua.hadithNumber
-                                });
-                                setIsDuaSaved(true);
-                                setSavedDuaId(newId);
-                                // Alert.alert('Saved!', 'Dua added to your collection');
+                                if (isDuaSaved && savedDuaId) {
+                                    await FirebaseService.removeFavoriteDua(savedDuaId);
+                                    setIsDuaSaved(false);
+                                    setSavedDuaId(null);
+                                } else {
+                                    const newId = await FirebaseService.saveFavoriteDua({
+                                        arabic: todayDua.arabic?.body || '',
+                                        english: todayDua.english?.body || '',
+                                        category: 'Hadith of the Day',
+                                        hadithNumber: todayDua.hadithNumber
+                                    });
+                                    setIsDuaSaved(true);
+                                    setSavedDuaId(newId);
+                                }
+                            } catch (error) {
+                                console.error('Error toggling hadith save:', error);
+                            } finally {
+                                setIsSavingHadith(false);
                             }
-                        } catch (error) {
-                            console.error('Error toggling dua save:', error);
-                        }
-                    }}>
+                        }}>
                         <Ionicons
                             name={isDuaSaved ? "heart" : "heart-outline"}
                             size={24}
-                            color={isDuaSaved ? "#4CAF50" : colors.text.grey}
+                            color={isDuaSaved ? colors.primary.darkSage : colors.text.grey}
+                            style={{ opacity: isSavingHadith ? 0.5 : 1 }}
                         />
                     </TouchableOpacity>
                 </View>
@@ -1389,8 +1539,8 @@ const HomeScreen = ({ navigation }) => {
     return (
         <>
             <LinearGradient
-                colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom]}
-                locations={[0, 0.7, 1]}
+                colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom, colors.homeGradient.bottom]}
+                locations={[0, 0.40, 0.60, 1]}
                 style={styles.container}
             >
                 {renderContent()}
@@ -1448,21 +1598,6 @@ const styles = StyleSheet.create({
     headerRight: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    headerIconButton: {
-        marginLeft: spacing.sm,
-    },
-    notificationBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary.sage,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    notificationIcon: {
-        width: 20,
-        height: 20,
     },
     themeChangeIcon: {
         width: 20,
@@ -1531,6 +1666,20 @@ const styles = StyleSheet.create({
     gregorianDate: {
         fontSize: isSmallDevice ? 13 : 15,
         color: colors.text.black,
+        fontWeight: typography.fontWeight.medium,
+    },
+    locationTapHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.sm,
+        paddingTop: spacing.sm,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.06)',
+    },
+    locationTapHintText: {
+        fontSize: 12,
+        color: colors.primary.sage,
+        marginLeft: spacing.xs,
         fontWeight: typography.fontWeight.medium,
     },
     // Next Prayer Card with Refresh Button

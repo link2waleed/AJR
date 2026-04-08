@@ -7,8 +7,11 @@ const STORAGE_KEYS = {
     FULL_TIMINGS: '@ajr_full_timings',       // all prayer times (Fajr, Dhuhr, Asr, Maghrib, Isha)
     PERMISSION_STATUS: '@ajr_location_permission',
     LOCATION_ENABLED: '@ajr_location_enabled',
+    WEATHER_UNIT: '@ajr_weather_unit',
+    LAST_COUNTRY: '@ajr_last_country',       // Track country for region change detection
     DHIKR_OFFSETS: '@ajr_dhikr_offsets',
     SCHOOL_PREFERENCE: '@ajr_school_preference',
+    PRAYER_ADJUSTMENTS: '@ajr_prayer_adjustments',
 };
 
 // Helper to create location hash for cache invalidation
@@ -19,10 +22,55 @@ const createLocationHash = (latitude, longitude) => {
     return `${roundedLat},${roundedLng}`;
 };
 
-// Helper to get today's date string
+// Helper to get today's date string in device local timezone (NOT UTC)
 const getTodayDateString = () => {
     const today = new Date();
-    return today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/**
+ * Get today's date string in a specific IANA timezone.
+ * Critical for DST: ensures we use the correct "local day" at the prayer location.
+ */
+const getDateStringForTimezone = (timezone) => {
+    const now = new Date();
+    if (timezone && timezone !== 'UTC') {
+        try {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).formatToParts(now);
+            const year = parts.find(p => p.type === 'year').value;
+            const month = parts.find(p => p.type === 'month').value;
+            const day = parts.find(p => p.type === 'day').value;
+            return `${year}-${month}-${day}`;
+        } catch (e) {
+            console.warn('StorageService: Invalid timezone for date calc:', timezone);
+        }
+    }
+    return getTodayDateString();
+};
+
+/**
+ * Get the current timezone abbreviation (e.g., 'BST', 'GMT', 'EDT', 'EST').
+ * Used to detect DST transitions — if abbreviation changes, cache must be invalidated.
+ */
+const getTimezoneAbbr = (timezone) => {
+    if (!timezone || timezone === 'UTC') return 'UTC';
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            timeZoneName: 'short',
+        }).formatToParts(new Date());
+        return parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
+    } catch (e) {
+        return 'UTC';
+    }
 };
 
 const StorageService = {
@@ -69,6 +117,7 @@ const StorageService = {
      */
     savePrayerTimes: async (prayerDataToCache, latitude, longitude) => {
         try {
+            const timezone = prayerDataToCache.timezone || 'UTC';
             const prayerData = {
                 maghrib: prayerDataToCache.maghribTime,
                 hijriDate: prayerDataToCache.hijriDate,
@@ -76,8 +125,10 @@ const StorageService = {
                 nextPrayer: prayerDataToCache.nextPrayer,
                 nextPrayerTime: prayerDataToCache.nextPrayerTime,
                 city: prayerDataToCache.city,
-                date: getTodayDateString(),
+                date: getDateStringForTimezone(timezone),
                 locationHash: createLocationHash(latitude, longitude),
+                timezone,
+                tzAbbr: getTimezoneAbbr(timezone),
             };
             await AsyncStorage.setItem(
                 STORAGE_KEYS.PRAYER_TIMES,
@@ -92,11 +143,14 @@ const StorageService = {
 
     saveFullTimings: async (timings, date, timezone = 'UTC') => {
         try {
+            const tz = timezone || 'UTC';
             const data = {
                 timings,
-                date: date || getTodayDateString(),
-                timezone: timezone || 'UTC',
+                date: date || getDateStringForTimezone(tz),
+                timezone: tz,
+                tzAbbr: getTimezoneAbbr(tz),
             };
+            console.log(`StorageService: Saving full timings for ${data.date}, tz: ${tz} (${data.tzAbbr})`);
             await AsyncStorage.setItem(STORAGE_KEYS.FULL_TIMINGS, JSON.stringify(data));
             return true;
         } catch (error) {
@@ -110,12 +164,27 @@ const StorageService = {
             const raw = await AsyncStorage.getItem(STORAGE_KEYS.FULL_TIMINGS);
             if (!raw) return null;
             const data = JSON.parse(raw);
-            // Return cached timings even if not from today - they're still valid for daily prayer scheduling
-            // The date is only used for context, not for validation
-            console.log(`StorageService: Retrieved cached timings from ${data.date}, timezone: ${data.timezone}`);
+
+            const timezone = data.timezone || 'UTC';
+            const todayDate = getDateStringForTimezone(timezone);
+            const currentTzAbbr = getTimezoneAbbr(timezone);
+
+            // Validate: cached data must be from today
+            if (data.date !== todayDate) {
+                console.log(`StorageService: Full timings cache stale - cached: ${data.date}, today: ${todayDate}`);
+                return null;
+            }
+
+            // Validate: DST state must not have changed
+            if (data.tzAbbr && data.tzAbbr !== currentTzAbbr) {
+                console.log(`StorageService: DST change detected - cached: ${data.tzAbbr}, current: ${currentTzAbbr}. Invalidating.`);
+                return null;
+            }
+
+            console.log(`StorageService: Retrieved cached timings from ${data.date}, tz: ${timezone} (${currentTzAbbr})`);
             return {
                 timings: data.timings,
-                timezone: data.timezone || 'UTC'
+                timezone,
             };
         } catch (error) {
             console.error('StorageService: Error getting full timings:', error);
@@ -129,19 +198,29 @@ const StorageService = {
             if (!data) return null;
 
             const prayerData = JSON.parse(data);
-            const currentDate = getTodayDateString();
+            const timezone = prayerData.timezone || 'UTC';
+            const currentDate = getDateStringForTimezone(timezone);
             const currentLocationHash = createLocationHash(latitude, longitude);
 
             // Validate cache: same day and same location
             if (
-                prayerData.date === currentDate &&
-                prayerData.locationHash === currentLocationHash
+                prayerData.date !== currentDate ||
+                prayerData.locationHash !== currentLocationHash
             ) {
-                return prayerData;
+                console.log(`StorageService: Prayer cache stale - date: ${prayerData.date} vs ${currentDate}`);
+                return null;
             }
 
-            // Cache is stale
-            return null;
+            // Check for DST transition
+            if (prayerData.tzAbbr) {
+                const currentTzAbbr = getTimezoneAbbr(timezone);
+                if (prayerData.tzAbbr !== currentTzAbbr) {
+                    console.log(`StorageService: DST change for ${timezone} - cached: ${prayerData.tzAbbr}, now: ${currentTzAbbr}`);
+                    return null;
+                }
+            }
+
+            return prayerData;
         } catch (error) {
             console.error('StorageService: Error getting prayer times:', error);
             return null;
@@ -207,6 +286,29 @@ const StorageService = {
         }
     },
 
+    saveWeatherUnit: async (unit) => {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.WEATHER_UNIT, unit);
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving weather unit:', error);
+            return false;
+        }
+    },
+
+    getWeatherUnit: async () => {
+        try {
+            const unit = await AsyncStorage.getItem(STORAGE_KEYS.WEATHER_UNIT);
+            if (unit === 'F' || unit === 'C') {
+                return unit;
+            }
+            return null;
+        } catch (error) {
+            console.error('StorageService: Error getting weather unit:', error);
+            return null;
+        }
+    },
+
     // ============ DHIKR OFFSETS ============
 
     /**
@@ -249,15 +351,62 @@ const StorageService = {
     },
 
     /**
-     * Get school preference (defaults to 1 for Hanafi)
+     * Get school preference (defaults to 0 for Standard)
      */
     getSchoolPreference: async () => {
         try {
             const data = await AsyncStorage.getItem(STORAGE_KEYS.SCHOOL_PREFERENCE);
-            return data ? JSON.parse(data) : 1; // Default to Hanafi
+            return data ? JSON.parse(data) : 0; // Default to Standard (Shafi)
         } catch (error) {
             console.error('StorageService: Error getting school preference:', error);
-            return 1; // Default to Hanafi
+            return 0; // Default to Standard (Shafi)
+        }
+    },
+
+    // ============ PRAYER ADJUSTMENTS ============
+
+    /**
+     * Save prayer time adjustments (offsets in minutes per prayer)
+     * e.g. { fajr: 2, sunrise: 0, dhuhr: -1, asr: 0, maghrib: 3, isha: 0 }
+     */
+    savePrayerAdjustments: async (adjustments) => {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_ADJUSTMENTS, JSON.stringify(adjustments));
+            console.log('StorageService: Saved prayer adjustments:', adjustments);
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving prayer adjustments:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Get prayer time adjustments
+     * Returns default zeros if none saved
+     */
+    getPrayerAdjustments: async () => {
+        try {
+            const data = await AsyncStorage.getItem(STORAGE_KEYS.PRAYER_ADJUSTMENTS);
+            if (data) {
+                return JSON.parse(data);
+            }
+            return { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 };
+        } catch (error) {
+            console.error('StorageService: Error getting prayer adjustments:', error);
+            return { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 };
+        }
+    },
+
+    /**
+     * Clear prayer adjustments (reset to defaults)
+     */
+    clearPrayerAdjustments: async () => {
+        try {
+            await AsyncStorage.removeItem(STORAGE_KEYS.PRAYER_ADJUSTMENTS);
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error clearing prayer adjustments:', error);
+            return false;
         }
     },
 
@@ -279,6 +428,66 @@ const StorageService = {
         } catch (error) {
             console.error('StorageService: Error clearing storage:', error);
             return false;
+        }
+    },
+
+    /**
+     * Save the last country to detect region changes
+     */
+    saveLastCountry: async (country) => {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.LAST_COUNTRY, country || '');
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving last country:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Get the last saved country
+     */
+    getLastCountry: async () => {
+        try {
+            const country = await AsyncStorage.getItem(STORAGE_KEYS.LAST_COUNTRY);
+            return country || null;
+        } catch (error) {
+            console.error('StorageService: Error getting last country:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Check if country has changed and reset weather unit if it has
+     * Returns { countryChanged: boolean, wasManuallySet: boolean }
+     */
+    checkAndResetWeatherUnitIfCountryChanged: async (currentCountry) => {
+        try {
+            const lastCountry = await StorageService.getLastCountry();
+            
+            // Save current country for next check
+            await StorageService.saveLastCountry(currentCountry);
+
+            // Check if country actually changed
+            const countryChanged = lastCountry && lastCountry !== currentCountry;
+            if (!countryChanged) {
+                return { countryChanged: false, wasManuallySet: false };
+            }
+
+            // If country changed, check if weather unit was manually set
+            const weatherUnit = await AsyncStorage.getItem(STORAGE_KEYS.WEATHER_UNIT);
+            const wasManuallySet = weatherUnit !== null;
+
+            // Clear the weather unit to reset to auto-detection
+            if (wasManuallySet) {
+                await AsyncStorage.removeItem(STORAGE_KEYS.WEATHER_UNIT);
+            }
+
+            console.log(`StorageService: Country changed from '${lastCountry}' to '${currentCountry}', weather unit reset`);
+            return { countryChanged: true, wasManuallySet };
+        } catch (error) {
+            console.error('StorageService: Error checking country change:', error);
+            return { countryChanged: false, wasManuallySet: false };
         }
     },
 };
