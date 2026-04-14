@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
     View,
+    Text,
     StyleSheet,
     Image,
     Animated,
@@ -205,11 +206,11 @@ const SplashScreen = ({ navigation }) => {
                 </View>
 
                 {/* Brand Text - WATER YOUR SOUL */}
-                <Animated.Image
-                    source={require('../../assets/images/brand-text.png')}
+                <Animated.Text
                     style={[styles.brandText, { opacity: brandTextOpacity }]}
-                    resizeMode="contain"
-                />
+                >
+                    WATER YOUR SOUL
+                </Animated.Text>
             </View>
         </GradientBackground>
     );
@@ -223,52 +224,56 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.xl,
     },
     logoContainer: {
-        width: 160,
-        height: 160,
+        width: 140,
+        height: 140,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        marginBottom: spacing.md,
+        marginBottom: spacing.xs,
     },
     moon: {
-        width: 140,
-        height: 140,
+        width: 120,
+        height: 120,
         position: 'absolute',
     },
     leaf: {
-        width: 68,
-        height: 88,
+        width: 58,
+        height: 75,
         position: 'absolute',
         // Anchor at the bottom-center of the flower so it grows upward from moon base
-        bottom: '26%',
+        bottom: '28%',
         left: '50%',
-        marginLeft: -34, // Half of width to center horizontally
+        marginLeft: -29, // Half of 58
     },
     lettersContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
         justifyContent: 'center',
-        marginTop: spacing.lg,
-        marginBottom: spacing.sm,
+        marginTop: 0, // Brought all the way up
+        marginBottom: spacing.xs,
     },
     letter: {
-        height: 60,
+        height: 52,
     },
     letterA: {
-        width: 50,
+        width: 42,
         marginRight: 8,
     },
     letterJ: {
-        width: 30,
+        width: 26,
         marginRight: 8,
     },
     letterR: {
-        width: 50,
+        width: 42,
     },
     brandText: {
-        width: width * 0.55,
-        height: 20,
-        marginTop: spacing.sm,
+        fontSize: 16,
+        fontWeight: '300',
+        color: '#FFFFFF',
+        letterSpacing: 4,
+        marginTop: spacing.xs,
+        textAlign: 'center',
+        opacity: 0.9,
     },
 });
 

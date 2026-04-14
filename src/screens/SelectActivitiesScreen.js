@@ -8,6 +8,7 @@ import {
     ScrollView,
     Image,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GradientBackground, Button } from '../components';
@@ -89,6 +90,7 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
         journaling: 'yes',
     });
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [userName, setUserName] = useState('User');
 
     useEffect(() => {
@@ -97,6 +99,26 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
             const displayName = user.email?.split('@')[0] || 'User';
             setUserName(displayName);
         }
+
+        const loadUserPreferences = async () => {
+            try {
+                const info = await FirebaseService.getOnboardingInfo();
+                const acts = info?.selectedActivities;
+                if (acts) {
+                    setSelections({
+                        prayers: acts.prayers ? 'yes' : 'no',
+                        quran: acts.quran ? 'yes' : 'no',
+                        dhikr: acts.dhikr ? 'yes' : 'no',
+                        journaling: acts.journaling ? 'yes' : 'no',
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load user activity preferences:', error);
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        loadUserPreferences();
     }, []);
 
     const handleSelect = (activityId, value) => {
@@ -145,6 +167,15 @@ const SelectActivitiesScreen = ({ navigation, route }) => {
             ]
         );
     };
+
+    if (initialLoading) {
+        return (
+            <View style={[styles.container, styles.loaderContainer]}>
+                <ActivityIndicator size="large" color={colors.primary.darkSage} />
+                <Text style={styles.loadingText}>Loading your preferences...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -204,6 +235,15 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.primary.light,
         marginTop: spacing.md,
+    },
+    loaderContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: spacing.md,
+        fontSize: 14,
+        color: colors.text.grey,
     },
     backButton: {
         position: 'absolute',

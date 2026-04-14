@@ -39,9 +39,9 @@ const prayers = [
 
 const SOUND_MODES = [
     { id: 'athan', label: 'Athan', icon: 'volume-high-outline', description: 'Full Athan call to prayer' },
-    // { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short notification sound' },
-    // { id: 'vibration', label: 'Vibration', icon: 'phone-portrait-outline', description: 'Vibration only, no sound' },
-    // { id: 'silent', label: 'Silent', icon: 'volume-mute-outline', description: 'Visual notification only' },
+    { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short notification sound' },
+    { id: 'vibration', label: 'Vibration', icon: 'phone-portrait-outline', description: 'Vibration only, no sound' },
+    { id: 'silent', label: 'Silent', icon: 'volume-mute-outline', description: 'Visual notification only' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -73,7 +73,7 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
                 <Text style={styles.prayerName}>{prayer.name}</Text>
 
                 <View style={styles.prayerControls}>
-                    {/* {isExpanded && settings.enabled && (
+                    {isExpanded && settings.enabled && (
                         <TouchableOpacity
                             style={styles.soundButton}
                             onPress={handleSoundModePress}
@@ -87,7 +87,7 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
                                 />
                             </View>
                         </TouchableOpacity>
-                    )} */}
+                    )}
                     <Switch
                         value={settings.enabled}
                         onValueChange={(value) => onSettingChange(prayer.id, 'enabled', value)}
@@ -132,14 +132,14 @@ const PrayerCard = ({ prayer, isExpanded, onToggleExpand, settings, onSettingCha
                     </View>
 
                     {/* Sound mode info */}
-                    {/* <View style={styles.soundModeContainer}>
+                    <View style={styles.soundModeContainer}>
                         <Text style={styles.soundModeTitle}>
                             Current sound mode: {currentSoundMode.label}
                         </Text>
                         <Text style={styles.soundModeSubtext}>
                             Tap the sound icon to cycle through options
                         </Text>
-                    </View> */}
+                    </View>
                 </View>
             )}
         </View>

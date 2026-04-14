@@ -168,7 +168,7 @@ const ProfileScreen = ({ navigation }) => {
             try {
                 // Check if country has changed and reset weather unit if needed
                 const { countryChanged, wasManuallySet } = await StorageService.checkAndResetWeatherUnitIfCountryChanged(countryName);
-                
+
                 // Load the saved weather unit (or null if auto-detect)
                 const unit = await StorageService.getWeatherUnit();
                 if (unit) {
@@ -313,7 +313,11 @@ const ProfileScreen = ({ navigation }) => {
                             <Text style={styles.profileEmail}>{userData.email}</Text>
                             <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
                         </View>
-
+                        {/* Logout Pill */}
+                        <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>
+                            <Ionicons name="log-out-outline" size={16} color="#E57373" />
+                            <Text style={styles.logoutPillText}>Logout</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : null}
 
@@ -500,14 +504,10 @@ const ProfileScreen = ({ navigation }) => {
 
 
 
-                {/* Logout Button */}
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={20} color="#E57373" />
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
+                {/* Logout Button Moved to Profile Card */}
 
                 {/* User Account Deletion */}
-                <SectionHeader title="User Account Deletion" />
+                <SectionHeader title="Account Management" />
                 <View style={styles.dangerSection}>
                     <TouchableOpacity
                         style={styles.dangerItem}
@@ -519,14 +519,14 @@ const ProfileScreen = ({ navigation }) => {
                         </View>
                         <View style={styles.settingContent}>
                             <Text style={styles.dangerTitle}>Delete Account</Text>
-                            <Text style={styles.dangerSubtitle}>Permanently delete your account and data</Text>
+                            <Text style={styles.dangerSubtitle}>Permanently delete your account</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#D32F2F" />
                     </TouchableOpacity>
                 </View>
 
                 {/* App Version */}
-                <Text style={styles.versionText}>AJR v1.0.0</Text>
+                <Text style={styles.versionText}>AJR v2.0.0</Text>
             </ScrollView>
         </View>
 
@@ -617,22 +617,22 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ffffff',
         borderRadius: borderRadius.xl,
-        padding: spacing.lg,
+        padding: spacing.sm,
         marginBottom: spacing.lg,
     },
     avatarContainer: {
         position: 'relative',
     },
     avatar: {
-        width: 70,
-        height: 70,
+        width: 50,
+        height: 50,
         borderRadius: 35,
         backgroundColor: colors.primary.sage,
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: typography.fontWeight.semibold,
         color: '#FFFFFF',
     },
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     },
     profileInfo: {
         flex: 1,
-        marginLeft: spacing.md,
+        marginLeft: spacing.sm,
     },
     profileName: {
         fontSize: isSmallDevice ? 18 : 20,
@@ -662,7 +662,8 @@ const styles = StyleSheet.create({
     profileEmail: {
         fontSize: isSmallDevice ? 13 : 14,
         color: colors.text.grey,
-        marginBottom: 2,
+        marginBottom: 4,
+        marginRight:10
     },
     memberSince: {
         fontSize: isSmallDevice ? 11 : 12,
@@ -676,7 +677,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.sm,
     },
     editProfileText: {
-        fontSize: 14,
+        fontSize: 11,
         color: colors.primary.sage,
         marginLeft: 4,
         fontWeight: typography.fontWeight.medium,
@@ -760,20 +761,20 @@ const styles = StyleSheet.create({
         color: colors.text.grey,
         marginTop: 2,
     },
-    logoutButton: {
+    logoutPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
         backgroundColor: 'rgba(229, 115, 115, 0.1)',
-        borderRadius: borderRadius.lg,
-        paddingVertical: spacing.md,
-        marginTop: spacing.lg,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginLeft: 'auto',
     },
-    logoutText: {
-        fontSize: isSmallDevice ? 15 : 16,
+    logoutPillText: {
+        fontSize: 13,
         fontWeight: typography.fontWeight.medium,
         color: '#E57373',
-        marginLeft: spacing.sm,
+        marginLeft: 4,
     },
     versionText: {
         fontSize: 12,
@@ -788,7 +789,6 @@ const styles = StyleSheet.create({
         // kept for reference, unused
     },
     dangerSection: {
-        backgroundColor: 'rgba(211, 47, 47, 0.05)',
         borderWidth: 1,
         borderColor: 'rgba(211, 47, 47, 0.15)',
         borderRadius: borderRadius.lg,
@@ -812,11 +812,11 @@ const styles = StyleSheet.create({
     dangerTitle: {
         fontSize: isSmallDevice ? 14 : 16,
         fontWeight: typography.fontWeight.medium,
-        color: '#D32F2F',
+        color: colors.text.black,
     },
     dangerSubtitle: {
         fontSize: isSmallDevice ? 11 : 12,
-        color: 'rgba(211, 47, 47, 0.7)',
+        color: colors.text.grey,
         marginTop: 2,
     },
     modalOverlay: {

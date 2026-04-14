@@ -1,64 +1,80 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, PixelRatio, useWindowDimensions } from 'react-native';
 
-const BrandLogo = ({ size = 120 }) => {
-    // Scale everything relative to the base size of 120
-    const scale = size / 120;
+const px = (value) => PixelRatio.roundToNearestPixel(value);
 
-    // Moon + leaf icon area (top portion)
-    const iconSize = 70 * scale;
+const BrandLogo = ({ size }) => {
+    const { width } = useWindowDimensions();
+    const isSmallDevice = width < 375;
+    const isMediumDevice = width < 414;
+    
+    const defaultSize = isSmallDevice ? 110 : isMediumDevice ? 120 : 140;
+    const finalSize = size || defaultSize;
+    const scale = finalSize / 120;
+
+    const iconSize = px(64 * scale);
     const moonSize = iconSize;
-    const leafSize = 38 * scale;
+    const leafSize = px(34 * scale);
 
-    // Letter sizes (bottom portion)
-    const letterHeight = 28 * scale;
-    const letterAWidth = 26 * scale;
-    const letterJWidth = 16 * scale;
-    const letterRWidth = 26 * scale;
-    const letterSpacing = 8 * scale;
-    const iconLetterGap = 4 * scale;
+    const letterHeight = px(24 * scale);
+    const letterAWidth = px(22 * scale);
+    const letterJWidth = px(14 * scale);
+    const letterRWidth = px(22 * scale);
+    const letterSpacing = px(6 * scale);
+    const iconLetterGap = px(2 * scale);
 
     return (
         <View style={styles.container}>
-            {/* Moon + Leaf icon */}
+            {/* Icon */}
             <View style={[styles.iconContainer, { width: iconSize, height: iconSize }]}>
                 <Image
                     source={require('../../assets/images/moon.png')}
-                    style={[styles.moon, { width: moonSize, height: moonSize }]}
+                    style={[
+                        styles.image,
+                        {
+                            width: moonSize,
+                            height: moonSize,
+                        },
+                    ]}
                     resizeMode="contain"
                 />
+
                 <Image
                     source={require('../../assets/images/leaf.png')}
                     style={[
-                        styles.leaf,
+                        styles.image,
                         {
                             width: leafSize,
                             height: leafSize,
-                            top: iconSize * 0.2,
-                            left: iconSize * 0.28,
+                            top: px(iconSize * 0.22),
+                            left: px(iconSize * 0.30),
                         },
                     ]}
                     resizeMode="contain"
                 />
             </View>
 
-            {/* A J R letters */}
+            {/* Letters */}
             <View style={[styles.lettersRow, { marginTop: iconLetterGap }]}>
                 <Image
                     source={require('../../assets/images/A.png')}
-                    style={{ width: letterAWidth, height: letterHeight }}
+                    style={[styles.image, { width: letterAWidth, height: letterHeight }]}
                     resizeMode="contain"
                 />
+
                 <View style={{ width: letterSpacing }} />
+
                 <Image
                     source={require('../../assets/images/J.png')}
-                    style={{ width: letterJWidth, height: letterHeight }}
+                    style={[styles.image, { width: letterJWidth, height: letterHeight }]}
                     resizeMode="contain"
                 />
+
                 <View style={{ width: letterSpacing }} />
+
                 <Image
                     source={require('../../assets/images/R.png')}
-                    style={{ width: letterRWidth, height: letterHeight }}
+                    style={[styles.image, { width: letterRWidth, height: letterHeight }]}
                     resizeMode="contain"
                 />
             </View>
@@ -72,20 +88,22 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         position: 'relative',
-        marginBottom: 8
-    },
-    moon: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-    },
-    leaf: {
-        position: 'absolute',
+        marginBottom: 4,
     },
     lettersRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    image: {
+        position: 'absolute',
+
+        // 🔥 Key for sharpness during animation
+        shouldRasterizeIOS: true,
+        renderToHardwareTextureAndroid: true,
+
+        // Prevent subtle blur from transforms
+        transform: [{ translateX: 0 }, { translateY: 0 }],
     },
 });
 

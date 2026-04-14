@@ -604,7 +604,7 @@ const PrayerTimesScreen = ({ navigation }) => {
                             {prayersSelected && <Text style={styles.markCompletedText}>Mark prayers as completed</Text>}
                             {renderPrayerRow('Fajr')}
                             {renderPrayerRow('Sunrise')}
-                            {renderPrayerRow('Dhuhr', 'Zohr')}
+                            {renderPrayerRow('Dhuhr', 'Dhuhr')}
                             {renderPrayerRow('Asr')}
                             {renderPrayerRow('Maghrib')}
                             {renderPrayerRow('Isha')}

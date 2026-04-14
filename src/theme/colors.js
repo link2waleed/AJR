@@ -7,7 +7,7 @@ export const colors = {
     sage: '#7A9E7F',
     darkSage: '#5A7A5F',
     gold: '#C4B896',
-    light: '#F1F5F1',
+    light: '#f1f5f1a1',
   },
 
   gradient: {
@@ -18,7 +18,7 @@ export const colors = {
 
   homeGradient: {
     top: '#C0E5E2',    // Cooler light blue
-    bottom: '#f4de9bff', // Warmer tan/brown
+    bottom: '#ECE3C9', // Warmer tan/brown
   },
   cards: {
     cream: '#F5F3E8',

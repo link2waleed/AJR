@@ -159,6 +159,15 @@ const FinalSetupScreen = ({ navigation }) => {
                 }
             }
 
+            // Reset activityProgress manual-toggle overrides so all rings recalculate
+            // from real data instead of persisting stale 100% flags after preference changes
+            try {
+                const todayStr = FirebaseService.getLocalDateKey();
+                await FirebaseService.resetActivityProgress(todayStr);
+            } catch (error) {
+                console.warn('Failed to reset activityProgress flags:', error);
+            }
+
             // Mark onboarding as complete in Firebase
             await FirebaseService.completeOnboarding();
 
@@ -272,27 +281,27 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     logoContainer: {
-        width: 180,
-        height: 180,
+        width: 150,
+        height: 150,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
         marginBottom: spacing.xl,
     },
     moon: {
-        width: 160,
-        height: 160,
+        width: 130,
+        height: 130,
         position: 'absolute',
         tintColor: 'rgba(255, 255, 255, 0.9)',
     },
     leaf: {
-        width: 70,
-        height: 90,
+        width: 58,
+        height: 75,
         position: 'absolute',
         // Anchor at the bottom-center so it grows upward from moon base
         bottom: '26%',
         left: '50%',
-        marginLeft: -35,
+        marginLeft: -29,
         tintColor: 'rgba(255, 255, 255, 0.9)',
     },
     title: {

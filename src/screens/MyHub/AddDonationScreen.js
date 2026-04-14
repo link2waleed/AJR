@@ -52,14 +52,14 @@ const AddDonationScreen = ({ navigation }) => {
         }
 
         // Format as YYYY-MM-DD for consistency
-        const formattedDate = newDate.toISOString().split('T')[0];
+        const formattedDate = FirebaseService.getLocalDateKey(newDate);
         setDate(formattedDate);
         setShowDatePicker(false);
     };
 
     const handleSetToday = () => {
         const now = new Date();
-        setDate(now.toISOString().split('T')[0]);
+        setDate(FirebaseService.getLocalDateKey(now));
         setShowDatePicker(false);
     };
 

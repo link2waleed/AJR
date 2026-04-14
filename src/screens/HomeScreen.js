@@ -1540,7 +1540,7 @@ const HomeScreen = ({ navigation }) => {
         <>
             <LinearGradient
                 colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom, colors.homeGradient.bottom]}
-                locations={[0, 0.40, 0.60, 1]}
+                locations={[0, 0.30, 0.70, 1]}
                 style={styles.container}
             >
                 {renderContent()}

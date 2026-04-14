@@ -789,6 +789,34 @@ class FirebaseService {
     }
 
     /**
+     * Reset all activityProgress flags to false.
+     * Called when the user saves updated preferences so that manual 100%
+     * overrides don't persist after goals/activities have changed.
+     */
+    static async resetActivityProgress(todayStr) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            const resetData = {
+                activityProgress: {
+                    prayers: false,
+                    quran: false,
+                    dhikr: false,
+                    journaling: false,
+                },
+                lastActivityResetDate: todayStr || this.getLocalDateKey(),
+            };
+
+            await firestore().collection('users').doc(user.uid).update(resetData);
+            console.log('FirebaseService: activityProgress reset to false after preference change');
+        } catch (error) {
+            console.error('FirebaseService: Error resetting activityProgress:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Listen to activity progress changes (real-time)
      * Auto-resets daily if lastActivityResetDate is not today
      */

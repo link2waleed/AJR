@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Dimensions,
     Image,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
@@ -145,7 +146,44 @@ const PrayerSetupScreen = ({ navigation, route }) => {
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [showPermModal, setShowPermModal] = useState(false);
+
+    // Load saved prayer settings on mount
+    useEffect(() => {
+        const loadSavedSettings = async () => {
+            try {
+                const info = await FirebaseService.getOnboardingInfo();
+                const prayer = info?.prayer;
+                if (prayer) {
+                    const globalSound = prayer.soundMode || 'athan';
+                    const parse = (val, fallback) => {
+                        if (val && typeof val === 'object') {
+                            return {
+                                enabled: val.enabled ?? false,
+                                athanEnabled: val.athanEnabled ?? true,
+                                reminderEnabled: val.reminderEnabled ?? true,
+                                soundMode: val.soundMode || globalSound,
+                            };
+                        }
+                        return { enabled: !!val, athanEnabled: true, reminderEnabled: true, soundMode: globalSound };
+                    };
+                    setPrayerSettings({
+                        fajr: parse(prayer.fajr),
+                        duhur: parse(prayer.dhuhr),
+                        asr: parse(prayer.asr),
+                        maghrib: parse(prayer.maghrib),
+                        isha: parse(prayer.isha),
+                    });
+                }
+            } catch (e) {
+                console.warn('PrayerSetupScreen: could not load saved prayer settings', e);
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        loadSavedSettings();
+    }, []);
 
     const handleToggleExpand = (prayerId) => {
         setExpandedPrayer(expandedPrayer === prayerId ? null : prayerId);
@@ -235,6 +273,17 @@ const PrayerSetupScreen = ({ navigation, route }) => {
             ]
         );
     };
+
+    if (initialLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary.darkSage} />
+                <Text style={{ marginTop: spacing.md, fontSize: 14, color: colors.text.grey }}>
+                    Loading your prayer settings...
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

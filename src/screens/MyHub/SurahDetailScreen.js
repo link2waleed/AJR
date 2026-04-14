@@ -532,6 +532,14 @@ const SurahDetailScreen = ({ navigation, route }) => {
         const isThisPlaying = currentlyPlaying === number && isPlaying;
         const isThisActive = currentlyPlaying === number;
 
+        const formattedTranslation = React.useMemo(() => {
+            if (!translation) return translation;
+            // Lowercase fully capitalized words for consistent visuals
+            return translation.replace(/\b([A-Z]{2,})\b/g, (match) => {
+                return match.charAt(0) + match.slice(1).toLowerCase();
+            });
+        }, [translation]);
+
         return (
             <View style={[styles.ayahCard, isThisActive && styles.activeAyahCard]}>
 
@@ -616,7 +624,7 @@ const SurahDetailScreen = ({ navigation, route }) => {
                         {/* Arabic & Translation */}
                         <View style={styles.textsContainer}>
                             <Text style={[styles.arabicText, { fontSize: fontSize + 8, lineHeight: Math.ceil((fontSize + 8) * 1.8) }]}>{arabic}</Text>
-                            <Text style={[styles.translationText, { fontSize: fontSize, lineHeight: Math.ceil(fontSize * 1.4) }]}>{translation}</Text>
+                            <Text style={[styles.translationText, { fontSize: fontSize, lineHeight: Math.ceil(fontSize * 1.4) }]}>{formattedTranslation}</Text>
                         </View>
                     </View>
                 </View>
