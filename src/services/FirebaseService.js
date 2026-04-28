@@ -789,6 +789,34 @@ class FirebaseService {
     }
 
     /**
+     * Reset all activityProgress flags to false.
+     * Called when the user saves updated preferences so that manual 100%
+     * overrides don't persist after goals/activities have changed.
+     */
+    static async resetActivityProgress(todayStr) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            const resetData = {
+                activityProgress: {
+                    prayers: false,
+                    quran: false,
+                    dhikr: false,
+                    journaling: false,
+                },
+                lastActivityResetDate: todayStr || this.getLocalDateKey(),
+            };
+
+            await firestore().collection('users').doc(user.uid).update(resetData);
+            console.log('FirebaseService: activityProgress reset to false after preference change');
+        } catch (error) {
+            console.error('FirebaseService: Error resetting activityProgress:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Listen to activity progress changes (real-time)
      * Auto-resets daily if lastActivityResetDate is not today
      */
@@ -2303,29 +2331,66 @@ class FirebaseService {
                 return () => { };
             }
 
-            const unsubscribe = firestore()
-                .collection('users')
-                .doc(user.uid)
-                .onSnapshot(
-                    (doc) => {
-                        if (doc.exists) {
-                            const progress = doc.data()?.dailyProgress?.overallPercentage || 0;
-                            const ringPercentages = {
-                                prayers: doc.data()?.dailyProgress?.prayersPercentage || 0,
-                                quran: doc.data()?.dailyProgress?.quranPercentage || 0,
-                                dhikr: doc.data()?.dailyProgress?.dhikrPercentage || 0,
-                                journal: doc.data()?.dailyProgress?.journalPercentage || 0,
-                            };
-                            callback(progress, ringPercentages);
-                        }
-                    },
-                    (error) => {
-                        console.error('FirebaseService: Error listening to overall progress:', error);
-                        errorCallback(error);
-                    }
-                );
+            let currentDateKey = this.getLocalDateKey();
+            let unsubscribe = null;
 
-            return unsubscribe;
+            const setupListener = (dateKey) => {
+                if (unsubscribe) unsubscribe();
+                
+                unsubscribe = firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .onSnapshot(
+                        (doc) => {
+                            if (doc.exists) {
+                                const data = doc.data() || {};
+                                const lastUpdated = data.dailyProgress?.lastUpdated?.toDate();
+                                const todayStr = this.getLocalDateKey();
+                                
+                                // If data is from a previous day, return 0s
+                                if (lastUpdated && this.getLocalDateKey(lastUpdated) !== todayStr) {
+                                    callback(0, {
+                                        prayers: 0,
+                                        quran: 0,
+                                        dhikr: 0,
+                                        journal: 0,
+                                    });
+                                } else {
+                                    const progress = data.dailyProgress?.overallPercentage || 0;
+                                    const ringPercentages = {
+                                        prayers: data.dailyProgress?.prayersPercentage || 0,
+                                        quran: data.dailyProgress?.quranPercentage || 0,
+                                        dhikr: data.dailyProgress?.dhikrPercentage || 0,
+                                        journal: data.dailyProgress?.journalPercentage || 0,
+                                    };
+                                    callback(progress, ringPercentages);
+                                }
+                            }
+                        },
+                        (error) => {
+                            console.error('FirebaseService: Error listening to overall progress:', error);
+                            errorCallback(error);
+                        }
+                    );
+            };
+
+            const resetCheckInterval = setInterval(() => {
+                const newDateKey = this.getLocalDateKey();
+                if (newDateKey !== currentDateKey) {
+                    currentDateKey = newDateKey;
+                    // Trigger a local reset immediately
+                    callback(0, { prayers: 0, quran: 0, dhikr: 0, journal: 0 });
+                    // No need to re-subscribe to root doc, but we can if we want to be safe
+                    setupListener(currentDateKey);
+                }
+            }, 60000);
+
+            setupListener(currentDateKey);
+
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (unsubscribe) unsubscribe();
+            };
         } catch (error) {
             console.error('FirebaseService: Error setting up overall progress listener:', error);
             errorCallback(error);
@@ -2333,6 +2398,46 @@ class FirebaseService {
         }
     }
     // ==================== CIRCLE MODULE ====================
+
+    // ==========================================
+    // ── SUBSCRIPTION SYNC ─────────────────────
+    // ==========================================
+
+    /**
+     * Update user's subscription status in their root doc
+     * This allows backend queries to enforce limits based on pro status
+     * @param {boolean} isProUser 
+     */
+    static async updateUserSubscriptionStatus(isProUser) {
+        try {
+            const user = auth().currentUser;
+            if (!user) return; // Silent return if not logged in
+            await firestore()
+                .collection('users')
+                .doc(user.uid)
+                .set({ isProUser }, { merge: true });
+        } catch (error) {
+            console.error('FirebaseService: Error updating subscription status:', error);
+        }
+    }
+
+    /**
+     * Get count of circles created by user
+     */
+    static async getOwnedCirclesCount() {
+        try {
+            const user = auth().currentUser;
+            if (!user) return 0;
+            const snapshot = await firestore()
+                .collection('circles')
+                .where('createdBy', '==', user.uid)
+                .get();
+            return snapshot.size;
+        } catch (error) {
+            console.error('FirebaseService: Error getting owned circles count:', error);
+            return 0;
+        }
+    }
 
     /**
      * Generate a unique invite code in XXX-XXXX format
@@ -2360,14 +2465,15 @@ class FirebaseService {
             const user = auth().currentUser;
             if (!user) throw new Error('No authenticated user');
 
-            // 1. Check user's circle count (max 5)
-            const membershipSnapshot = await firestore()
-                .collection('circleMembers')
-                .where('userId', '==', user.uid)
-                .get();
+            // 1. Enforce AJR+ Limits for checking circle creation
+            const userDoc = await firestore().collection('users').doc(user.uid).get();
+            const isPro = userDoc.exists && userDoc.data().isProUser;
 
-            if (membershipSnapshot.size >= 5) {
-                throw new Error('You can be part of up to 5 circles. Please leave a circle before creating a new one.');
+            if (!isPro) {
+                const ownedCount = await this.getOwnedCirclesCount();
+                if (ownedCount >= 1) {
+                    throw new Error('LIMIT_REACHED:You’ve reached your free limit of 1 circle. Upgrade to continue creating and managing multiple circles.');
+                }
             }
 
             // 2. Generate unique invite code
@@ -2444,27 +2550,27 @@ class FirebaseService {
             const circleId = circleDoc.id;
             const circleData = circleDoc.data();
 
-            // 2. Check circle member count < 10
+            // 2. Fetch Creator's Subscription Status to determine limit
+            const creatorId = circleData.createdBy;
+            let maxMembers = 8; // Default Free limit
+            if (creatorId) {
+                const creatorDoc = await firestore().collection('users').doc(creatorId).get();
+                if (creatorDoc.exists && creatorDoc.data().isProUser) {
+                    maxMembers = 25; // Premium limit
+                }
+            }
+
+            // 3. Check circle member count limit
             const circleMembersSnapshot = await firestore()
                 .collection('circleMembers')
                 .where('circleId', '==', circleId)
                 .get();
 
-            if (circleMembersSnapshot.size >= 10) {
-                throw new Error('This circle is full (10 members max). Ask the admin to create a new one.');
+            if (circleMembersSnapshot.size >= maxMembers) {
+                throw new Error(`This circle is full (${maxMembers} members max). Ask the admin to upgrade to AJR+ or create a new one.`);
             }
 
-            // 3. Check user's total circle count < 5
-            const userMembershipsSnapshot = await firestore()
-                .collection('circleMembers')
-                .where('userId', '==', user.uid)
-                .get();
-
-            if (userMembershipsSnapshot.size >= 5) {
-                throw new Error('You can be part of up to 5 circles. Please leave a circle before joining a new one.');
-            }
-
-            // 4. Check user is not already a member
+            // 4. Check user is not already a member or pending
             const existingMembership = await firestore()
                 .collection('circleMembers')
                 .where('circleId', '==', circleId)
@@ -2472,29 +2578,33 @@ class FirebaseService {
                 .get();
 
             if (!existingMembership.empty) {
+                const existingStatus = existingMembership.docs[0].data().status;
+                if (existingStatus === 'pending') {
+                    throw new Error('Your request to join this circle is already pending approval.');
+                }
                 throw new Error('You are already a member of this circle.');
             }
 
-            // 5. Create circleMembers document
+            // 5. Get requester name
+            const userDoc = await firestore().collection('users').doc(user.uid).get();
+            const requesterName = userDoc.exists ? (userDoc.data()?.name || 'Someone') : 'Someone';
+
+            // 6. Create circleMembers document with PENDING status
             await firestore()
                 .collection('circleMembers')
                 .add({
                     circleId,
                     userId: user.uid,
-                    joinedAt: firestore.FieldValue.serverTimestamp(),
+                    requestedAt: firestore.FieldValue.serverTimestamp(),
                     role: 'member',
+                    status: 'pending',
+                    requesterName,
                 });
 
-            // 6. Increment circle memberCount
-            await firestore()
-                .collection('circles')
-                .doc(circleId)
-                .update({
-                    memberCount: firestore.FieldValue.increment(1),
-                });
+            // NOTE: memberCount is NOT incremented here — it happens on approval
 
-            console.log('Joined circle:', circleId);
-            return { circleId, circleName: circleData.name };
+            console.log('Join request sent for circle:', circleId);
+            return { circleId, circleName: circleData.name, status: 'pending' };
         } catch (error) {
             console.error('FirebaseService: Error joining circle:', error);
             throw error;
@@ -2545,6 +2655,7 @@ class FirebaseService {
                         streak,
                         inviteCode: circleData.inviteCode,
                         role: membership.role,
+                        status: membership.status || 'approved', // Legacy members are approved
                         progress: 0, // Placeholder for future progress tracking
                     });
                 }
@@ -2593,10 +2704,12 @@ class FirebaseService {
                 .where('circleId', '==', circleId)
                 .get();
 
-            // 4. Fetch user data for each member (skip deleted users)
+            // 4. Fetch user data for each member, separate active from pending
             const members = [];
+            const pendingMembers = [];
             for (const memberDoc of membersSnapshot.docs) {
                 const memberData = memberDoc.data();
+                const memberStatus = memberData.status || 'approved'; // Legacy members are approved
 
                 try {
                     const userDoc = await firestore()
@@ -2606,13 +2719,20 @@ class FirebaseService {
 
                     if (userDoc.exists) {
                         const userData = userDoc.data();
-                        members.push({
+                        const memberObj = {
                             id: memberDoc.id,
                             userId: memberData.userId,
                             name: userData?.name || 'Member',
                             role: memberData.role,
-                            joinedAt: memberData.joinedAt,
-                        });
+                            status: memberStatus,
+                            joinedAt: memberData.joinedAt || memberData.requestedAt,
+                        };
+
+                        if (memberStatus === 'pending') {
+                            pendingMembers.push(memberObj);
+                        } else {
+                            members.push(memberObj);
+                        }
                     }
                     // If user doc doesn't exist (deleted account), skip this member
                 } catch (e) {
@@ -2631,11 +2751,224 @@ class FirebaseService {
                     createdAt: circleData.createdAt,
                 },
                 members,
+                pendingMembers,
                 streak,
             };
         } catch (error) {
             console.error('FirebaseService: Error getting circle details:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Approve a pending join request
+     * @param {string} circleId - Circle document ID
+     * @param {string} memberDocId - CircleMembers document ID
+     */
+    static async approveJoinRequest(circleId, memberDocId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Verify caller is circle creator
+            const circleDoc = await firestore().collection('circles').doc(circleId).get();
+            if (!circleDoc.exists) throw new Error('Circle not found');
+            if (circleDoc.data().createdBy !== user.uid) throw new Error('Only the circle creator can approve requests.');
+
+            // Update member status to approved
+            await firestore().collection('circleMembers').doc(memberDocId).update({
+                status: 'approved',
+                joinedAt: firestore.FieldValue.serverTimestamp(),
+            });
+
+            // Increment memberCount
+            await firestore().collection('circles').doc(circleId).update({
+                memberCount: firestore.FieldValue.increment(1),
+            });
+
+            console.log('Approved join request:', memberDocId, 'for circle:', circleId);
+        } catch (error) {
+            console.error('FirebaseService: Error approving join request:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Decline a pending join request
+     * @param {string} circleId - Circle document ID
+     * @param {string} memberDocId - CircleMembers document ID
+     */
+    static async declineJoinRequest(circleId, memberDocId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Verify caller is circle creator
+            const circleDoc = await firestore().collection('circles').doc(circleId).get();
+            if (!circleDoc.exists) throw new Error('Circle not found');
+            if (circleDoc.data().createdBy !== user.uid) throw new Error('Only the circle creator can decline requests.');
+
+            // Delete the pending membership document
+            await firestore().collection('circleMembers').doc(memberDocId).delete();
+
+            console.log('Declined join request:', memberDocId, 'for circle:', circleId);
+        } catch (error) {
+            console.error('FirebaseService: Error declining join request:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Leave a circle (members only — creator cannot leave, must delete)
+     * @param {string} circleId - Circle document ID
+     */
+    static async leaveCircle(circleId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Verify user is NOT the creator
+            const circleDoc = await firestore().collection('circles').doc(circleId).get();
+            if (!circleDoc.exists) throw new Error('Circle not found');
+            if (circleDoc.data().createdBy === user.uid) {
+                throw new Error('Circle creator cannot leave. Delete the circle instead.');
+            }
+
+            // Find and delete the user's membership
+            const membershipSnapshot = await firestore()
+                .collection('circleMembers')
+                .where('circleId', '==', circleId)
+                .where('userId', '==', user.uid)
+                .get();
+
+            if (membershipSnapshot.empty) throw new Error('You are not a member of this circle.');
+
+            const memberDoc = membershipSnapshot.docs[0];
+            const memberStatus = memberDoc.data().status || 'approved';
+
+            await firestore().collection('circleMembers').doc(memberDoc.id).delete();
+
+            // Only decrement memberCount if the user was an approved member
+            if (memberStatus === 'approved') {
+                await firestore().collection('circles').doc(circleId).update({
+                    memberCount: firestore.FieldValue.increment(-1),
+                });
+            }
+
+            console.log('Left circle:', circleId);
+        } catch (error) {
+            console.error('FirebaseService: Error leaving circle:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Delete a circle (creator only)
+     * Removes all members, subcollections, and the circle document itself
+     * @param {string} circleId - Circle document ID
+     */
+    static async deleteCircle(circleId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Verify user IS the creator
+            const circleDoc = await firestore().collection('circles').doc(circleId).get();
+            if (!circleDoc.exists) throw new Error('Circle not found');
+            if (circleDoc.data().createdBy !== user.uid) {
+                throw new Error('Only the circle creator can delete this circle.');
+            }
+
+            // 1. Delete all circleMembers docs
+            const membersSnapshot = await firestore()
+                .collection('circleMembers')
+                .where('circleId', '==', circleId)
+                .get();
+            const memberBatch = firestore().batch();
+            membersSnapshot.docs.forEach(doc => memberBatch.delete(doc.ref));
+            await memberBatch.commit();
+
+            // 2. Delete dailyActivity subcollection
+            const dailyActivitySnapshot = await firestore()
+                .collection('circles')
+                .doc(circleId)
+                .collection('dailyActivity')
+                .get();
+            if (!dailyActivitySnapshot.empty) {
+                const activityBatch = firestore().batch();
+                dailyActivitySnapshot.docs.forEach(doc => activityBatch.delete(doc.ref));
+                await activityBatch.commit();
+            }
+
+            // 3. Delete the circle document
+            await firestore().collection('circles').doc(circleId).delete();
+
+            console.log('Deleted circle:', circleId);
+        } catch (error) {
+            console.error('FirebaseService: Error deleting circle:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Remove a member from a circle (creator only)
+     * @param {string} circleId - Circle document ID
+     * @param {string} memberDocId - CircleMembers document ID
+     */
+    static async removeMember(circleId, memberDocId) {
+        try {
+            const user = auth().currentUser;
+            if (!user) throw new Error('No authenticated user');
+
+            // Verify caller is circle creator
+            const circleDoc = await firestore().collection('circles').doc(circleId).get();
+            if (!circleDoc.exists) throw new Error('Circle not found');
+            if (circleDoc.data().createdBy !== user.uid) {
+                throw new Error('Only the circle creator can remove members.');
+            }
+
+            // Get the member doc to check status
+            const memberRef = firestore().collection('circleMembers').doc(memberDocId);
+            const memberDoc = await memberRef.get();
+            if (!memberDoc.exists) throw new Error('Member not found');
+
+            const memberData = memberDoc.data();
+            if (memberData.role === 'admin') {
+                throw new Error('Cannot remove the circle creator.');
+            }
+
+            // Delete the membership document
+            await memberRef.delete();
+
+            // Only decrement if member was approved
+            if ((memberData.status || 'approved') === 'approved') {
+                await firestore().collection('circles').doc(circleId).update({
+                    memberCount: firestore.FieldValue.increment(-1),
+                });
+            }
+
+            console.log('Removed member:', memberDocId, 'from circle:', circleId);
+        } catch (error) {
+            console.error('FirebaseService: Error removing member:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save the user's FCM push token to Firestore for Cloud Functions notifications
+     * @param {string} token - Expo push token or FCM token
+     */
+    static async saveFCMToken(token) {
+        try {
+            const user = auth().currentUser;
+            if (!user) return;
+            await firestore().collection('users').doc(user.uid).update({
+                fcmToken: token,
+                tokenUpdatedAt: firestore.FieldValue.serverTimestamp(),
+            });
+            console.log('FCM token saved for user:', user.uid);
+        } catch (error) {
+            console.error('FirebaseService: Error saving FCM token:', error);
         }
     }
 

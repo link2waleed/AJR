@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
     arabicText: {
         fontSize: typography.fontSize.md,
         color: colors.text.black,
+        fontFamily: 'Uthmanic',
     },
     detailsText: {
         fontSize: 12,

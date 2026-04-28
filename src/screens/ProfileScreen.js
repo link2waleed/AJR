@@ -18,6 +18,7 @@ import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
 import StorageService from '../services/StorageService';
 import { useTheme } from '../context/ThemeContext';
+import { useSubscription } from '../context/SubscriptionContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -57,6 +58,9 @@ const ProfileScreen = ({ navigation }) => {
 
     // Get country name from theme context
     const { countryName } = useTheme();
+
+    // Subscription state
+    const { isProUser } = useSubscription();
 
     // Delete account state
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -168,7 +172,7 @@ const ProfileScreen = ({ navigation }) => {
             try {
                 // Check if country has changed and reset weather unit if needed
                 const { countryChanged, wasManuallySet } = await StorageService.checkAndResetWeatherUnitIfCountryChanged(countryName);
-                
+
                 // Load the saved weather unit (or null if auto-detect)
                 const unit = await StorageService.getWeatherUnit();
                 if (unit) {
@@ -313,7 +317,11 @@ const ProfileScreen = ({ navigation }) => {
                             <Text style={styles.profileEmail}>{userData.email}</Text>
                             <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
                         </View>
-
+                        {/* Logout Pill */}
+                        <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>
+                            <Ionicons name="log-out-outline" size={16} color="#E57373" />
+                            <Text style={styles.logoutPillText}>Logout</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : null}
 
@@ -336,6 +344,34 @@ const ProfileScreen = ({ navigation }) => {
                 </View> */}
 
 
+
+                {/* AJR+ Subscription Card */}
+                <TouchableOpacity
+                    style={styles.ajrPlusCard}
+                    onPress={() => navigation.navigate('Subscription', { fromSettings: true })}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.ajrPlusIconContainer}>
+                        <Ionicons name="diamond-outline" size={22} color="#C4A265" />
+                    </View>
+                    <View style={styles.ajrPlusContent}>
+                        <Text style={styles.ajrPlusTitle}>AJR+</Text>
+                        <Text style={styles.ajrPlusSubtitle}>
+                            {isProUser ? 'Active — Full premium access' : 'Upgrade for premium features'}
+                        </Text>
+                    </View>
+                    <View style={[
+                        styles.ajrPlusStatusBadge,
+                        isProUser ? styles.ajrPlusStatusActive : styles.ajrPlusStatusInactive,
+                    ]}>
+                        <Text style={[
+                            styles.ajrPlusStatusText,
+                            isProUser ? styles.ajrPlusStatusTextActive : styles.ajrPlusStatusTextInactive,
+                        ]}>
+                            {isProUser ? 'Active' : 'Upgrade'}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
 
                 {/* Preferences Section */}
                 <SectionHeader title="Settings" />
@@ -500,14 +536,10 @@ const ProfileScreen = ({ navigation }) => {
 
 
 
-                {/* Logout Button */}
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={20} color="#E57373" />
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
+                {/* Logout Button Moved to Profile Card */}
 
                 {/* User Account Deletion */}
-                <SectionHeader title="User Account Deletion" />
+                <SectionHeader title="Account Management" />
                 <View style={styles.dangerSection}>
                     <TouchableOpacity
                         style={styles.dangerItem}
@@ -519,14 +551,14 @@ const ProfileScreen = ({ navigation }) => {
                         </View>
                         <View style={styles.settingContent}>
                             <Text style={styles.dangerTitle}>Delete Account</Text>
-                            <Text style={styles.dangerSubtitle}>Permanently delete your account and data</Text>
+                            <Text style={styles.dangerSubtitle}>Permanently delete your account</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#D32F2F" />
                     </TouchableOpacity>
                 </View>
 
                 {/* App Version */}
-                <Text style={styles.versionText}>AJR v1.0.0</Text>
+                <Text style={styles.versionText}>AJR v2.0.0</Text>
             </ScrollView>
         </View>
 
@@ -617,22 +649,22 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ffffff',
         borderRadius: borderRadius.xl,
-        padding: spacing.lg,
+        padding: spacing.sm,
         marginBottom: spacing.lg,
     },
     avatarContainer: {
         position: 'relative',
     },
     avatar: {
-        width: 70,
-        height: 70,
+        width: 50,
+        height: 50,
         borderRadius: 35,
         backgroundColor: colors.primary.sage,
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: typography.fontWeight.semibold,
         color: '#FFFFFF',
     },
@@ -651,7 +683,7 @@ const styles = StyleSheet.create({
     },
     profileInfo: {
         flex: 1,
-        marginLeft: spacing.md,
+        marginLeft: spacing.sm,
     },
     profileName: {
         fontSize: isSmallDevice ? 18 : 20,
@@ -662,7 +694,8 @@ const styles = StyleSheet.create({
     profileEmail: {
         fontSize: isSmallDevice ? 13 : 14,
         color: colors.text.grey,
-        marginBottom: 2,
+        marginBottom: 4,
+        marginRight:10
     },
     memberSince: {
         fontSize: isSmallDevice ? 11 : 12,
@@ -676,7 +709,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.sm,
     },
     editProfileText: {
-        fontSize: 14,
+        fontSize: 11,
         color: colors.primary.sage,
         marginLeft: 4,
         fontWeight: typography.fontWeight.medium,
@@ -760,20 +793,20 @@ const styles = StyleSheet.create({
         color: colors.text.grey,
         marginTop: 2,
     },
-    logoutButton: {
+    logoutPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
         backgroundColor: 'rgba(229, 115, 115, 0.1)',
-        borderRadius: borderRadius.lg,
-        paddingVertical: spacing.md,
-        marginTop: spacing.lg,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginLeft: 'auto',
     },
-    logoutText: {
-        fontSize: isSmallDevice ? 15 : 16,
+    logoutPillText: {
+        fontSize: 13,
         fontWeight: typography.fontWeight.medium,
         color: '#E57373',
-        marginLeft: spacing.sm,
+        marginLeft: 4,
     },
     versionText: {
         fontSize: 12,
@@ -788,7 +821,6 @@ const styles = StyleSheet.create({
         // kept for reference, unused
     },
     dangerSection: {
-        backgroundColor: 'rgba(211, 47, 47, 0.05)',
         borderWidth: 1,
         borderColor: 'rgba(211, 47, 47, 0.15)',
         borderRadius: borderRadius.lg,
@@ -812,11 +844,11 @@ const styles = StyleSheet.create({
     dangerTitle: {
         fontSize: isSmallDevice ? 14 : 16,
         fontWeight: typography.fontWeight.medium,
-        color: '#D32F2F',
+        color: colors.text.black,
     },
     dangerSubtitle: {
         fontSize: isSmallDevice ? 11 : 12,
-        color: 'rgba(211, 47, 47, 0.7)',
+        color: colors.text.grey,
         marginTop: 2,
     },
     modalOverlay: {
@@ -979,6 +1011,63 @@ const styles = StyleSheet.create({
         fontSize: isSmallDevice ? 14 : 16,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
+    },
+
+    // ── AJR+ Card ──
+    ajrPlusCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(196, 162, 101, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(196, 162, 101, 0.25)',
+        borderRadius: borderRadius.xl,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        marginTop: spacing.md,
+    },
+    ajrPlusIconContainer: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: 'rgba(196, 162, 101, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: spacing.md,
+    },
+    ajrPlusContent: {
+        flex: 1,
+    },
+    ajrPlusTitle: {
+        fontSize: isSmallDevice ? 16 : 18,
+        fontWeight: typography.fontWeight.bold,
+        color: '#9E7E3F',
+        letterSpacing: 0.5,
+    },
+    ajrPlusSubtitle: {
+        fontSize: isSmallDevice ? 12 : 13,
+        color: colors.text.grey,
+        marginTop: 2,
+    },
+    ajrPlusStatusBadge: {
+        paddingVertical: 5,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+    },
+    ajrPlusStatusActive: {
+        backgroundColor: 'rgba(122, 158, 127, 0.15)',
+    },
+    ajrPlusStatusInactive: {
+        backgroundColor: 'rgba(196, 162, 101, 0.15)',
+    },
+    ajrPlusStatusText: {
+        fontSize: 12,
+        fontWeight: typography.fontWeight.semibold,
+    },
+    ajrPlusStatusTextActive: {
+        color: colors.primary.sage,
+    },
+    ajrPlusStatusTextInactive: {
+        color: '#9E7E3F',
     },
 });
 

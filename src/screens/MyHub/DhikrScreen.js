@@ -7,6 +7,7 @@ import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
 import auth from '@react-native-firebase/auth'; // Keep auth if used
+import { filterJihad } from '../../utils/textFilter';
 
 
 const { width } = Dimensions.get('window');
@@ -234,17 +235,17 @@ const DhikrScreen = ({ navigation }) => {
                                 <Text
                                     style={[styles.arabicText, activeDhikrItem.word.length > 40 && { fontSize: 21, marginBottom: 2 }]}
                                 >
-                                    {details.arabic}
+                                    {filterJihad(details.arabic)}
                                 </Text>
                                 <Text
                                     style={[styles.transliteration, activeDhikrItem.word.length > 40 && { fontSize: 13 }]}
                                 >
-                                    {activeDhikrItem.word}
+                                    {filterJihad(activeDhikrItem.word)}
                                 </Text>
                                 <Text
                                     style={[styles.translation, activeDhikrItem.word.length > 40 && { fontSize: 12, marginTop: 2 }]}
                                 >
-                                    "{details.translation}"
+                                    "{filterJihad(details.translation)}"
                                 </Text>
                             </View>
 
@@ -388,6 +389,7 @@ const styles = StyleSheet.create({
         marginTop: 10,
         marginBottom: 4,
         textAlign: 'center',
+        fontFamily: 'Uthmanic',
     },
     transliteration: {
         fontSize: 16,

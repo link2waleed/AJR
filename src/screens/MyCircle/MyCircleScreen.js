@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
+import { useSubscription } from '../../context';
+import LimitPopupModal from '../../components/LimitPopupModal';
 
 // Import notification icon
 
@@ -26,11 +28,21 @@ const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 
 // Circle Card Component
-const CircleCard = ({ circle, onPress }) => (
-    <TouchableOpacity style={styles.circleCard} onPress={onPress} activeOpacity={0.7}>
+const CircleCard = ({ circle, onPress, isPending }) => (
+    <TouchableOpacity
+        style={[styles.circleCard, isPending && styles.circleCardPending]}
+        onPress={isPending ? undefined : onPress}
+        activeOpacity={isPending ? 1 : 0.7}
+    >
         <View style={styles.circleCardHeader}>
             <Text style={styles.circleCardTitle}>{circle.name}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.grey} />
+            {isPending ? (
+                <View style={styles.pendingLabel}>
+                    <Text style={styles.pendingLabelText}>Pending</Text>
+                </View>
+            ) : (
+                <Ionicons name="chevron-forward" size={18} color={colors.text.grey} />
+            )}
         </View>
         <View style={styles.circleCardDivider} />
         <View style={styles.circleCardFooter}>
@@ -38,10 +50,12 @@ const CircleCard = ({ circle, onPress }) => (
                 <Ionicons name="people-outline" size={14} color={colors.text.grey} />
                 <Text style={styles.membersText}>{circle.members} Members</Text>
             </View>
-            <View style={styles.streakBadge}>
-                <Ionicons name="flame-outline" size={14} color={colors.text.dark} />
-                <Text style={styles.streakText}>{circle.streak} Day Streak</Text>
-            </View>
+            {!isPending && (
+                <View style={styles.streakBadge}>
+                    <Ionicons name="flame-outline" size={14} color={colors.text.dark} />
+                    <Text style={styles.streakText}>{circle.streak} Day Streak</Text>
+                </View>
+            )}
         </View>
     </TouchableOpacity>
 );
@@ -83,11 +97,14 @@ const ChallengeCard = ({ challenge }) => (
     </View>
 );
 
-const MyCircleScreen = ({ navigation }) => {
+const MyCircleScreen = ({ navigation, route }) => {
     // State to track if user has circles
     const [hasCircles, setHasCircles] = useState(false);
     const [circles, setCircles] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const { isProUser } = useSubscription();
+    const [showLimitModal, setShowLimitModal] = useState(false);
 
     // Join Circle Modal state
     const [showJoinModal, setShowJoinModal] = useState(false);
@@ -119,6 +136,24 @@ const MyCircleScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation, fetchCircles]);
 
+    const handleCreateCirclePress = async () => {
+        if (!isProUser) {
+            setLoading(true);
+            const ownedCount = await FirebaseService.getOwnedCirclesCount();
+            setLoading(false);
+            if (ownedCount >= 1) {
+                setShowLimitModal(true);
+                return;
+            }
+        }
+        navigation.navigate('CreateCircle');
+    };
+
+    const handleUpgrade = () => {
+        setShowLimitModal(false);
+        navigation.navigate('Subscription', { variant: 'circle' });
+    };
+
     const handleJoinCircle = async () => {
         if (!joinCode.trim()) return;
         setJoining(true);
@@ -128,13 +163,29 @@ const MyCircleScreen = ({ navigation }) => {
             setJoinCode('');
             // Refresh circles list
             await fetchCircles();
-            Alert.alert('Success', `You joined "${result.circleName}"!`);
+            if (result.status === 'pending') {
+                Alert.alert(
+                    'Request Sent',
+                    'Your request to join has been sent. The circle owner will review it.'
+                );
+            } else {
+                Alert.alert('Success', `You joined "${result.circleName}"!`);
+            }
         } catch (error) {
             Alert.alert('Error', error.message || 'Failed to join circle. Please try again.');
         } finally {
             setJoining(false);
         }
     };
+
+    // Handle deep link code param
+    useEffect(() => {
+        const deepLinkCode = route?.params?.code;
+        if (deepLinkCode) {
+            setJoinCode(deepLinkCode);
+            setShowJoinModal(true);
+        }
+    }, [route?.params?.code]);
 
     // Render Empty State (No Circles)
     const renderEmptyState = () => (
@@ -176,7 +227,7 @@ const MyCircleScreen = ({ navigation }) => {
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
                             style={styles.createCircleButton}
-                            onPress={() => navigation.navigate('CreateCircle')}
+                            onPress={handleCreateCirclePress}
                         >
                             <Text style={styles.createCircleButtonText}>Create Circle</Text>
                             <Ionicons name="add" size={18} color={colors.text.primary} style={styles.buttonIcon} />
@@ -220,6 +271,7 @@ const MyCircleScreen = ({ navigation }) => {
                     <CircleCard
                         key={circle.id}
                         circle={circle}
+                        isPending={circle.status === 'pending'}
                         onPress={() => navigation.navigate('CircleDetail', { circleId: circle.id })}
                     />
                 ))}
@@ -229,7 +281,7 @@ const MyCircleScreen = ({ navigation }) => {
             <View style={styles.actionButtonsContainer}>
                 <TouchableOpacity
                     style={styles.createCircleButtonFull}
-                    onPress={() => navigation.navigate('CreateCircle')}
+                    onPress={handleCreateCirclePress}
                 >
                     <Text style={styles.createCircleButtonText}>Create Circle</Text>
                     <Ionicons name="add" size={18} color={colors.text.primary} style={styles.buttonIcon} />
@@ -369,6 +421,14 @@ const MyCircleScreen = ({ navigation }) => {
                     </View>
                 </View>
             </Modal>
+
+            <LimitPopupModal
+                visible={showLimitModal}
+                title="AJR+"
+                message={"• Create unlimited circles\n• Up to 25 members in each circle\n• Priority access to insights"}
+                onClose={() => setShowLimitModal(false)}
+                onUpgrade={handleUpgrade}
+            />
         </LinearGradient>
     );
 };
@@ -840,9 +900,24 @@ const styles = StyleSheet.create({
         gap: spacing.xxs,
     },
     modalJoinText: {
-        fontSize: typography.fontSize.sm,
+        fontSize: typography.fontSize.md,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.primary,
+    },
+    // Pending Circle Card Styles
+    circleCardPending: {
+        opacity: 0.6,
+    },
+    pendingLabel: {
+        backgroundColor: '#FF9800' + '20',
+        borderRadius: borderRadius.sm,
+        paddingVertical: 2,
+        paddingHorizontal: spacing.xs,
+    },
+    pendingLabelText: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.medium,
+        color: '#FF9800',
     },
 });
 

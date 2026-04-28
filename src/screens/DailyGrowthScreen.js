@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
+import WidgetService from '../services/WidgetService';
 import AJRRings from '../components/AJRRings';
 
 // Icons
@@ -324,6 +325,9 @@ const DailyGrowthScreen = ({ navigation }) => {
                     // Re-fetch journal stats
                     const stats = await FirebaseService.getJournalStats();
                     setJournalStats(stats);
+
+                    // Trigger widget refresh so home screen widgets reflect latest data
+                    WidgetService.reload();
                 } catch (err) {
                     console.error('DailyGrowthScreen: refreshOnFocus error', err);
                 }

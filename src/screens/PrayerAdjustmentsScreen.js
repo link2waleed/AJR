@@ -7,22 +7,29 @@ import {
     TouchableOpacity,
     Dimensions,
     Alert,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import StorageService from '../services/StorageService';
+
+import fajrIcon from '../../assets/images/fajr.png';
+import duhurIcon from '../../assets/images/duhur.png';
+import asrIcon from '../../assets/images/asr.png';
+import maghribIcon from '../../assets/images/mughrib.png';
+import ishaIcon from '../../assets/images/isha.png';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const PRAYERS = [
-    { key: 'fajr', name: 'Fajr', icon: 'moon-outline', color: '#5C6BC0', description: 'Dawn Prayer' },
-    { key: 'sunrise', name: 'Sunrise', icon: 'sunny-outline', color: '#FFA726', description: 'Shuruq' },
-    { key: 'dhuhr', name: 'Dhuhr', icon: 'sunny', color: '#FF7043', description: 'Midday Prayer' },
-    { key: 'asr', name: 'Asr', icon: 'partly-sunny-outline', color: '#AB47BC', description: 'Afternoon Prayer' },
-    { key: 'maghrib', name: 'Maghrib', icon: 'cloudy-night-outline', color: '#EF5350', description: 'Sunset Prayer' },
-    { key: 'isha', name: 'Isha', icon: 'moon', color: '#3949AB', description: 'Night Prayer' },
+    { key: 'fajr', name: 'Fajr', iconImg: fajrIcon, color: '#5C6BC0', description: 'Dawn Prayer' },
+    { key: 'sunrise', name: 'Sunrise', iconImg: fajrIcon, color: '#FFA726', description: 'Shuruq' },
+    { key: 'dhuhr', name: 'Dhuhr', iconImg: duhurIcon, color: '#FF7043', description: 'Midday Prayer' },
+    { key: 'asr', name: 'Asr', iconImg: asrIcon, color: '#AB47BC', description: 'Afternoon Prayer' },
+    { key: 'maghrib', name: 'Maghrib', iconImg: maghribIcon, color: '#EF5350', description: 'Sunset Prayer' },
+    { key: 'isha', name: 'Isha', iconImg: ishaIcon, color: '#3949AB', description: 'Night Prayer' },
 ];
 
 const DEFAULT_OFFSETS = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 };
@@ -30,9 +37,11 @@ const DEFAULT_OFFSETS = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, ish
 const PrayerAdjustmentRow = ({ prayer, offset, onIncrement, onDecrement }) => (
     <View style={styles.prayerRow}>
         <View style={styles.prayerRowLeft}>
-            <View style={[styles.prayerIconCircle, { backgroundColor: `${prayer.color}15` }]}>
-                <Ionicons name={prayer.icon} size={20} color={prayer.color} />
-            </View>
+            <Image
+                source={prayer.iconImg}
+                style={{ width: 36, height: 36, marginRight: spacing.md }}
+                resizeMode="contain"
+            />
             <View style={styles.prayerInfo}>
                 <Text style={styles.prayerName}>{prayer.name}</Text>
                 <Text style={styles.prayerDescription}>{prayer.description}</Text>

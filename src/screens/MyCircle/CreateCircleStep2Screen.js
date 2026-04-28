@@ -15,6 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
+import WidgetService from '../../services/WidgetService';
+import { useSubscription } from '../../context';
 
 // Import assets
 
@@ -81,20 +83,26 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
 
     const [circleName, setCircleName] = useState('');
     const [loading, setLoading] = useState(false);
-    const [remainingSlots, setRemainingSlots] = useState(3);
+    const [remainingSlots, setRemainingSlots] = useState(1);
+    
+    const { isProUser } = useSubscription();
 
     // Fetch remaining circle slots on mount
     useEffect(() => {
         const fetchSlots = async () => {
             try {
-                const circles = await FirebaseService.getUserCircles();
-                setRemainingSlots(Math.max(0, 5 - circles.length));
+                if (isProUser) {
+                    setRemainingSlots('Unlimited');
+                } else {
+                    const count = await FirebaseService.getOwnedCirclesCount();
+                    setRemainingSlots(Math.max(0, 1 - count));
+                }
             } catch (e) {
                 console.warn('Could not fetch circle count:', e);
             }
         };
         fetchSlots();
-    }, []);
+    }, [isProUser]);
 
     const handleCreateCircle = async () => {
         if (!circleName.trim()) {
@@ -104,6 +112,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
         setLoading(true);
         try {
             const result = await FirebaseService.createCircle(circleName.trim(), circleType);
+            WidgetService.invalidateCircleCache();
             console.log('✅ Circle created successfully:', result);
             Alert.alert('Circle Created!', `Your circle "${circleName.trim()}" is ready. Share the invite code with friends!`, [
                 {
@@ -117,14 +126,17 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
             ]);
         } catch (error) {
             console.error('❌ Circle creation error:', error);
-            if (
-                error.message &&
-                error.message.includes('You can be part of up to 5 circles')
-            ) {
+            if (error.message && error.message.includes('LIMIT_REACHED')) {
                 Alert.alert(
-                    'Circle Limit Reached',
-                    'You have reached the maximum of 5 circles. To create a new circle, please leave an existing one first.',
-                    [{ text: 'OK', style: 'default' }]
+                    'Create Another Circle',
+                    'You’ve reached your free limit of 1 circle. Upgrade to continue creating and managing multiple circles.',
+                    [
+                        { text: 'Not now', style: 'cancel' },
+                        { 
+                            text: 'Continue to Upgrade', 
+                            onPress: () => navigation.navigate('Subscription', { variant: 'circle' }) 
+                        }
+                    ]
                 );
             } else {
                 Alert.alert('Error', error.message || 'Failed to create circle. Please try again.');
@@ -186,7 +198,7 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
                     <Text style={styles.sectionTitle}>Circle summary</Text>
                     <View style={styles.summaryCard}>
                         <SummaryRow label="Circle Type:" value={circleTypeName} />
-                        <SummaryRow label="Member limit:" value="10" />
+                        <SummaryRow label="Member limit:" value={isProUser ? "25" : "8"} />
                         <SummaryRow label="Your remaining Circle slots:" value={String(remainingSlots)} isLast />
                     </View>
                 </View>
@@ -206,14 +218,14 @@ const CreateCircleStep2Screen = ({ navigation, route }) => {
 
                     {/* Member Info */}
                     <View style={styles.memberInfoContainer}>
-                        <Text style={styles.memberInfoTitle}>Up to 10 members per Circle</Text>
+                        <Text style={styles.memberInfoTitle}>Up to {isProUser ? '25' : '8'} members per Circle</Text>
                         <Text style={styles.memberInfoSubtitle}>Focus on consistency without comparison</Text>
                     </View>
 
                     {/* Info Message */}
                     <View style={styles.infoMessageContainer}>
                         <Ionicons name="information-circle-outline" size={18} color={colors.text.grey} />
-                        <Text style={styles.infoMessageText}>You can be part of up to 5 Circles total</Text>
+                        <Text style={styles.infoMessageText}>You can join an unlimited number of Circles</Text>
                     </View>
                 </View>
             </ScrollView>

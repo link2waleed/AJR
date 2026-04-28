@@ -15,6 +15,7 @@ export { default as QuranGoalScreen } from './QuranGoalScreen';
 export { default as DhikrGoalScreen } from './DhikrGoalScreen';
 
 export { default as SubscriptionScreen } from './SubscriptionScreen';
+export { default as RedeemCodeScreen } from './RedeemCodeScreen';
 export { default as FinalSetupScreen } from './FinalSetupScreen';
 
 // ================= MAIN SCREENS =================
@@ -24,6 +25,7 @@ export { default as MyCircleScreen } from './MyCircle/MyCircleScreen';
 export { default as CircleDetailScreen } from './MyCircle/CircleDetailScreen';
 export { default as CreateCircleScreen } from './MyCircle/CreateCircleScreen';
 export { default as CreateCircleStep2Screen } from './MyCircle/CreateCircleStep2Screen';
+export { default as JoinCircleScreen } from './MyCircle/JoinCircleScreen';
 export { default as ProfileScreen } from './ProfileScreen';
 export { default as PrayerAdjustmentsScreen } from './PrayerAdjustmentsScreen';
 export { default as DailyGrowthScreen } from './DailyGrowthScreen';

@@ -11,3 +11,4 @@ export { default as CityService } from './CityService';
 export { default as WeatherService } from './WeatherService';
 export { default as FirebaseService } from './FirebaseService';
 export { default as OnboardingValidator } from './OnboardingValidator';
+export { default as RevenueCatService } from './RevenueCatService';

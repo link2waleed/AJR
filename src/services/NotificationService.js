@@ -2,6 +2,11 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import PrayerTimeService from './PrayerTimeService';
 import StorageService from './StorageService';
+import FirebaseService from './FirebaseService';
+import messaging from '@react-native-firebase/messaging';
+
+const ANDROID_SOUND = 'azan_android';
+const IOS_SOUND = 'azan_ios.wav';
 
 // ─── Android Notification Channels ───────────────────────────────────────────
 const CHANNELS = {
@@ -10,7 +15,7 @@ const CHANNELS = {
         name: 'Athan Alert',
         description: 'Full Athan call to prayer notification',
         importance: Notifications.AndroidImportance.MAX,
-        sound: 'default',
+        sound: ANDROID_SOUND,
         vibrationPattern: [0, 250, 250, 250],
         enableVibrate: true,
     },
@@ -19,7 +24,7 @@ const CHANNELS = {
         name: 'Prayer Beep',
         description: 'Short beep notification for prayer',
         importance: Notifications.AndroidImportance.HIGH,
-        sound: 'default',
+        sound: ANDROID_SOUND,
         vibrationPattern: [0, 150],
         enableVibrate: true,
     },
@@ -43,8 +48,6 @@ const CHANNELS = {
     },
 };
 
-const REMINDER_OFFSET_MINUTES = 20;
-
 const PRAYER_LABELS = {
     fajr: 'Fajr',
     dhuhr: 'Dhuhr',
@@ -67,6 +70,44 @@ Notifications.setNotificationHandler({
 
 // ─── NotificationService ──────────────────────────────────────────────────────
 const NotificationService = {
+
+    /**
+     * Register for push notifications and save the token to Firestore.
+     * Should be called on app boot after authentication.
+     */
+    async registerForPushNotifications() {
+        try {
+            const granted = await this.requestPermissions();
+            if (!granted) {
+                console.log('[NOTIFICATION] Push permission not granted, skipping token registration');
+                return null;
+            }
+
+            // Register for Firebase Cloud Messaging
+            const authStatus = await messaging().requestPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+            if (!enabled) {
+                console.log('[NOTIFICATION] FCM permission not granted');
+                return null;
+            }
+
+            // Get the native FCM token
+            const token = await messaging().getToken();
+            
+            if (token) {
+                console.log('[NOTIFICATION] FCM token:', token);
+                await FirebaseService.saveFCMToken(token);
+                return token;
+            }
+        } catch (err) {
+            console.error('[NOTIFICATION] registerForPushNotifications error:', err);
+        }
+        return null;
+    },
+
 
     /**
      * Request notification permissions.
@@ -160,16 +201,19 @@ const NotificationService = {
 
         const channel = CHANNELS[soundMode] ?? CHANNELS.beep;
         const noSound = soundMode === 'vibration' || soundMode === 'silent';
+        const customSound = Platform.OS === 'ios' ? IOS_SOUND : ANDROID_SOUND;
 
         try {
+            const notificationContent = {
+                title,
+                body,
+                sound: noSound ? null : customSound,
+                data: { ...data, type: 'prayer' },
+                ...(Platform.OS === 'android' && { channelId: channel.id }),
+            };
+
             const id = await Notifications.scheduleNotificationAsync({
-                content: {
-                    title,
-                    body,
-                    sound: noSound ? null : 'default',
-                    data: { ...data, type: 'prayer' },
-                    ...(Platform.OS === 'android' && { channelId: channel.id }),
-                },
+                content: notificationContent,
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.DATE,
                     date,
@@ -314,36 +358,6 @@ const NotificationService = {
                 });
                 if (id) scheduledCount++;
             }
-
-            // 2️⃣  End-time reminder
-            if (settings.reminderEnabled !== false) {
-                const nextTimingKey = i + 1 < prayerMap.length
-                    ? prayerMap[i + 1].timingKey
-                    : null;
-
-                if (nextTimingKey) {
-                    const nextTimeStr = prayerTimings?.[nextTimingKey];
-                    const reminderAlreadyPassed = this._hasPrayerPassed(nextTimeStr, timezone, date);
-
-                    if (!reminderAlreadyPassed) {
-                        const nextDate = this._parseTime(nextTimeStr, timezone, date);
-                        if (nextDate) {
-                            const reminderDate = new Date(nextDate.getTime() - REMINDER_OFFSET_MINUTES * 60 * 1000);
-                            // Verify reminder date hasn't passed (it could be in the past if prayer is very soon)
-                            if (reminderDate > new Date()) {
-                                const id = await this.scheduleAt({
-                                    title: `⏰ ${label} Ending Soon`,
-                                    body: `${REMINDER_OFFSET_MINUTES} minutes left in ${label} prayer time`,
-                                    date: reminderDate,
-                                    soundMode: 'beep',
-                                    data: { prayer: local, notifType: 'reminder' },
-                                });
-                                if (id) scheduledCount++;
-                            }
-                        }
-                    }
-                }
-            }
         }
         return scheduledCount;
     },
@@ -372,11 +386,12 @@ const NotificationService = {
                 return null;
             }
             await this.setupChannels();
+            const testSound = Platform.OS === 'ios' ? IOS_SOUND : ANDROID_SOUND;
             const id = await Notifications.scheduleNotificationAsync({
                 content: {
                     title: '🕌 AJR Test Notification',
                     body: 'Notification system is working correctly!',
-                    sound: 'default',
+                    sound: testSound,
                     data: { type: 'prayer', test: true },
                     ...(Platform.OS === 'android' && { channelId: CHANNELS.athan.id }),
                 },

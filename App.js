@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 
 import './src/services/FirebaseInit'; // Firebase init first
 import AppNavigator from './src/navigation/AppNavigator';
-import { ThemeProvider } from './src/context';
+import { ThemeProvider, SubscriptionProvider } from './src/context';
 import NotificationService from './src/services/NotificationService';
 import FirebaseService from './src/services/FirebaseService';
 import StorageService from './src/services/StorageService';
@@ -69,6 +69,8 @@ export default function App() {
 
   useEffect(() => {
     bootstrapNotifications();
+    // Register for push notifications and save FCM token
+    NotificationService.registerForPushNotifications();
   }, []);
 
   useEffect(() => {
@@ -97,8 +99,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <StatusBar style="light" />
-        <AppNavigator />
+        <SubscriptionProvider>
+          <StatusBar style="light" />
+          <AppNavigator />
+        </SubscriptionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

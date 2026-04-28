@@ -13,16 +13,19 @@ import {
     LayoutAnimation,
     Platform,
     UIManager,
+    Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
+import WidgetService from '../../services/WidgetService';
 import * as Clipboard from 'expo-clipboard';
 import AJRRings from '../../components/AJRRings';
 import auth from '@react-native-firebase/auth';
 import challengesData from '../../data/challanges.json';
-
+import { useSubscription } from '../../context';
+import LimitPopupModal from '../../components/LimitPopupModal';
 // Import notification icon
 
 
@@ -103,12 +106,22 @@ const IntentionChip = ({ text, selected, onPress }) => (
 );
 
 // Member Row Component
-const MemberRow = ({ name }) => (
+const MemberRow = ({ name, role, isCreator, onRemove }) => (
     <View style={styles.memberRow}>
         <View style={styles.memberAvatar}>
             <Ionicons name="person" size={16} color={colors.primary.sage} />
         </View>
         <Text style={styles.memberName}>{name}</Text>
+        {role === 'admin' && (
+            <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>Admin</Text>
+            </View>
+        )}
+        {isCreator && role !== 'admin' && onRemove && (
+            <TouchableOpacity onPress={onRemove} style={styles.removeMemberButton}>
+                <Ionicons name="close-circle" size={20} color={colors.text.grey} />
+            </TouchableOpacity>
+        )}
     </View>
 );
 
@@ -133,9 +146,15 @@ const CircleDetailScreen = ({ navigation, route }) => {
     // State
     const [circleData, setCircleData] = useState(null);
     const [members, setMembers] = useState([]);
+    const [pendingMembers, setPendingMembers] = useState([]);
     const [streak, setStreak] = useState(0);
     const [inviteCode, setInviteCode] = useState('');
     const [loading, setLoading] = useState(true);
+    const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const { isProUser } = useSubscription();
+    const [showLimitModal, setShowLimitModal] = useState(false);
 
     // Group activity stats state
     const [memberActivityStats, setMemberActivityStats] = useState(null);
@@ -238,6 +257,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
             }
 
             await FirebaseService.updateActivityCompletion(activity, newStatus, ringPercentage);
+            WidgetService.invalidateCircleCache();
             // Refresh group stats + ring averages after toggling so UI updates immediately
             if (circleId) {
                 Promise.all([
@@ -278,6 +298,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                 ]);
                 setCircleData(details.circle);
                 setMembers(details.members);
+                setPendingMembers(details.pendingMembers || []);
                 setStreak(details.streak);
                 setInviteCode(details.circle.inviteCode || '');
                 setMemberActivityStats(activityStats);
@@ -297,6 +318,25 @@ const CircleDetailScreen = ({ navigation, route }) => {
         };
         fetchDetails();
     }, [circleId]);
+
+    const handleInviteFriends = () => {
+        const isOwner = circleData?.createdBy === auth().currentUser?.uid;
+        if (isOwner) {
+            if (!isProUser && members.length >= 8) {
+                setShowLimitModal(true);
+                return;
+            } else if (isProUser && members.length >= 25) {
+                Alert.alert('Circle Full', 'Your circle has reached its 25-person limit.');
+                return;
+            }
+        }
+        setShowInviteModal(true);
+    };
+
+    const handleUpgrade = () => {
+        setShowLimitModal(false);
+        navigation.navigate('Subscription', { variant: 'circle' });
+    };
 
     // === AJR Rings Firebase Listeners (same as HomeScreen) ===
     useEffect(() => {
@@ -364,7 +404,154 @@ const CircleDetailScreen = ({ navigation, route }) => {
         }
     };
 
+    const isCreator = circleData?.createdBy === currentUserId;
     const isNamedCircle = circleData?.type === 'named';
+
+    // === Circle Management Handlers ===
+
+    const handleLeaveCircle = () => {
+        Alert.alert(
+            'Leave Circle',
+            `Are you sure you want to leave "${circleData?.name}"? You will need to request to join again.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setActionLoading(true);
+                        try {
+                            await FirebaseService.leaveCircle(circleId);
+                            WidgetService.invalidateCircleCache();
+                            Alert.alert('Left Circle', 'You have left the circle.');
+                            navigation.goBack();
+                        } catch (error) {
+                            Alert.alert('Error', error.message || 'Failed to leave circle.');
+                        } finally {
+                            setActionLoading(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleDeleteCircle = () => {
+        Alert.alert(
+            'Delete Circle',
+            `Are you sure you want to permanently delete "${circleData?.name}"? This will remove all members and cannot be undone.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setActionLoading(true);
+                        try {
+                            await FirebaseService.deleteCircle(circleId);
+                            WidgetService.invalidateCircleCache();
+                            Alert.alert('Circle Deleted', 'The circle has been permanently deleted.');
+                            navigation.goBack();
+                        } catch (error) {
+                            Alert.alert('Error', error.message || 'Failed to delete circle.');
+                        } finally {
+                            setActionLoading(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleRemoveMember = (member) => {
+        Alert.alert(
+            'Remove Member',
+            `Are you sure you want to remove ${member.name} from the circle?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await FirebaseService.removeMember(circleId, member.id);
+                            setMembers(prev => prev.filter(m => m.id !== member.id));
+                            WidgetService.invalidateCircleCache();
+                        } catch (error) {
+                            Alert.alert('Error', error.message || 'Failed to remove member.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleApproveRequest = async (member) => {
+        try {
+            await FirebaseService.approveJoinRequest(circleId, member.id);
+            setPendingMembers(prev => prev.filter(m => m.id !== member.id));
+            setMembers(prev => [...prev, { ...member, status: 'approved' }]);
+            WidgetService.invalidateCircleCache();
+        } catch (error) {
+            Alert.alert('Error', error.message || 'Failed to approve request.');
+        }
+    };
+
+    const handleDeclineRequest = async (member) => {
+        Alert.alert(
+            'Decline Request',
+            `Decline ${member.name}'s request to join?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Decline',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await FirebaseService.declineJoinRequest(circleId, member.id);
+                            setPendingMembers(prev => prev.filter(m => m.id !== member.id));
+                        } catch (error) {
+                            Alert.alert('Error', error.message || 'Failed to decline request.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleShareInvite = async () => {
+        try {
+            await Share.share({
+                message: `Assalamu Alaikum! 🌙\n\nJoin my circle "${circleData?.name}" on AJR app!\n\n📋 Invite Code: ${inviteCode}\n\nOpen the AJR app → My Circle → Join Circle → paste the code above.\n\nDownload AJR: https://apps.apple.com/app/ajr/id6744145554`,
+            });
+        } catch (e) {
+            console.error('Share error:', e);
+        }
+    };
+
+    const handleOptionsPress = () => {
+        if (isCreator) {
+            Alert.alert(
+                'Circle Options',
+                null,
+                [
+                    { text: 'Share Invite', onPress: handleShareInvite },
+                    { text: 'Delete Circle', style: 'destructive', onPress: handleDeleteCircle },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        } else {
+            Alert.alert(
+                'Circle Options',
+                null,
+                [
+                    { text: 'Share Invite', onPress: handleShareInvite },
+                    { text: 'Leave Circle', style: 'destructive', onPress: handleLeaveCircle },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        }
+    };
 
     // Activity stats config for Group Stats section
     const activityStatsConfig = [
@@ -440,7 +627,12 @@ const CircleDetailScreen = ({ navigation, route }) => {
 
                     <Text style={styles.headerTitle}>My Circle</Text>
 
-                    <View style={{ width: 40 }} />
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={handleOptionsPress}
+                    >
+                        <Ionicons name="ellipsis-vertical" size={22} color={colors.text.black} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Stats Row */}
@@ -478,7 +670,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                                     completed={isPrayerCompleted}
                                     activity="prayers"
                                     onToggle={handleToggleActivity}
-                                    disabled={togglingActivity === 'prayers' || isPrayerCompleted}
+                                    disabled={!selectedActivities.prayers || togglingActivity === 'prayers' || isPrayerCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.layer2}
@@ -486,7 +678,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                                     completed={isQuranCompleted}
                                     activity="quran"
                                     onToggle={handleToggleActivity}
-                                    disabled={togglingActivity === 'quran' || isQuranCompleted}
+                                    disabled={!selectedActivities.quran || togglingActivity === 'quran' || isQuranCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.layer3}
@@ -494,7 +686,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                                     completed={isDhikrCompleted}
                                     activity="dhikr"
                                     onToggle={handleToggleActivity}
-                                    disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
+                                    disabled={!selectedActivities.dhikr || togglingActivity === 'dhikr' || isDhikrCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.innerCircle}
@@ -502,7 +694,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                                     completed={isJournalCompleted}
                                     activity="journaling"
                                     onToggle={handleToggleActivity}
-                                    disabled={togglingActivity === 'journaling' || isJournalCompleted}
+                                    disabled={!selectedActivities.journaling || togglingActivity === 'journaling' || isJournalCompleted}
                                 />
                             </View>
                         </View>
@@ -645,24 +837,60 @@ const CircleDetailScreen = ({ navigation, route }) => {
                     </View>
                 </View> */}
 
+                {/* Pending Requests (Creator only) */}
+                {isCreator && pendingMembers.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.memberCard}>
+                            <View style={styles.pendingHeaderRow}>
+                                <Text style={styles.sectionTitle}>Pending Requests</Text>
+                                <View style={styles.pendingBadge}>
+                                    <Text style={styles.pendingBadgeText}>{pendingMembers.length}</Text>
+                                </View>
+                            </View>
+                            <View style={styles.Divider} />
+                            {pendingMembers.map((member, index) => (
+                                <View key={member.id || index} style={styles.pendingRequestRow}>
+                                    <View style={styles.memberAvatar}>
+                                        <Ionicons name="person" size={16} color={colors.primary.sage} />
+                                    </View>
+                                    <Text style={styles.pendingMemberName}>{member.name}</Text>
+                                    <TouchableOpacity
+                                        style={styles.approveButton}
+                                        onPress={() => handleApproveRequest(member)}
+                                    >
+                                        <Ionicons name="checkmark" size={16} color="#fff" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.declineButton}
+                                        onPress={() => handleDeclineRequest(member)}
+                                    >
+                                        <Ionicons name="close" size={16} color={colors.text.grey} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
                 {/* Member List */}
                 <View style={styles.section}>
                     <View style={styles.memberCard}>
                         <Text style={styles.sectionTitle}>Member List</Text>
                         <View style={styles.Divider} />
                         {members.map((member, index) => (
-                            <MemberRow key={member.id || index} name={member.name} />
+                            <MemberRow
+                                key={member.id || index}
+                                name={member.name}
+                                role={member.role}
+                                isCreator={isCreator}
+                                onRemove={() => handleRemoveMember(member)}
+                            />
                         ))}
-                        {members.length > 5 && (
-                            <TouchableOpacity style={styles.showMoreButton}>
-                                <Text style={styles.showMoreText}>+ {members.length - 5} others</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
                 </View>
 
                 {/* Invite Friends Button */}
-                <TouchableOpacity style={styles.inviteButton} onPress={() => setShowInviteModal(true)}>
+                <TouchableOpacity style={styles.inviteButton} onPress={handleInviteFriends}>
                     <Text style={styles.inviteButtonText}>Invite Friends</Text>
                     <Ionicons name="share-social" size={20} color={colors.text.primary} />
                 </TouchableOpacity>
@@ -713,6 +941,14 @@ const CircleDetailScreen = ({ navigation, route }) => {
                         Every effort counts. May Allah accept from all of us.
                     </Text>
                 </View>
+
+                <LimitPopupModal
+                    visible={showLimitModal}
+                    title="Circle Full"
+                    message="Your circle has reached its 8-person limit. Upgrade to AJR+ to continue growing your circle."
+                    onClose={() => setShowLimitModal(false)}
+                    onUpgrade={handleUpgrade}
+                />
             </ScrollView>
         </LinearGradient>
     );
@@ -1247,6 +1483,72 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.md,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.primary,
+    },
+    // Admin Badge & Member Management
+    adminBadge: {
+        backgroundColor: colors.cards.mint,
+        borderRadius: borderRadius.sm,
+        paddingVertical: 2,
+        paddingHorizontal: spacing.xs,
+        marginLeft: spacing.xs,
+    },
+    adminBadgeText: {
+        fontSize: 10,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.primary.sage,
+    },
+    removeMemberButton: {
+        marginLeft: 'auto',
+        padding: spacing.xxs,
+    },
+    // Pending Requests
+    pendingHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.md,
+    },
+    pendingBadge: {
+        backgroundColor: '#FF6B6B20',
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    pendingBadgeText: {
+        fontSize: 12,
+        fontWeight: typography.fontWeight.bold,
+        color: '#FF6B6B',
+    },
+    pendingRequestRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+    },
+    pendingMemberName: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.medium,
+        color: colors.text.black,
+        flex: 1,
+    },
+    approveButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.primary.sage,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: spacing.xs,
+    },
+    declineButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.border.light,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: spacing.xs,
     },
 });
 

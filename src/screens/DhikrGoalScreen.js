@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,7 @@ import {
     Dimensions,
     TextInput,
     Alert,
-
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
@@ -38,6 +38,30 @@ const DhikrGoalScreen = ({ navigation, route }) => {
     const [selectedDhikrs, setSelectedDhikrs] = useState({}); // { dhikr: counter }
     const [showDropdown, setShowDropdown] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    // Load saved dhikr goals on mount
+    useEffect(() => {
+        const loadSaved = async () => {
+            try {
+                const info = await FirebaseService.getOnboardingInfo();
+                const dikar = info?.dikar;
+                if (Array.isArray(dikar) && dikar.length > 0) {
+                    // Convert array [{word, counter}] back to { word: counter } map
+                    const saved = {};
+                    dikar.forEach(({ word, counter }) => {
+                        if (word) saved[word] = counter ?? 10;
+                    });
+                    setSelectedDhikrs(saved);
+                }
+            } catch (e) {
+                console.warn('DhikrGoalScreen: could not load saved dhikr goals', e);
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        loadSaved();
+    }, []);
 
     /**
      * Toggle dhikr selection with default counter of 10
@@ -118,6 +142,17 @@ const DhikrGoalScreen = ({ navigation, route }) => {
     const handleBack = () => {
         navigation.goBack();
     };
+
+    if (initialLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary.darkSage} />
+                <Text style={{ marginTop: spacing.md, fontSize: 14, color: colors.text.grey }}>
+                    Loading your dhikr settings...
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

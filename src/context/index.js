@@ -4,3 +4,4 @@
  */
 
 export { ThemeProvider, useTheme } from './ThemeContext';
+export { SubscriptionProvider, useSubscription } from './SubscriptionContext';

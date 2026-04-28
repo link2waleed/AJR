@@ -67,27 +67,30 @@ service cloud.firestore {
     }
 
     // Circles - any authenticated user can read; only authenticated users can create/update
+    // Creator can delete their own circle
     match /circles/{circleId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
 
       // Daily activity subcollection - shared group stats
       match /dailyActivity/{docId} {
         allow read: if isAuthenticated();
         allow create, update: if isAuthenticated()
           && request.resource.data.userId == request.auth.uid;
-        allow delete: if isAuthenticated()
-          && resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated();
       }
     }
 
     // Circle Members - any authenticated user can read/create membership entries
+    // Members can delete their own entry (leave), creators can delete any entry (remove/decline)
+    // Creators can update entries (approve)
     match /circleMembers/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated();
     }
 
     // Circle Challenges - weekly challenge join tracking

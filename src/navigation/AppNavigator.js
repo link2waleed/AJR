@@ -19,6 +19,7 @@ import {
     QuranGoalScreen,
     DhikrGoalScreen,
     SubscriptionScreen,
+    RedeemCodeScreen,
     FinalSetupScreen,
 
     // Main Features
@@ -41,15 +42,35 @@ import {
     PrayerTimesScreen,
     NotificationsScreen,
     PrayerAdjustmentsScreen,
+    JoinCircleScreen,
 } from '../screens';
 
 import BottomTabNavigator from './BottomTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
+const linking = {
+    prefixes: ['ajr://'],
+    config: {
+        screens: {
+            MainApp: {
+                screens: {
+                    Home: 'dashboard',
+                    MyCircle: {
+                        path: 'mycircle',
+                    },
+                },
+            },
+            PrayerTimes: 'salah',
+            DailyGrowth: 'dailygrowth',
+            JoinCircle: 'join/:code',
+        },
+    },
+};
+
 const AppNavigator = () => {
     return (
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
             <Stack.Navigator
                 initialRouteName="Splash"
                 screenOptions={{
@@ -81,6 +102,7 @@ const AppNavigator = () => {
 
                 {/* ================= FINAL ONBOARDING ================= */}
                 <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+                <Stack.Screen name="RedeemCode" component={RedeemCodeScreen} />
                 <Stack.Screen name="FinalSetup" component={FinalSetupScreen} />
 
                 {/* ================= MAIN APP (BOTTOM TABS) ================= */}
@@ -95,6 +117,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="CircleDetail" component={CircleDetailScreen} />
                 <Stack.Screen name="CreateCircle" component={CreateCircleScreen} />
                 <Stack.Screen name="CreateCircleStep2" component={CreateCircleStep2Screen} />
+                <Stack.Screen name="JoinCircle" component={JoinCircleScreen} />
                 <Stack.Screen name="MyClub" component={MyClubScreen} />
                 <Stack.Screen name="Sadaqah" component={SadaqahScreen} />
                 <Stack.Screen name="Quran" component={QuranScreen} />

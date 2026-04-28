@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import FirebaseService from '../../services/FirebaseService';
+import { useSubscription } from '../../context';
+import LimitPopupModal from '../../components/LimitPopupModal';
 import createCircleIcon from '../../../assets/images/create-circle.png';
 import joinCircleIcon from '../../../assets/images/circle.png';
 
@@ -18,10 +21,23 @@ const isSmallDevice = screenWidth < 375;
 const horizontalPadding = isSmallDevice ? spacing.md : spacing.lg;
 
 const MyCircleSetupScreen = ({ navigation }) => {
+    const { isProUser } = useSubscription();
+    const [showLimitModal, setShowLimitModal] = useState(false);
 
-    const handleCreateCircle = () => {
-        console.log('Create Circle');
-        // Navigate to create circle flow
+    const handleCreateCircle = async () => {
+        if (!isProUser) {
+            const ownedCount = await FirebaseService.getOwnedCirclesCount();
+            if (ownedCount >= 1) {
+                setShowLimitModal(true);
+                return;
+            }
+        }
+        navigation.navigate('CreateCircle');
+    };
+
+    const handleUpgrade = () => {
+        setShowLimitModal(false);
+        navigation.navigate('Subscription', { variant: 'circle' });
     };
 
     const handleJoinCircle = () => {
@@ -97,6 +113,14 @@ const MyCircleSetupScreen = ({ navigation }) => {
                     <Ionicons name="arrow-forward" size={16} color={colors.text.black} />
                 </TouchableOpacity>
             </View>
+
+            <LimitPopupModal
+                visible={showLimitModal}
+                title="AJR+"
+                message={"• Create unlimited circles\n• Up to 25 members in each circle\n• Priority access to insights"}
+                onClose={() => setShowLimitModal(false)}
+                onUpgrade={handleUpgrade}
+            />
         </View>
     );
 };

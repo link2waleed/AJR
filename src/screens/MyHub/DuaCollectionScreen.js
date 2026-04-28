@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import FirebaseService from '../../services/FirebaseService';
+import { filterJihad } from '../../utils/textFilter';
 
 
 const DuaCollectionScreen = ({ navigation }) => {
@@ -166,8 +167,8 @@ const DuaCollectionScreen = ({ navigation }) => {
                                                 </TouchableOpacity>
                                             </View>
 
-                                            <Text style={styles.arabicText}>{dua.arabic?.replace(/<[^>]*>/g, '')}</Text>
-                                            <Text style={styles.translationText}>{dua.english?.replace(/<[^>]*>/g, '')}</Text>
+                                            <Text style={styles.arabicText}>{filterJihad(dua.arabic?.replace(/<[^>]*>/g, ''))}</Text>
+                                            <Text style={styles.translationText}>{filterJihad(dua.english?.replace(/<[^>]*>/g, ''))}</Text>
                                         </View>
                                     ))}
                                 </View>
@@ -304,6 +305,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         lineHeight: 38,
         marginVertical: 10,
+        fontFamily: 'Uthmanic',
     },
     transliterationBox: {
         backgroundColor: 'rgba(230, 235, 230, 0.6)', // Light greenish-grey bubble

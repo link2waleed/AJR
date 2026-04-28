@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    AppState,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import YoutubeIframe from 'react-native-youtube-iframe';
@@ -24,6 +25,7 @@ import { useTheme } from '../context';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
 import StorageService from '../services/StorageService';
+import WidgetService from '../services/WidgetService';
 import duaData from '../data/dua.json';
 import AJRRings from '../components/AJRRings';
 import { Audio } from 'expo-av';
@@ -317,6 +319,8 @@ const AudioPlayerModal = ({ visible, title, onClose }) => {
 
 // Daily Adhkar Item
 
+import { filterJihad } from '../utils/textFilter';
+
 const HomeScreen = ({ navigation }) => {
     const [adhkarExpanded, setAdhkarExpanded] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -388,7 +392,7 @@ const HomeScreen = ({ navigation }) => {
             try {
                 // Check if country has changed and reset weather unit if needed
                 const { countryChanged, wasManuallySet } = await StorageService.checkAndResetWeatherUnitIfCountryChanged(countryName);
-                
+
                 // Load the saved weather unit (or null if auto-detect)
                 const unit = await StorageService.getWeatherUnit();
                 if (unit) {
@@ -579,6 +583,29 @@ const HomeScreen = ({ navigation }) => {
         };
     }, [calculatedProgress, overallProgress, currentRingPercentages]);
 
+    // ── Push data to iOS Home Screen Widgets ──
+    const widgetUpdateTimeoutRef = useRef(null);
+    useEffect(() => {
+        if (widgetUpdateTimeoutRef.current) {
+            clearTimeout(widgetUpdateTimeoutRef.current);
+        }
+        widgetUpdateTimeoutRef.current = setTimeout(() => {
+            WidgetService.updateWidgetData({
+                prayerStats,
+                quranStats,
+                dhikrStats,
+                activityCompletion,
+                selectedActivities,
+                nextSalah: prayerData ? { name: prayerData.nextPrayer, timeString: prayerData.nextPrayerTime } : null,
+                prayerTimings: prayerData?.timings || null,
+                timezone: prayerData?.timezone || null,
+            });
+        }, 1500);
+        return () => {
+            if (widgetUpdateTimeoutRef.current) clearTimeout(widgetUpdateTimeoutRef.current);
+        };
+    }, [calculatedProgress, currentRingPercentages, prayerData, overallProgress]);
+
     // Use the calculated progress for real-time updates
     const progress = calculatedProgress;
 
@@ -589,28 +616,25 @@ const HomeScreen = ({ navigation }) => {
      */
     const getDuaOfTheDay = async () => {
         try {
-            const firestoreData = await FirebaseService.getUserRootData();
-            const createdAt = firestoreData.createdAt?.toDate ? firestoreData.createdAt.toDate() : new Date();
             const today = new Date();
-            const diffTime = today - createdAt;
-            const daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            // Use canonical local date key format
+            const dateString = FirebaseService.getLocalDateKey(today);
+            const dateHash = dateString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            
+            // Circular loop: each day at 12am shows a different hadith from 50 hadiths
+            const hadithIndex = dateHash % duaData.hadiths.length;
+            const hadithItem = duaData.hadiths[hadithIndex];
 
-            // Circular loop: each day shows a different dua
-            const duaIndex = daysSince % duaData.data.length;
-            const duaItem = duaData.data[duaIndex];
-
-            if (duaItem && duaItem.hadith && duaItem.hadith.length >= 2) {
-                const enHadith = duaItem.hadith.find(h => h.lang === 'en');
-                const arHadith = duaItem.hadith.find(h => h.lang === 'ar');
-
+            if (hadithItem && hadithItem.arabic) {
                 setTodayDua({
-                    english: enHadith,
-                    arabic: arHadith,
-                    hadithNumber: duaItem.hadithNumber,
+                    english: hadithItem.english,
+                    arabic: filterJihad(hadithItem.arabic), // Apply jihad filter
+                    transliteration: hadithItem.transliteration,
+                    id: hadithItem.id,
                 });
             }
         } catch (error) {
-            console.error('Error getting dua of the day:', error);
+            console.error('Error getting hadith of the day:', error);
         }
     };
 
@@ -622,7 +646,7 @@ const HomeScreen = ({ navigation }) => {
             if (!todayDua) return;
 
             const savedDuas = await FirebaseService.getSavedDuas();
-            const found = savedDuas.find(d => d.hadithNumber === todayDua.hadithNumber);
+            const found = savedDuas.find(d => d.id === todayDua.id);
 
             if (found) {
                 setIsDuaSaved(true);
@@ -772,12 +796,52 @@ const HomeScreen = ({ navigation }) => {
             (error) => { }
         );
 
+        // --- Midnight & Background Reset Logic ---
+        const lastResetDateRef = { current: FirebaseService.getLocalDateKey() };
+
+        const checkAndResetForNewDay = async () => {
+            const todayKey = FirebaseService.getLocalDateKey();
+            if (todayKey !== lastResetDateRef.current) {
+                console.log('🗓️ HomeScreen: New day detected, refreshing all daily data...');
+                lastResetDateRef.current = todayKey;
+                
+                // Refresh all components that depend on the date
+                getDuaOfTheDay();
+                refreshStats();
+                
+                // Nudge theme refresh if needed
+                if (refreshTheme) refreshTheme();
+                
+                // Clear any manual overrides from previous day
+                setActivityCompletion({
+                    prayers: false,
+                    quran: false,
+                    dhikr: false,
+                    journaling: false,
+                });
+            }
+        };
+
+        // Check every minute if the day has changed (handles midnight transition while app is open)
+        const midnightInterval = setInterval(checkAndResetForNewDay, 60000);
+
+        // Check when app returns from background
+        const appStateListener = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                checkAndResetForNewDay();
+                // Also trigger a general stats refresh
+                refreshStats();
+            }
+        });
+
         return () => {
             unsubscribeOnboarding();
             unsubscribeQuran();
             unsubscribeProgress();
             unsubscribePrayer();
             unsubscribeJournal();
+            clearInterval(midnightInterval);
+            appStateListener.remove();
         };
     }, []);
 
@@ -1323,7 +1387,7 @@ const HomeScreen = ({ navigation }) => {
             </View>
 
 
-            {/* Dua of the Day */}
+            {/* Hadith of the Day */}
             <View
                 style={styles.duaCard}
             >
@@ -1342,10 +1406,10 @@ const HomeScreen = ({ navigation }) => {
                                     setSavedDuaId(null);
                                 } else {
                                     const newId = await FirebaseService.saveFavoriteDua({
-                                        arabic: todayDua.arabic?.body || '',
-                                        english: todayDua.english?.body || '',
+                                        arabic: todayDua.arabic || '',
+                                        english: todayDua.english || '',
                                         category: 'Hadith of the Day',
-                                        hadithNumber: todayDua.hadithNumber
+                                        id: todayDua.id
                                     });
                                     setIsDuaSaved(true);
                                     setSavedDuaId(newId);
@@ -1364,24 +1428,27 @@ const HomeScreen = ({ navigation }) => {
                         />
                     </TouchableOpacity>
                 </View>
-                {todayDua?.arabic?.body && (
+                {todayDua?.arabic && (
                     <>
                         {duaExpanded ? (
                             <>
                                 <Text style={[styles.duaArabicExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                    {todayDua.arabic.body.replace(/<[^>]*>/g, '')}
+                                    {todayDua.arabic}
                                 </Text>
                                 <Text style={[styles.duaTransliterationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                    {todayDua.english?.body?.replace(/<[^>]*>/g, '')}
+                                    {todayDua.transliteration || ''}
+                                </Text>
+                                <Text style={[styles.duaTranslationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                    {todayDua.english || ''}
                                 </Text>
                             </>
                         ) : (
                             <>
-                                <Text style={[styles.duaArabic, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={1}>
-                                    {todayDua.arabic.body.replace(/<[^>]*>/g, '')}
+                                <Text style={[styles.duaArabic, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={2}>
+                                    {todayDua.arabic}
                                 </Text>
                                 <Text style={[styles.duaTransliteration, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={1}>
-                                    {todayDua.english?.body?.replace(/<[^>]*>/g, '')}
+                                    {todayDua.transliteration || ''}
                                 </Text>
                             </>
                         )}
@@ -1540,7 +1607,7 @@ const HomeScreen = ({ navigation }) => {
         <>
             <LinearGradient
                 colors={[colors.homeGradient.top, colors.homeGradient.top, colors.homeGradient.bottom, colors.homeGradient.bottom]}
-                locations={[0, 0.40, 0.60, 1]}
+                locations={[0, 0.30, 0.70, 1]}
                 style={styles.container}
             >
                 {renderContent()}
@@ -1809,8 +1876,8 @@ const styles = StyleSheet.create({
     duaCard: {
         backgroundColor: colors.primary.light,
         borderRadius: borderRadius.lg,
-        padding: spacing.lg,
-        marginBottom: spacing.lg,
+        padding: spacing.md,
+        marginBottom: spacing.md,
         borderWidth: 1.5,
         borderColor: '#fff',
     },
@@ -1818,7 +1885,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
     },
     heartIcon: {
         width: 22,
@@ -1836,6 +1903,7 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         marginBottom: spacing.sm,
         lineHeight: 30,
+        fontFamily: 'Uthmanic',
     },
     duaArabicExpanded: {
         fontSize: isSmallDevice ? 16 : 18,
@@ -1845,6 +1913,7 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         lineHeight: 30,
         flexWrap: 'wrap',
+        fontFamily: 'Uthmanic',
     },
     duaTransliteration: {
         fontSize: isSmallDevice ? 13 : 14,
@@ -1859,6 +1928,14 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         lineHeight: 20,
     },
+    duaTranslationExpanded: {
+        fontSize: isSmallDevice ? 13 : 14,
+        color: colors.text.grey,
+        marginBottom: spacing.md,
+        flexWrap: 'wrap',
+        lineHeight: 20,
+        textAlign: 'left',
+    },
     duaTranslation: {
         fontSize: isSmallDevice ? 13 : 14,
         color: colors.text.grey,
@@ -1869,7 +1946,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary.light,
         borderRadius: borderRadius.lg,
         overflow: 'hidden',
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
         borderWidth: 1.5,
         borderColor: '#fff',
     },
@@ -1877,7 +1954,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: spacing.lg,
+        padding: spacing.md,
         backgroundColor: '#FFFFFF',
     },
     adhkarSectionTitle: {

@@ -65,8 +65,8 @@ export const useReadingTimer = () => {
                 const currentDate = new Date();
 
                 // Get date strings (YYYY-MM-DD) for comparison
-                const savedDateStr = savedDate.toISOString().split('T')[0];
-                const currentDateStr = currentDate.toISOString().split('T')[0];
+                const savedDateStr = FirebaseService.getLocalDateKey(savedDate);
+                const currentDateStr = FirebaseService.getLocalDateKey(currentDate);
 
                 // If dates are different, reset timer (new day)
                 if (savedDateStr !== currentDateStr) {
@@ -134,7 +134,7 @@ export const useReadingTimer = () => {
         await saveTimeWithValue(elapsedTimeRef.current);
     };
 
-    const currentDateRef = useRef(new Date().toISOString().split('T')[0]);
+    const currentDateRef = useRef(FirebaseService.getLocalDateKey());
 
     // Start the timer
     const startTimer = () => {
@@ -144,13 +144,13 @@ export const useReadingTimer = () => {
             startTimeRef.current = Date.now() - (elapsedTimeRef.current * 1000);
 
             // Ensure we track the date when timer starts
-            currentDateRef.current = new Date().toISOString().split('T')[0];
+            currentDateRef.current = FirebaseService.getLocalDateKey();
 
             intervalRef.current = setInterval(() => {
                 const currentTime = Date.now();
 
                 // Check for midnight crossover
-                const nowStr = new Date().toISOString().split('T')[0];
+                const nowStr = FirebaseService.getLocalDateKey();
                 if (nowStr !== currentDateRef.current) {
                     console.log('🕛 Midnight crossover detected! Resetting timer.');
 

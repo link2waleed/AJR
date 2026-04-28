@@ -361,6 +361,7 @@ const PrayerTimeService = {
                 // Prayers that should naturally be afternoon/evening
                 // If they appear as early morning times, add 12 hours
                 const shouldBeAfternoon = {
+                    'Dhuhr': { minExpected: 11, maxExpected: 15 },
                     'Asr': { minExpected: 13, maxExpected: 18 },
                     'Maghrib': { minExpected: 15, maxExpected: 21 },
                     'Isha': { minExpected: 18, maxExpected: 23 }
@@ -381,7 +382,7 @@ const PrayerTimeService = {
             const standardTimings = {
                 Fajr: data.fajr,
                 Sunrise: data.sunrise,
-                Dhuhr: data.dhuhr,
+                Dhuhr: correctTimeIfNeeded(data.dhuhr, 'Dhuhr'),
                 Asr: correctTimeIfNeeded(asrTime, 'Asr'),
                 Maghrib: correctTimeIfNeeded(data.magrib, 'Maghrib'),
                 Isha: correctTimeIfNeeded(data.isha, 'Isha'),
@@ -553,7 +554,7 @@ const PrayerTimeService = {
             } else if (isInLondon(latitude, longitude)) {
                 // Fallback: Get Hijri date from Aladhan for London users
                 try {
-                    const aladhanData = await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, school);
+                    const aladhanData = await PrayerTimeService.fetchAladhanPrayerTimes(latitude, longitude, date, school);
                     if (aladhanData?.date?.hijri) {
                         hijriDate = `${aladhanData.date.hijri.day} ${aladhanData.date.hijri.month.en} ${aladhanData.date.hijri.year}`;
                     }
