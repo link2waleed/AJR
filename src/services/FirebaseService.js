@@ -90,11 +90,11 @@ class FirebaseService {
             // Initialize onboarding-info subcollection with single document (using uid as doc id)
             const onboardingData = {
                 prayer: {
-                    fajr: { enabled: false, athanEnabled: true, reminderEnabled: true },
-                    dhuhr: { enabled: false, athanEnabled: true, reminderEnabled: true },
-                    asr: { enabled: false, athanEnabled: true, reminderEnabled: true },
-                    maghrib: { enabled: false, athanEnabled: true, reminderEnabled: true },
-                    isha: { enabled: false, athanEnabled: true, reminderEnabled: true },
+                    fajr: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+                    dhuhr: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+                    asr: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+                    maghrib: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+                    isha: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
                     soundMode: 'athan',
                 },
                 quran: {
@@ -129,37 +129,32 @@ class FirebaseService {
             if (!user) throw new Error('No authenticated user');
 
             // prayerSettings shape:
-            // { fajr, dhuhr, asr, maghrib, isha } — each: { enabled, athanEnabled, reminderEnabled, soundMode }
+            // { fajr, dhuhr, asr, maghrib, isha } — each: { enabled, soundMode, reminderEnabled }
             // + soundMode (global string for backward compatibility)
             const prayerData = {
                 fajr: {
                     enabled: prayerSettings.fajr?.enabled ?? false,
-                    athanEnabled: prayerSettings.fajr?.athanEnabled ?? true,
-                    reminderEnabled: prayerSettings.fajr?.reminderEnabled ?? true,
+                    reminderEnabled: prayerSettings.fajr?.reminderEnabled ?? false,
                     soundMode: prayerSettings.fajr?.soundMode || 'athan',
                 },
                 dhuhr: {
                     enabled: prayerSettings.dhuhr?.enabled ?? false,
-                    athanEnabled: prayerSettings.dhuhr?.athanEnabled ?? true,
-                    reminderEnabled: prayerSettings.dhuhr?.reminderEnabled ?? true,
+                    reminderEnabled: prayerSettings.dhuhr?.reminderEnabled ?? false,
                     soundMode: prayerSettings.dhuhr?.soundMode || 'athan',
                 },
                 asr: {
                     enabled: prayerSettings.asr?.enabled ?? false,
-                    athanEnabled: prayerSettings.asr?.athanEnabled ?? true,
-                    reminderEnabled: prayerSettings.asr?.reminderEnabled ?? true,
+                    reminderEnabled: prayerSettings.asr?.reminderEnabled ?? false,
                     soundMode: prayerSettings.asr?.soundMode || 'athan',
                 },
                 maghrib: {
                     enabled: prayerSettings.maghrib?.enabled ?? false,
-                    athanEnabled: prayerSettings.maghrib?.athanEnabled ?? true,
-                    reminderEnabled: prayerSettings.maghrib?.reminderEnabled ?? true,
+                    reminderEnabled: prayerSettings.maghrib?.reminderEnabled ?? false,
                     soundMode: prayerSettings.maghrib?.soundMode || 'athan',
                 },
                 isha: {
                     enabled: prayerSettings.isha?.enabled ?? false,
-                    athanEnabled: prayerSettings.isha?.athanEnabled ?? true,
-                    reminderEnabled: prayerSettings.isha?.reminderEnabled ?? true,
+                    reminderEnabled: prayerSettings.isha?.reminderEnabled ?? false,
                     soundMode: prayerSettings.isha?.soundMode || 'athan',
                 },
                 soundMode: prayerSettings.soundMode || 'athan',
@@ -806,6 +801,12 @@ class FirebaseService {
                     journaling: false,
                 },
                 lastActivityResetDate: todayStr || this.getLocalDateKey(),
+                // Also reset dailyProgress percentages
+                'dailyProgress.overallPercentage': 0,
+                'dailyProgress.prayersPercentage': 0,
+                'dailyProgress.quranPercentage': 0,
+                'dailyProgress.dhikrPercentage': 0,
+                'dailyProgress.journalPercentage': 0,
             };
 
             await firestore().collection('users').doc(user.uid).update(resetData);
@@ -842,6 +843,13 @@ class FirebaseService {
                             journaling: false,
                         },
                         lastActivityResetDate: todayStr,
+                        // Also reset dailyProgress percentages so stale values
+                        // don't leak through when any activity updates lastUpdated today
+                        'dailyProgress.overallPercentage': 0,
+                        'dailyProgress.prayersPercentage': 0,
+                        'dailyProgress.quranPercentage': 0,
+                        'dailyProgress.dhikrPercentage': 0,
+                        'dailyProgress.journalPercentage': 0,
                     };
                     try {
                         await firestore()
@@ -876,6 +884,13 @@ class FirebaseService {
                                         journaling: false,
                                     },
                                     lastActivityResetDate: todayStr,
+                                    // Also reset dailyProgress percentages so stale values
+                                    // don't leak through when any activity updates lastUpdated today
+                                    'dailyProgress.overallPercentage': 0,
+                                    'dailyProgress.prayersPercentage': 0,
+                                    'dailyProgress.quranPercentage': 0,
+                                    'dailyProgress.dhikrPercentage': 0,
+                                    'dailyProgress.journalPercentage': 0,
                                 };
                                 try {
                                     await firestore()
@@ -947,55 +962,64 @@ class FirebaseService {
 
 
     /**
-     * Get all dhikr progress
-     * @returns {Object} Object with dhikr names as keys and counts as values
-     * Example: { "SubhanAllah": 5, "Alhamdulillah": 10 }
+     * Listen to Today's Daily Dhikr Stats
+     * Auto-resets daily at local midnight
+     * @param {Function} onUpdate - Callback with dhikr counts
      */
-    static async getDhikrProgress() {
+    static listenToDailyDhikr(onUpdate) {
         try {
             const user = auth().currentUser;
-            if (!user) throw new Error('No authenticated user');
+            if (!user) return () => { };
 
-            const doc = await firestore()
-                .collection('users')
-                .doc(user.uid)
-                .collection('onboarding-info')
-                .doc(user.uid)
-                .get();
+            let currentDateKey = this.getLocalDateKey();
+            let unsubscribe = null;
 
-            if (!doc.exists) {
-                return {};
-            }
+            const subscribeToDate = (dateKey) => {
+                if (unsubscribe) unsubscribe();
 
-            const data = doc.data();
-            const lastDhikrDate = data?.lastDhikrDate ? data.lastDhikrDate.toDate() : null;
+                unsubscribe = firestore()
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('daily-dhikr')
+                    .doc(dateKey)
+                    .onSnapshot(
+                        (doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                if (data) {
+                                    // Remove metadata fields from the returned object so only dhikr counts remain
+                                    const { lastUpdated, streak, streakUpdatedAt, ...dhikrCounts } = data;
+                                    onUpdate(dhikrCounts);
+                                    return;
+                                }
+                            }
+                            // Push empty counts if no data for today
+                            onUpdate({});
+                        },
+                        (error) => {
+                            console.error('Error in daily dhikr snapshot:', error);
+                            onUpdate({});
+                        }
+                    );
+            };
 
-            // Check for daily reset
-            if (lastDhikrDate) {
-                const today = new Date();
-                if (lastDhikrDate.toDateString() !== today.toDateString()) {
-                    console.log('New day detected for Dhikr. Resetting progress.');
-
-                    // Reset in DB asynchronously
-                    firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('onboarding-info')
-                        .doc(user.uid)
-                        .set({
-                            dhikrProgress: {},
-                            lastDhikrDate: firestore.FieldValue.serverTimestamp()
-                        }, { merge: true })
-                        .catch(err => console.error('Failed to reset dhikr progress:', err));
-
-                    return {};
+            const resetCheckInterval = setInterval(() => {
+                const newDateKey = this.getLocalDateKey();
+                if (newDateKey !== currentDateKey) {
+                    currentDateKey = newDateKey;
+                    subscribeToDate(currentDateKey);
                 }
-            }
+            }, 60000);
 
-            return data?.dhikrProgress || {};
+            subscribeToDate(currentDateKey);
+
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (unsubscribe) unsubscribe();
+            };
         } catch (error) {
-            console.error('FirebaseService: Error getting dhikr progress:', error);
-            throw error;
+            console.error('FirebaseService: Error setting up daily dhikr listener:', error);
+            return () => { };
         }
     }
 
@@ -1009,7 +1033,7 @@ class FirebaseService {
                 if (!user) throw new Error('No authenticated user');
 
                 // Use custom ID if provided (to prevent duplicates), otherwise fallback
-                const duaId = dua.id || (dua.hadithNumber ? `hadith_${dua.hadithNumber}` : `dua_${Date.now()}`);
+                const duaId = dua.id ? String(dua.id) : (dua.hadithNumber ? `hadith_${dua.hadithNumber}` : `dua_${Date.now()}`);
                 
                 await firestore()
                     .collection('users')
@@ -2947,6 +2971,40 @@ class FirebaseService {
                 });
             }
 
+            // Clean up circleChallenges to keep challenge stats accurate
+            try {
+                const challengesSnapshot = await firestore()
+                    .collection('circleChallenges')
+                    .where('circleId', '==', circleId)
+                    .get();
+
+                for (const challengeDoc of challengesSnapshot.docs) {
+                    const challengeRef = challengeDoc.ref;
+                    const participantRef = challengeRef.collection('participants').doc(memberData.userId);
+                    const participantDoc = await participantRef.get();
+
+                    if (participantDoc.exists) {
+                        await participantRef.delete();
+                        
+                        // Recalculate joinedCount
+                        const remainingParticipants = await challengeRef.collection('participants').get();
+                        
+                        // Get actual circleMembers count for this circle
+                        const remainingMembers = await firestore()
+                            .collection('circleMembers')
+                            .where('circleId', '==', circleId)
+                            .get();
+                            
+                        await challengeRef.update({
+                            totalMembers: remainingMembers.size,
+                            joinedCount: remainingParticipants.size,
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not clean up challenge participation during member removal:', e);
+            }
+
             console.log('Removed member:', memberDocId, 'from circle:', circleId);
         } catch (error) {
             console.error('FirebaseService: Error removing member:', error);
@@ -3044,6 +3102,7 @@ class FirebaseService {
             // Fetch user data + activityProgress for each member
             for (const memberDoc of membersSnapshot.docs) {
                 const memberData = memberDoc.data();
+                if (memberData.status === 'pending') continue;
                 try {
                     const userDoc = await firestore()
                         .collection('users')
@@ -3053,7 +3112,11 @@ class FirebaseService {
                     if (userDoc.exists) {
                         const userData = userDoc.data();
                         const name = userData?.name || 'Unknown';
-                        const progress = userData?.activityProgress || {};
+                        
+                        const todayStr = this.getLocalDateKey();
+                        // If user hasn't opened app today, their stats are stale
+                        const isStale = userData?.lastActivityResetDate !== todayStr;
+                        const progress = isStale ? {} : (userData?.activityProgress || {});
 
                         if (progress.prayers) {
                             stats.prayers.count++;
@@ -3111,6 +3174,7 @@ class FirebaseService {
 
             for (const memberDoc of membersSnapshot.docs) {
                 const memberData = memberDoc.data();
+                if (memberData.status === 'pending') continue;
                 try {
                     const userDoc = await firestore()
                         .collection('users')
@@ -3118,7 +3182,29 @@ class FirebaseService {
                         .get();
 
                     if (userDoc.exists) {
-                        const dp = userDoc.data()?.dailyProgress || {};
+                        const userData = userDoc.data();
+                        const todayStr = this.getLocalDateKey();
+                        
+                        // Check if the user has opened the app today
+                        const isStale = userData?.lastActivityResetDate !== todayStr;
+                        const rawDp = userData?.dailyProgress || {};
+                        
+                        let dp = {};
+                        if (!isStale) {
+                            // strictly verify dailyProgress was actually updated today
+                            const lastUpdated = rawDp.lastUpdated;
+                            let isDpFresh = false;
+                            if (lastUpdated) {
+                                const dpDate = lastUpdated.toDate ? lastUpdated.toDate() : new Date(lastUpdated);
+                                if (this.getLocalDateKey(dpDate) === todayStr) {
+                                    isDpFresh = true;
+                                }
+                            }
+                            if (isDpFresh) {
+                                dp = rawDp;
+                            }
+                        }
+
                         totalPrayers += dp.prayersPercentage || 0;
                         totalQuran += dp.quranPercentage || 0;
                         totalDhikr += dp.dhikrPercentage || 0;

@@ -155,42 +155,98 @@ const WidgetService = {
             if (selectedActivities.dhikr) { totalPct += dhikrPct; count++; }
             const overallProgress = count > 0 ? Math.round(totalPct / count) : 0;
 
-            // ── Next Salah calculation ──
-            let nextSalahData = { name: '—', timeRemaining: '—', timeString: '—' };
-            if (nextSalah && nextSalah.name) {
-                // Calculate time remaining from now
-                let timeRemaining = '—';
-                if (prayerTimings && timezone) {
-                    try {
-                        const prayerKey = nextSalah.name;
-                        const prayerTimeStr = prayerTimings[prayerKey];
-                        if (prayerTimeStr) {
-                            const [h, m] = prayerTimeStr.split(':').map(Number);
-                            // Get current time in prayer timezone
-                            const now = new Date();
-                            const formatter = new Intl.DateTimeFormat('en-US', {
-                                timeZone: timezone,
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false,
-                            });
-                            const parts = formatter.formatToParts(now);
-                            const nowH = parseInt(parts.find(p => p.type === 'hour').value, 10);
-                            const nowM = parseInt(parts.find(p => p.type === 'minute').value, 10);
+            // ── Next Salah calculation & Schedule ──
+            let nextSalahData = { name: '—', timeRemaining: '—', timeString: '—', targetDateString: null, schedule: [] };
+            if (prayerTimings && timezone) {
+                try {
+                    const PRAYERS = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+                    const now = new Date();
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: timezone,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                    });
+                    const parts = formatter.formatToParts(now);
+                    const nowH = parseInt(parts.find(p => p.type === 'hour').value, 10);
+                    const nowM = parseInt(parts.find(p => p.type === 'minute').value, 10);
+                    const nowMinutes = nowH * 60 + nowM;
 
-                            let diffMinutes = (h * 60 + m) - (nowH * 60 + nowM);
-                            if (diffMinutes < 0) diffMinutes += 24 * 60; // next day
-                            timeRemaining = formatTimeRemaining(diffMinutes * 60);
-                        }
-                    } catch (e) {
-                        console.warn('WidgetService: Error calculating time remaining', e);
+                    let schedule = [];
+                    // Create entries for today and tomorrow to ensure we always have the next few prayers
+                    for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+                        PRAYERS.forEach(prayerName => {
+                            const timeStr = prayerTimings[prayerName];
+                            if (timeStr) {
+                                const [h, m] = timeStr.split(':').map(Number);
+                                let prayerMinutes = h * 60 + m;
+                                
+                                // Calculate exact target Date
+                                // If dayOffset is 0 but prayer already passed today, we push it to tomorrow
+                                let actualDayOffset = dayOffset;
+                                if (dayOffset === 0 && prayerMinutes <= nowMinutes) {
+                                    actualDayOffset = 1;
+                                } else if (dayOffset === 1 && prayerMinutes <= nowMinutes) {
+                                    actualDayOffset = 2;
+                                }
+
+                                const diffMinutes = prayerMinutes - nowMinutes + (actualDayOffset * 24 * 60);
+                                const targetDate = new Date(Date.now() + diffMinutes * 60 * 1000);
+                                
+                                schedule.push({
+                                    name: prayerName,
+                                    timeString: timeStr,
+                                    targetDateString: targetDate.toISOString(),
+                                    targetDateMs: targetDate.getTime()
+                                });
+                            }
+                        });
                     }
-                }
+                    
+                    // Sort chronologically and deduplicate based on time
+                    schedule.sort((a, b) => a.targetDateMs - b.targetDateMs);
+                    
+                    // Filter strictly future prayers
+                    schedule = schedule.filter(p => p.targetDateMs > now.getTime());
+                    
+                    // Remove duplicates (same prayer time on same day)
+                    const uniqueSchedule = [];
+                    const seenTimes = new Set();
+                    for (const item of schedule) {
+                        if (!seenTimes.has(item.targetDateString)) {
+                            seenTimes.add(item.targetDateString);
+                            uniqueSchedule.push(item);
+                        }
+                    }
 
+                    if (uniqueSchedule.length > 0) {
+                        const next = uniqueSchedule[0];
+                        let diffMinutes = Math.floor((next.targetDateMs - now.getTime()) / 60000);
+                        let timeRemaining = formatTimeRemaining(diffMinutes * 60);
+
+                        nextSalahData = {
+                            name: next.name,
+                            timeRemaining,
+                            timeString: next.timeString,
+                            targetDateString: next.targetDateString,
+                            schedule: uniqueSchedule.map(s => ({
+                                name: s.name,
+                                timeString: s.timeString,
+                                targetDateString: s.targetDateString
+                            }))
+                        };
+                    }
+                } catch (e) {
+                    console.warn('WidgetService: Error calculating widget schedule', e);
+                }
+            } else if (nextSalah && nextSalah.name) {
+                // Fallback if timings/timezone not available
                 nextSalahData = {
                     name: nextSalah.name,
-                    timeRemaining,
+                    timeRemaining: '—',
                     timeString: nextSalah.timeString || '—',
+                    targetDateString: null,
+                    schedule: []
                 };
             }
 

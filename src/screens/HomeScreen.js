@@ -21,12 +21,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Asset } from 'expo-asset';
 import Svg, { Circle, G } from 'react-native-svg';
 import { colors, typography, spacing, borderRadius } from '../theme';
-import { useTheme } from '../context';
+import { useTheme, useSubscription } from '../context';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
+import PrayerTimeService from '../services/PrayerTimeService';
 import StorageService from '../services/StorageService';
 import WidgetService from '../services/WidgetService';
-import duaData from '../data/dua.json';
+import NotificationService from '../services/NotificationService';
+import hadithsData from '../data/hadiths_with_references.json';
 import AJRRings from '../components/AJRRings';
 import { Audio } from 'expo-av';
 import whiteClock from '../../assets/images/white-clock.png';
@@ -455,6 +457,7 @@ const HomeScreen = ({ navigation }) => {
 
     // Use theme context for dynamic Day/Evening switching, prayer data, city, and weather
     const { isEvening, isLoading, isLocationEnabled, hasNoData, location, maghribTime, prayerData, cityName, countryName, weather, isManualPreview, refreshTheme, toggleThemePreview } = useTheme();
+    const { isProUser } = useSubscription();
 
     // Derived completion status
     // Derived completion status based on toggle
@@ -549,7 +552,12 @@ const HomeScreen = ({ navigation }) => {
 
     // Save progress to Firebase when overall OR individual percentages change
     useEffect(() => {
-        const ringChanged = !savedRingPercentagesRef.current ||
+        // Do not attempt to save until we have received the baseline from Firebase
+        if (!savedRingPercentagesRef.current) {
+            return;
+        }
+
+        const ringChanged =
             currentRingPercentages.prayers !== savedRingPercentagesRef.current.prayers ||
             currentRingPercentages.quran !== savedRingPercentagesRef.current.quran ||
             currentRingPercentages.dhikr !== savedRingPercentagesRef.current.dhikr ||
@@ -609,6 +617,56 @@ const HomeScreen = ({ navigation }) => {
     // Use the calculated progress for real-time updates
     const progress = calculatedProgress;
 
+    // ── Sync Notifications Automatically ──
+    // Ensures scheduled notifications are always up-to-date with current channels and sounds
+    const hasSyncedNotificationsRef = useRef(false);
+    useEffect(() => {
+        const syncNotifications = async () => {
+            if (!prayerData?.timings || !prayerData?.timezone) return;
+            if (hasSyncedNotificationsRef.current) return;
+            hasSyncedNotificationsRef.current = true;
+
+            try {
+                const info = await FirebaseService.getOnboardingInfo();
+                if (info?.prayer) {
+                    const { fajr, dhuhr, asr, maghrib, isha, soundMode } = info.prayer;
+                    const globalSoundMode = soundMode || 'athan';
+
+                    const parsePrayer = (val) => {
+                        if (val && typeof val === 'object') {
+                            return {
+                                enabled: val.enabled ?? false,
+                                soundMode: val.soundMode || globalSoundMode,
+                                reminderEnabled: val.reminderEnabled ?? false,
+                            };
+                        }
+                        return { enabled: val ?? false, soundMode: globalSoundMode, reminderEnabled: false };
+                    };
+
+                    const prayerSettings = {
+                        fajr: parsePrayer(fajr),
+                        dhuhr: parsePrayer(dhuhr),
+                        asr: parsePrayer(asr),
+                        maghrib: parsePrayer(maghrib),
+                        isha: parsePrayer(isha),
+                    };
+
+                    await NotificationService.schedulePrayerNotifications(
+                        prayerSettings,
+                        prayerData.timings,
+                        prayerData.timezone
+                    );
+                    console.log('✅ HomeScreen: Background notification sync complete');
+                }
+            } catch (error) {
+                console.error('HomeScreen: Error syncing notifications automatically:', error);
+                hasSyncedNotificationsRef.current = false; // allow retry
+            }
+        };
+
+        syncNotifications();
+    }, [prayerData?.timings]);
+
 
     /**
      * Get today's Dua based on circular loop through dua.json
@@ -620,10 +678,10 @@ const HomeScreen = ({ navigation }) => {
             // Use canonical local date key format
             const dateString = FirebaseService.getLocalDateKey(today);
             const dateHash = dateString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            
+
             // Circular loop: each day at 12am shows a different hadith from 50 hadiths
-            const hadithIndex = dateHash % duaData.hadiths.length;
-            const hadithItem = duaData.hadiths[hadithIndex];
+            const hadithIndex = dateHash % hadithsData.hadiths.length;
+            const hadithItem = hadithsData.hadiths[hadithIndex];
 
             if (hadithItem && hadithItem.arabic) {
                 setTodayDua({
@@ -631,6 +689,8 @@ const HomeScreen = ({ navigation }) => {
                     arabic: filterJihad(hadithItem.arabic), // Apply jihad filter
                     transliteration: hadithItem.transliteration,
                     id: hadithItem.id,
+                    source: hadithItem.source,
+                    narrator: hadithItem.narrator,
                 });
             }
         } catch (error) {
@@ -646,7 +706,7 @@ const HomeScreen = ({ navigation }) => {
             if (!todayDua) return;
 
             const savedDuas = await FirebaseService.getSavedDuas();
-            const found = savedDuas.find(d => d.id === todayDua.id);
+            const found = savedDuas.find(d => String(d.id) === String(todayDua.id));
 
             if (found) {
                 setIsDuaSaved(true);
@@ -743,30 +803,18 @@ const HomeScreen = ({ navigation }) => {
                 // Dhikr Logic - set goal, fetch progress once
                 if (data.dikar && Array.isArray(data.dikar)) {
                     const totalGoal = data.dikar.reduce((sum, dhikr) => sum + (dhikr.counter || 0), 0);
-                    setDhikrStats(prev => ({
-                        ...prev,
-                        totalGoal
-                    }));
-
-                    // Fetch dhikr progress once
-                    FirebaseService.getDhikrProgress()
-                        .then((dhikrProgress) => {
-                            // Cap each dhikr at its own target to prevent overflow counting
-                            const totalCompleted = data.dikar.reduce((sum, item) => {
-                                return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
-                            }, 0);
-                            setDhikrStats(prev => ({
-                                ...prev,
-                                totalCompleted
-                            }));
-                        })
-                        .catch(e => {
-                            console.error('Error fetching dhikr progress:', e);
-                            setDhikrStats(prev => ({
-                                ...prev,
-                                totalCompleted: 0
-                            }));
-                        });
+                    setDhikrStats(prev => {
+                        const dhikrProgress = prev.rawProgress || {};
+                        const totalCompleted = data.dikar.reduce((sum, item) => {
+                            return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
+                        }, 0);
+                        return {
+                            ...prev,
+                            totalGoal,
+                            totalCompleted,
+                            goals: data.dikar
+                        };
+                    });
                 }
             },
             (error) => {
@@ -788,6 +836,21 @@ const HomeScreen = ({ navigation }) => {
             setJournalStats(stats);
         });
 
+        // Listen to daily Dhikr stats for real-time updates and midnight reset
+        const unsubscribeDhikr = FirebaseService.listenToDailyDhikr((progress) => {
+            setDhikrStats(prev => {
+                const goals = prev.goals || [];
+                const totalCompleted = goals.reduce((sum, item) => {
+                    return sum + Math.min(progress[item.word] || 0, item.counter || 0);
+                }, 0);
+                return {
+                    ...prev,
+                    rawProgress: progress,
+                    totalCompleted
+                };
+            });
+        });
+
         // Keep legacy listener for backward compatibility if needed, but we rely on calculated stats now
         const unsubscribeProgress = FirebaseService.listenToActivityProgress(
             (progress) => {
@@ -798,31 +861,55 @@ const HomeScreen = ({ navigation }) => {
 
         // --- Midnight & Background Reset Logic ---
         const lastResetDateRef = { current: FirebaseService.getLocalDateKey() };
+        let midnightTimeout = null;
+
+        const resetDailyHomeScreenState = async () => {
+            const todayKey = FirebaseService.getLocalDateKey();
+            lastResetDateRef.current = todayKey;
+            console.log('🗓️ HomeScreen: Local midnight reached, resetting daily rings and refresh state...');
+
+            setActivityCompletion({
+                prayers: false,
+                quran: false,
+                dhikr: false,
+                journaling: false,
+            });
+            setPrayerStats({ completed: 0, total: 5 });
+            setQuranStats((prev) => ({ ...prev, seconds: 0 }));
+            setDhikrStats((prev) => ({ ...prev, totalCompleted: 0 }));
+            setJournalStats({ completedToday: false });
+
+            getDuaOfTheDay();
+            refreshStats();
+            if (refreshTheme) refreshTheme();
+        };
 
         const checkAndResetForNewDay = async () => {
             const todayKey = FirebaseService.getLocalDateKey();
             if (todayKey !== lastResetDateRef.current) {
-                console.log('🗓️ HomeScreen: New day detected, refreshing all daily data...');
-                lastResetDateRef.current = todayKey;
-                
-                // Refresh all components that depend on the date
-                getDuaOfTheDay();
-                refreshStats();
-                
-                // Nudge theme refresh if needed
-                if (refreshTheme) refreshTheme();
-                
-                // Clear any manual overrides from previous day
-                setActivityCompletion({
-                    prayers: false,
-                    quran: false,
-                    dhikr: false,
-                    journaling: false,
-                });
+                await resetDailyHomeScreenState();
             }
         };
 
-        // Check every minute if the day has changed (handles midnight transition while app is open)
+        const scheduleMidnightReset = () => {
+            if (midnightTimeout) {
+                clearTimeout(midnightTimeout);
+            }
+
+            const now = new Date();
+            const nextMidnight = new Date(now);
+            nextMidnight.setHours(24, 0, 0, 0, 0);
+            const delay = nextMidnight.getTime() - now.getTime();
+
+            midnightTimeout = setTimeout(async () => {
+                await checkAndResetForNewDay();
+                scheduleMidnightReset();
+            }, Math.max(delay, 1000));
+        };
+
+        scheduleMidnightReset();
+
+        // Check every minute as a fallback and to catch any missed date transitions
         const midnightInterval = setInterval(checkAndResetForNewDay, 60000);
 
         // Check when app returns from background
@@ -840,7 +927,9 @@ const HomeScreen = ({ navigation }) => {
             unsubscribeProgress();
             unsubscribePrayer();
             unsubscribeJournal();
+            unsubscribeDhikr();
             clearInterval(midnightInterval);
+            if (midnightTimeout) clearTimeout(midnightTimeout);
             appStateListener.remove();
         };
     }, []);
@@ -928,42 +1017,27 @@ const HomeScreen = ({ navigation }) => {
         };
 
         try {
-            // Get current time in location's timezone
             const now = new Date();
-            const formatter = new Intl.DateTimeFormat('en-US', {
-                timeZone: timezone,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false,
-            });
+            const nowInLocationTz = PrayerTimeService.parseTimeToDateWithTimezone(
+                `${new Intl.DateTimeFormat('en-US', {
+                    timeZone: timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                }).format(now)}`,
+                timezone,
+                now
+            );
 
-            const parts = formatter.formatToParts(now);
-            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
-            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
-            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
-            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
-            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
-            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
-
-            // Current time in location timezone
-            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
-
-            // Find next prayer
             for (const prayerName of PRAYER_ORDER) {
                 if (prayerName === 'Sunrise') continue; // Skip Sunrise
 
                 const prayerTimeStr = prayerData.timings[prayerName];
                 if (!prayerTimeStr) continue;
 
-                // Parse prayer time (HH:MM format)
-                const [prayerHours, prayerMinutes] = prayerTimeStr.split(':').map(Number);
-                const prayerDate = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
+                const prayerDate = PrayerTimeService.parseTimeToDateWithTimezone(prayerTimeStr, timezone, now);
 
-                if (prayerDate > nowInLocationTz) {
+                if (prayerDate && nowInLocationTz && prayerDate > nowInLocationTz) {
                     console.log(`✅ HomeScreen: Next prayer by geolocation (${timezone}): ${prayerName} at ${prayerTimeStr}`);
                     return {
                         name: PRAYER_DISPLAY_NAMES[prayerName] || prayerName,
@@ -1000,28 +1074,15 @@ const HomeScreen = ({ navigation }) => {
         const PRAYER_ORDER = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
         try {
-            // Get current time in location's timezone
             const now = new Date();
-            const formatter = new Intl.DateTimeFormat('en-US', {
+            const nowFormatted = new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit',
                 hour12: false,
-            });
+            }).format(now);
 
-            const parts = formatter.formatToParts(now);
-            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
-            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
-            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
-            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
-            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
-            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
-
-            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+            const nowInLocationTz = PrayerTimeService.parseTimeToDateWithTimezone(nowFormatted, timezone, now);
 
             // Check which prayer window we're in
             for (let i = 0; i < PRAYER_ORDER.length; i++) {
@@ -1033,20 +1094,17 @@ const HomeScreen = ({ navigation }) => {
 
                 if (!currentPrayerStr) continue;
 
-                const [currentHours, currentMinutes] = currentPrayerStr.split(':').map(Number);
-                const currentPrayerTime = new Date(tzYear, tzMonth, tzDay, currentHours, currentMinutes, 0);
+                const currentPrayerTime = PrayerTimeService.parseTimeToDateWithTimezone(currentPrayerStr, timezone, now);
 
                 let nextPrayerTime;
                 if (nextPrayerStr) {
-                    const [nextHours, nextMinutes] = nextPrayerStr.split(':').map(Number);
-                    nextPrayerTime = new Date(tzYear, tzMonth, tzDay, nextHours, nextMinutes, 0);
+                    nextPrayerTime = PrayerTimeService.parseTimeToDateWithTimezone(nextPrayerStr, timezone, now);
                 } else {
-                    // After last prayer (Isha), until midnight
-                    nextPrayerTime = new Date(tzYear, tzMonth, tzDay + 1, 0, 0, 0);
+                    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                    nextPrayerTime = PrayerTimeService.parseTimeToDateWithTimezone('00:00', timezone, tomorrow);
                 }
 
-                // Check if current time is in this prayer window
-                if (nowInLocationTz >= currentPrayerTime && nowInLocationTz < nextPrayerTime) {
+                if (currentPrayerTime && nextPrayerTime && nowInLocationTz >= currentPrayerTime && nowInLocationTz < nextPrayerTime) {
                     console.log(`🕌 HomeScreen: Current prayer (${timezone}): ${currentPrayerName} (${currentPrayerStr})`);
                     return {
                         name: currentPrayerName,
@@ -1112,39 +1170,24 @@ const HomeScreen = ({ navigation }) => {
         try {
             // Get current time in location's timezone
             const now = new Date();
-            const formatter = new Intl.DateTimeFormat('en-US', {
+            const nowFormatted = new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit',
                 hour12: false,
-            });
+            }).format(now);
 
-            const parts = formatter.formatToParts(now);
-            const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
-            const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
-            const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
-            const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
-            const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
-            const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
-
-            const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+            const nowInLocationTz = PrayerTimeService.parseTimeToDateWithTimezone(nowFormatted, timezone, now);
 
             // Build prayer times array
             const prayerTimes = PRAYER_ORDER.map((prayerName) => {
                 const prayerTimeStr = prayerData.timings[prayerName];
                 if (!prayerTimeStr) return null;
 
+                const prayerDate = PrayerTimeService.parseTimeToDateWithTimezone(prayerTimeStr, timezone, now);
+                const isUpcoming = prayerDate && nowInLocationTz && prayerDate > nowInLocationTz;
+
                 const [prayerHours, prayerMinutes] = prayerTimeStr.split(':').map(Number);
-                const prayerDate = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
-
-                // Check if this is the upcoming prayer
-                const isUpcoming = prayerDate > nowInLocationTz;
-
-                // Time in 24-hour format
                 const time24 = `${prayerHours.toString().padStart(2, '0')}:${prayerMinutes.toString().padStart(2, '0')}`;
 
                 return {
@@ -1300,7 +1343,20 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Text style={[styles.greeting, { color: themeColors.greeting }]}>{getGreeting()}, </Text>
-                    <Text style={[styles.userName, { color: themeColors.userName }]}>{displayData.name}</Text>
+                    <View style={styles.userNameContainer}>
+                        <Text
+                            style={[styles.userName, { color: themeColors.userName }]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                        >
+                            {displayData.name}
+                        </Text>
+                        {isProUser && (
+                            <View style={styles.premiumPlusContainer}>
+                                <Text style={styles.premiumPlusText}>+</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
                 <View style={styles.headerRight}>
 
@@ -1365,11 +1421,11 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.nextPrayerText}>
                             Upcoming: {displayData.nextPrayer} • {convertTo24Hour(displayData.nextPrayerTime)}
                         </Text>
-                        {displayData.timezone && displayData.timezone !== 'UTC' && (
+                        {/* {displayData.timezone && displayData.timezone !== 'UTC' && (
                             <Text style={styles.nextPrayerTimezone}>
                                 {displayData.timezone}
                             </Text>
-                        )}
+                        )} */}
                     </View>
                 </View>
                 <TouchableOpacity
@@ -1441,6 +1497,26 @@ const HomeScreen = ({ navigation }) => {
                                 <Text style={[styles.duaTranslationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
                                     {todayDua.english || ''}
                                 </Text>
+                                {(todayDua.narrator || todayDua.source) && (
+                                    <View style={[styles.referenceContainer, { backgroundColor: isEvening ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.6)' }]}>
+                                        {todayDua.narrator && (
+                                            <View style={styles.referenceRow}>
+                                                <Ionicons name="person-outline" size={14} color={isEvening ? colors.text.black : colors.text.grey} style={styles.referenceIcon} />
+                                                <Text style={[styles.duaReferenceExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                                    <Text style={{ fontWeight: '600' }}>Narrator: </Text>{todayDua.narrator}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {todayDua.source && (
+                                            <View style={[styles.referenceRow, todayDua.narrator && { marginTop: spacing.xs }]}>
+                                                <Ionicons name="book-outline" size={14} color={isEvening ? colors.text.black : colors.text.grey} style={styles.referenceIcon} />
+                                                <Text style={[styles.duaReferenceExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                                    <Text style={{ fontWeight: '600' }}>Source: </Text>{todayDua.source}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
                             </>
                         ) : (
                             <>
@@ -1507,71 +1583,92 @@ const HomeScreen = ({ navigation }) => {
             {/* AJR Rings - Tap to open Daily Growth */}
             <TouchableOpacity
                 style={[styles.ringsCard, { backgroundColor: isEvening ? 'rgba(241, 245, 241, 0.85)' : colors.primary.light }]}
-                onPress={() => navigation.navigate('DailyGrowth')}
-                activeOpacity={0.8}
+                onPress={() => {
+                    const hasNoActivities = !selectedActivities.prayers && !selectedActivities.quran && !selectedActivities.dhikr && !selectedActivities.journaling;
+                    if (!hasNoActivities) {
+                        navigation.navigate('DailyGrowth');
+                    }
+                }}
+                activeOpacity={(!selectedActivities.prayers && !selectedActivities.quran && !selectedActivities.dhikr && !selectedActivities.journaling) ? 1 : 0.8}
             >
                 <Text style={styles.ringsSectionTitle}>AJR Rings</Text>
                 <View style={styles.ringsDivider} />
 
                 <View style={styles.ringsContent}>
-                    <AJRRings
-                        variant="detailed"
-                        progress={progress}
-                        layer1Completed={prayerCompletion.percentage >= 100}
-                        layer2Completed={getQuranPercentage() >= 100}
-                        layer3Completed={getDhikrPercentage() >= 100}
-                        layer1Progress={prayerCompletion.percentage}
-                        layer2Progress={getQuranPercentage()}
-                        layer3Progress={getDhikrPercentage()}
-                        journalingProgress={getJournalingPercentage()}
-                        layer1Visible={selectedActivities.prayers}
-                        layer2Visible={selectedActivities.quran}
-                        layer3Visible={selectedActivities.dhikr}
-                        journalingVisible={selectedActivities.journaling}
-                    />
+                    {(!selectedActivities.prayers && !selectedActivities.quran && !selectedActivities.dhikr && !selectedActivities.journaling) ? (
+                        <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.md }}>
+                            <Text style={{ textAlign: 'center', color: colors.text.grey, marginBottom: spacing.xl, fontSize: isSmallDevice ? 13 : 15, lineHeight: 22 }}>
+                                You're not tracking any activities. Tap below to add one.
+                            </Text>
+                            <TouchableOpacity
+                                style={{ backgroundColor: colors.primary.sage, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.pill }}
+                                onPress={() => navigation.navigate('SelectActivities', { fromSettings: true })}
+                            >
+                                <Text style={{ color: '#FFFFFF', fontWeight: typography.fontWeight.medium, fontSize: isSmallDevice ? 14 : 15 }}>My AJR Activities</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <AJRRings
+                                variant="detailed"
+                                progress={progress}
+                                layer1Completed={prayerCompletion.percentage >= 100}
+                                layer2Completed={getQuranPercentage() >= 100}
+                                layer3Completed={getDhikrPercentage() >= 100}
+                                layer1Progress={prayerCompletion.percentage}
+                                layer2Progress={getQuranPercentage()}
+                                layer3Progress={getDhikrPercentage()}
+                                journalingProgress={getJournalingPercentage()}
+                                layer1Visible={selectedActivities.prayers}
+                                layer2Visible={selectedActivities.quran}
+                                layer3Visible={selectedActivities.dhikr}
+                                journalingVisible={selectedActivities.journaling}
+                            />
 
-                    <View style={styles.legendContainer}>
-                        {selectedActivities.prayers && (
-                            <ActivityLegendItem
-                                color={colors.rings.layer1}
-                                label="Prayers"
-                                completed={isPrayerCompleted}
-                                activity="prayers"
-                                onToggle={handleToggleActivity}
-                                disabled={togglingActivity === 'prayers' || isPrayerCompleted}
-                            />
-                        )}
-                        {selectedActivities.quran && (
-                            <ActivityLegendItem
-                                color={colors.rings.layer2}
-                                label="Quran"
-                                completed={isQuranCompleted}
-                                activity="quran"
-                                onToggle={handleToggleActivity}
-                                disabled={togglingActivity === 'quran' || isQuranCompleted}
-                            />
-                        )}
-                        {selectedActivities.dhikr && (
-                            <ActivityLegendItem
-                                color={colors.rings.layer3}
-                                label="Dhikr"
-                                completed={isDhikrCompleted}
-                                activity="dhikr"
-                                onToggle={handleToggleActivity}
-                                disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
-                            />
-                        )}
-                        {selectedActivities.journaling && (
-                            <ActivityLegendItem
-                                color={colors.rings.innerCircle}
-                                label="Journal"
-                                completed={isJournalCompleted}
-                                activity="journaling"
-                                onToggle={handleToggleActivity}
-                                disabled={togglingActivity === 'journaling' || isJournalCompleted}
-                            />
-                        )}
-                    </View>
+                            <View style={styles.legendContainer}>
+                                {selectedActivities.prayers && (
+                                    <ActivityLegendItem
+                                        color={colors.rings.layer1}
+                                        label="Prayers"
+                                        completed={isPrayerCompleted}
+                                        activity="prayers"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'prayers' || isPrayerCompleted}
+                                    />
+                                )}
+                                {selectedActivities.quran && (
+                                    <ActivityLegendItem
+                                        color={colors.rings.layer2}
+                                        label="Quran"
+                                        completed={isQuranCompleted}
+                                        activity="quran"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'quran' || isQuranCompleted}
+                                    />
+                                )}
+                                {selectedActivities.dhikr && (
+                                    <ActivityLegendItem
+                                        color={colors.rings.layer3}
+                                        label="Dhikr"
+                                        completed={isDhikrCompleted}
+                                        activity="dhikr"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'dhikr' || isDhikrCompleted}
+                                    />
+                                )}
+                                {selectedActivities.journaling && (
+                                    <ActivityLegendItem
+                                        color={colors.rings.innerCircle}
+                                        label="Journal"
+                                        completed={isJournalCompleted}
+                                        activity="journaling"
+                                        onToggle={handleToggleActivity}
+                                        disabled={togglingActivity === 'journaling' || isJournalCompleted}
+                                    />
+                                )}
+                            </View>
+                        </>
+                    )}
                 </View>
             </TouchableOpacity>
         </ScrollView>
@@ -1649,18 +1746,38 @@ const styles = StyleSheet.create({
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        flexWrap: 'wrap',
         flex: 1,
+        marginRight: spacing.sm,
     },
     greeting: {
         fontSize: isSmallDevice ? 20 : 24,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.grey,
     },
+    userNameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexShrink: 1,
+    },
     userName: {
         fontSize: isSmallDevice ? 20 : 24,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
+    },
+    premiumPlusContainer: {
+        marginLeft: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 2,
+    },
+    premiumPlusText: {
+        fontSize: 18,
+        fontWeight: '300',
+        color: '#D4AF37', // Premium Gold
+        lineHeight: 22,
+        textShadowColor: 'rgba(212, 175, 55, 0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 8,
     },
     headerRight: {
         flexDirection: 'row',
@@ -1935,6 +2052,30 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         lineHeight: 20,
         textAlign: 'left',
+    },
+    duaReferenceExpanded: {
+        fontSize: isSmallDevice ? 12 : 13,
+        color: colors.text.grey,
+        flexWrap: 'wrap',
+        lineHeight: 18,
+        textAlign: 'left',
+        flex: 1,
+    },
+    referenceContainer: {
+        marginTop: spacing.xs,
+        padding: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    referenceRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    referenceIcon: {
+        marginTop: 2,
+        marginRight: spacing.xs,
+        opacity: 0.7,
     },
     duaTranslation: {
         fontSize: isSmallDevice ? 13 : 14,

@@ -121,7 +121,7 @@ struct NextSalahView: View {
     let compact: Bool
 
     var body: some View {
-        VStack(alignment: compact ? .center : .leading, spacing: compact ? 4 : 6) {
+        VStack(alignment: .center, spacing: compact ? 4 : 6) {
             // Icon + label
             HStack(spacing: 4) {
                 Image(systemName: "moon.stars.fill")
@@ -139,9 +139,17 @@ struct NextSalahView: View {
                 .lineLimit(1)
 
             // Time remaining
-            Text(data.timeRemaining)
-                .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
-                .foregroundColor(AJRColors.darkSage)
+            if let target = data.targetDate {
+                Text(target, style: .timer)
+                    .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(AJRColors.darkSage)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text(data.timeRemaining)
+                    .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(AJRColors.darkSage)
+                    .multilineTextAlignment(.center)
+            }
 
             if !compact {
                 Text(data.timeString)
@@ -170,32 +178,39 @@ struct MediumNextSalahView: View {
                 .frame(height: 50)
                 .background(Color.black.opacity(0.1))
             
-            // Right Content Area (Horizontal split)
-            HStack(alignment: .center) {
-                
-                // Salah Name
-                VStack(alignment: .leading, spacing: 4) {
+            // Right Content Area
+            VStack(alignment: .leading, spacing: 2) {
+                // Top row: Next Salah and Time
+                HStack(spacing: 8) {
                     Text("Next Salah")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(AJRColors.textGrey)
-                    
-                    Text(data.name)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundColor(AJRColors.textBlack)
-                        .lineLimit(1)
-                }
-                
-                Spacer(minLength: 10)
-                
-                // Times
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(data.timeRemaining)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(AJRColors.sage)
-                    
                     Text(data.timeString)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(AJRColors.textGrey)
+                }
+                
+                // Salah Name
+                Text(data.name)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundColor(AJRColors.textBlack)
+                    .lineLimit(1)
+                
+                // Countdown
+                HStack(spacing: 4) {
+                    Text("in")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(AJRColors.sage)
+                    
+                    if let target = data.targetDate {
+                        Text(target, style: .timer)
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundColor(AJRColors.sage)
+                    } else {
+                        Text(data.timeRemaining)
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundColor(AJRColors.sage)
+                    }
                 }
             }
             .padding(.trailing, 12)

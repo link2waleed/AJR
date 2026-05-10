@@ -52,8 +52,10 @@ const Stack = createNativeStackNavigator();
 const linking = {
     prefixes: ['ajr://'],
     config: {
+        initialRouteName: 'MainApp',
         screens: {
             MainApp: {
+                initialRouteName: 'Home',
                 screens: {
                     Home: 'dashboard',
                     MyCircle: {

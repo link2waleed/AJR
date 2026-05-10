@@ -8,7 +8,7 @@ struct AJRWidgetData: Codable {
     let quran: RingData
     let dhikr: RingData
     let overallProgress: Int
-    let nextSalah: NextSalahData
+    var nextSalah: NextSalahData
     let circleData: CircleData
     var hasJournalActive: Bool?
     let lastUpdated: String?
@@ -24,6 +24,30 @@ struct AJRWidgetData: Codable {
         let name: String
         let timeRemaining: String
         let timeString: String
+        var targetDateString: String?
+        var schedule: [ScheduleItem]?
+        
+        struct ScheduleItem: Codable {
+            let name: String
+            let timeString: String
+            let targetDateString: String
+            var targetDate: Date? {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = formatter.date(from: targetDateString) { return d }
+                let fallback = ISO8601DateFormatter()
+                return fallback.date(from: targetDateString)
+            }
+        }
+        
+        var targetDate: Date? {
+            guard let dateString = targetDateString else { return nil }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = formatter.date(from: dateString) { return d }
+            let fallback = ISO8601DateFormatter()
+            return fallback.date(from: dateString)
+        }
     }
     
     struct CircleData: Codable {
@@ -89,10 +113,31 @@ struct AJRTimelineProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<AJREntry>) -> Void) {
         let data = SharedDataReader.read()
         let now = Date()
-        // Refresh every 15 minutes
+        var entries: [AJREntry] = []
+        
+        // Add current entry
+        entries.append(AJREntry(date: now, data: data))
+
+        // Create future entries from the schedule
+        if let schedule = data.nextSalah.schedule {
+            for item in schedule {
+                if let targetDate = item.targetDate, targetDate > now {
+                    var nextData = data
+                    nextData.nextSalah = AJRWidgetData.NextSalahData(
+                        name: item.name,
+                        timeRemaining: "—",
+                        timeString: item.timeString,
+                        targetDateString: item.targetDateString,
+                        schedule: schedule
+                    )
+                    entries.append(AJREntry(date: targetDate, data: nextData))
+                }
+            }
+        }
+
+        // Refresh every 15 minutes as a fallback
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
-        let entry = AJREntry(date: now, data: data)
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
         completion(timeline)
     }
 }

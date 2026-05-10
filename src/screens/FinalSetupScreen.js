@@ -170,6 +170,13 @@ const FinalSetupScreen = ({ navigation }) => {
 
             // Mark onboarding as complete in Firebase
             await FirebaseService.completeOnboarding();
+            
+            // Mark locally to prevent MainApp bypass
+            const user = auth().currentUser;
+            if (user) {
+                const StorageService = require('../services/StorageService').default;
+                await StorageService.setOnboardingCompleted(user.uid, true);
+            }
 
             // Initialize journals document for future entries
             await FirebaseService.initializeJournals();

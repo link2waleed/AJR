@@ -11,13 +11,11 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import FirebaseService from '../services/FirebaseService';
 import NotificationService from '../services/NotificationService';
 import StorageService from '../services/StorageService';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
-
 
 import fajrIcon from '../../assets/images/fajr.png';
 import duhurIcon from '../../assets/images/duhur.png';
@@ -38,31 +36,49 @@ const prayers = [
 ];
 
 const SOUND_MODES = [
-    { id: 'athan', label: 'Athan', icon: 'volume-high-outline', description: 'Full Athan call to prayer' },
-    { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short notification sound' },
-    { id: 'vibration', label: 'Vibration', icon: 'phone-portrait-outline', description: 'Vibration only, no sound' },
-    { id: 'silent', label: 'Silent', icon: 'volume-mute-outline', description: 'Visual notification only' },
+    { id: 'athan', label: 'Athan', icon: 'volume-high-outline', description: 'Athan call' },
+    { id: 'beep', label: 'Beep', icon: 'notifications-outline', description: 'Short beep' },
+    { id: 'vibration', label: 'Vibration', icon: 'phone-portrait-outline', description: 'Vibrate only' },
+    { id: 'silent', label: 'Silent', icon: 'volume-mute-outline', description: 'Visual only' },
 ];
 
-const DEFAULT_SETTINGS = {
-    fajr: { enabled: false, athanEnabled: true, soundMode: 'athan' },
-    duhur: { enabled: false, athanEnabled: true, soundMode: 'athan' },
-    asr: { enabled: false, athanEnabled: true, soundMode: 'athan' },
-    maghrib: { enabled: false, athanEnabled: true, soundMode: 'athan' },
-    isha: { enabled: false, athanEnabled: true, soundMode: 'athan' },
+const NEXT_PRAYER_MAP = {
+    fajr: 'Dhuhr',
+    duhur: 'Asr',
+    asr: 'Maghrib',
+    maghrib: 'Isha',
+    isha: 'Fajr',
 };
 
+const DEFAULT_SETTINGS = {
+    fajr: { enabled: false, soundMode: 'athan', reminderEnabled: false },
+    duhur: { enabled: false, soundMode: 'athan', reminderEnabled: false },
+    asr: { enabled: false, soundMode: 'athan', reminderEnabled: false },
+    maghrib: { enabled: false, soundMode: 'athan', reminderEnabled: false },
+    isha: { enabled: false, soundMode: 'athan', reminderEnabled: false },
+};
 
+// ── Per-Prayer Expandable Card ──────────────────────────────────────────────
 const PrayerCard = ({ prayer, settings, onSettingChange }) => {
+    const isEnabled = settings.enabled;
+    const currentMode = SOUND_MODES.find(m => m.id === settings.soundMode) || SOUND_MODES[0];
+    const nextPrayer = NEXT_PRAYER_MAP[prayer.id];
+
+    const cycleSoundMode = () => {
+        const currentIndex = SOUND_MODES.findIndex(m => m.id === settings.soundMode);
+        const nextIndex = (currentIndex + 1) % SOUND_MODES.length;
+        onSettingChange(prayer.id, 'soundMode', SOUND_MODES[nextIndex].id);
+    };
+
     return (
         <View style={styles.prayerCard}>
+            {/* Header row: icon, name, enable switch */}
             <View style={styles.prayerHeader}>
                 <Image source={prayer.icon} style={styles.prayerIcon} resizeMode="contain" />
                 <Text style={styles.prayerName}>{prayer.name}</Text>
-
                 <View style={styles.prayerControls}>
                     <Switch
-                        value={settings.enabled}
+                        value={isEnabled}
                         onValueChange={(value) => onSettingChange(prayer.id, 'enabled', value)}
                         trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
                         thumbColor="#FFFFFF"
@@ -70,25 +86,53 @@ const PrayerCard = ({ prayer, settings, onSettingChange }) => {
                     />
                 </View>
             </View>
+
+            {/* Expanded settings when enabled */}
+            {isEnabled && (
+                <View style={styles.prayerDetails}>
+                    {/* Sound Mode */}
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingTextContainer}>
+                            <Text style={styles.settingLabel}>Sound Mode</Text>
+                            <Text style={styles.settingSubtext}>{currentMode.description}</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.soundModeButton}
+                            onPress={cycleSoundMode}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name={currentMode.icon} size={17} color="#FFFFFF" />
+                            <Text style={styles.soundModeButtonText}>{currentMode.label}</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* 20-min Reminder */}
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingTextContainer}>
+                            <Text style={styles.settingLabel}>20-min Reminder</Text>
+                            <Text style={styles.settingSubtext}>Alert when 20 min left for {prayer.name}</Text>
+                        </View>
+                        <Switch
+                            value={settings.reminderEnabled}
+                            onValueChange={(value) => onSettingChange(prayer.id, 'reminderEnabled', value)}
+                            trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
+                            thumbColor="#FFFFFF"
+                            ios_backgroundColor="#E0E0E0"
+                        />
+                    </View>
+                </View>
+            )}
         </View>
     );
 };
 
-
-
+// ── Main Screen ─────────────────────────────────────────────────────────────
 const NotificationsScreen = ({ navigation, route }) => {
-    const source = route?.params?.source || 'home'; // 'hub' | 'home'
+    const source = route?.params?.source || 'home';
 
     const [prayerSettings, setPrayerSettings] = useState(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(true);
     const [showPermModal, setShowPermModal] = useState(false);
-    const [nextNotification, setNextNotification] = useState(null);
-    const [timeLeft, setTimeLeft] = useState('');
-
-    const fetchNextNotif = useCallback(async () => {
-        const next = await NotificationService.getNextNotification();
-        setNextNotification(next);
-    }, []);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -101,11 +145,11 @@ const NotificationsScreen = ({ navigation, route }) => {
                     if (val && typeof val === 'object') {
                         return {
                             enabled: val.enabled ?? false,
-                            athanEnabled: val.athanEnabled ?? true,
-                            soundMode: fallbackSound,
+                            soundMode: val.soundMode || fallbackSound,
+                            reminderEnabled: val.reminderEnabled ?? false,
                         };
                     }
-                    return { enabled: val ?? false, athanEnabled: true, soundMode: fallbackSound };
+                    return { enabled: val ?? false, soundMode: fallbackSound, reminderEnabled: false };
                 };
 
                 setPrayerSettings({
@@ -123,79 +167,58 @@ const NotificationsScreen = ({ navigation, route }) => {
         };
 
         loadSettings();
-        fetchNextNotif();
-    }, [fetchNextNotif]);
-
-    useEffect(() => {
-        if (!nextNotification) return;
-
-        const computeTimeLeft = () => {
-            const now = new Date();
-            const trigger = new Date(nextNotification.triggerDate);
-            const diff = trigger - now;
-
-            if (diff <= 0) {
-                setNextNotification(null);
-                setTimeLeft('');
-                return;
-            }
-
-            const h = Math.floor(diff / (1000 * 60 * 60));
-            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-            setTimeLeft(`${h > 0 ? h + 'h ' : ''}${m}m ${s}s`);
-        };
-
-        // Compute immediately so timer shows instantly
-        computeTimeLeft();
-
-        const interval = setInterval(computeTimeLeft, 1000);
-
-        return () => clearInterval(interval);
-    }, [nextNotification]);
+    }, []);
 
     const saveToDb = useCallback(async (updatedSettings) => {
         try {
             await FirebaseService.savePrayerSettings({
-                fajr: { enabled: updatedSettings.fajr.enabled, athanEnabled: updatedSettings.fajr.athanEnabled, soundMode: updatedSettings.fajr.soundMode },
-                dhuhr: { enabled: updatedSettings.duhur.enabled, athanEnabled: updatedSettings.duhur.athanEnabled, soundMode: updatedSettings.duhur.soundMode },
-                asr: { enabled: updatedSettings.asr.enabled, athanEnabled: updatedSettings.asr.athanEnabled, soundMode: updatedSettings.asr.soundMode },
-                maghrib: { enabled: updatedSettings.maghrib.enabled, athanEnabled: updatedSettings.maghrib.athanEnabled, soundMode: updatedSettings.maghrib.soundMode },
-                isha: { enabled: updatedSettings.isha.enabled, athanEnabled: updatedSettings.isha.athanEnabled, soundMode: updatedSettings.isha.soundMode },
-                soundMode: updatedSettings.fajr.soundMode,
+                fajr: { enabled: updatedSettings.fajr.enabled, soundMode: updatedSettings.fajr.soundMode, reminderEnabled: updatedSettings.fajr.reminderEnabled },
+                dhuhr: { enabled: updatedSettings.duhur.enabled, soundMode: updatedSettings.duhur.soundMode, reminderEnabled: updatedSettings.duhur.reminderEnabled },
+                asr: { enabled: updatedSettings.asr.enabled, soundMode: updatedSettings.asr.soundMode, reminderEnabled: updatedSettings.asr.reminderEnabled },
+                maghrib: { enabled: updatedSettings.maghrib.enabled, soundMode: updatedSettings.maghrib.soundMode, reminderEnabled: updatedSettings.maghrib.reminderEnabled },
+                isha: { enabled: updatedSettings.isha.enabled, soundMode: updatedSettings.isha.soundMode, reminderEnabled: updatedSettings.isha.reminderEnabled },
+                soundMode: updatedSettings.fajr.soundMode, // backward compat global key
             });
 
-            const fullData = await StorageService.getFullTimings();
+            // Try cached timings first
+            let fullData = await StorageService.getFullTimings();
+
+            // If cache is stale/empty, fetch fresh from API
+            if (!fullData) {
+                console.log('[NotificationsScreen] No cached timings — fetching fresh from API...');
+                const location = await StorageService.getLocation();
+                if (location?.latitude && location?.longitude) {
+                    const PrayerTimeService = require('../services/PrayerTimeService').default;
+                    const prayerData = await PrayerTimeService.getCompletePrayerData(
+                        location.latitude, location.longitude
+                    );
+                    if (prayerData?.timings && prayerData?.timezone) {
+                        fullData = { timings: prayerData.timings, timezone: prayerData.timezone };
+                        console.log('[NotificationsScreen] Fresh timings fetched successfully');
+                    }
+                }
+            }
+
             if (fullData) {
                 const { timings, timezone } = fullData;
                 await NotificationService.schedulePrayerNotifications(
                     {
                         fajr: updatedSettings.fajr,
-                        duhur: updatedSettings.duhur,
+                        dhuhr: updatedSettings.duhur,  // NotificationService expects 'dhuhr' key
                         asr: updatedSettings.asr,
                         maghrib: updatedSettings.maghrib,
                         isha: updatedSettings.isha,
-                        soundMode: updatedSettings.fajr.soundMode,
                     },
                     timings,
                     timezone
                 );
+            } else {
+                console.warn('[NotificationsScreen] Could not get prayer timings — notifications not scheduled. They will be scheduled on next app open.');
             }
-            await fetchNextNotif();
         } catch (err) {
             console.error('NotificationsScreen: failed to save prayer settings', err);
         }
-    }, [fetchNextNotif]);
-
-    const handleGlobalSettingChange = (setting, value) => {
-        const updated = { ...prayerSettings };
-        prayers.forEach(p => {
-            updated[p.id] = { ...updated[p.id], [setting]: value };
-        });
-        setPrayerSettings(updated);
-        saveToDb(updated);
-    };
+    }, []);
 
     const handleSettingChange = async (prayerId, setting, value) => {
         if (setting === 'enabled' && value === true) {
@@ -212,17 +235,6 @@ const NotificationsScreen = ({ navigation, route }) => {
         setPrayerSettings(updated);
         saveToDb(updated);
     };
-
-
-    const isHubSource = source === 'hub';
-    const gradientColors = ['#cdb469', '#a0aea0', '#2e543d'];
-    const gradientStart = { x: 1, y: 0 };
-    const gradientEnd = { x: 0, y: 1 };
-    const gradientLocations = [0, 0.35, 0.95];
-
-    const anyPrayerEnabled = prayers.some(p => prayerSettings[p.id]?.enabled);
-    const globalSoundModeDetails = SOUND_MODES.find(m => m.id === prayerSettings.fajr.soundMode) || SOUND_MODES[0];
-
 
     return (
         <View style={[styles.container, { backgroundColor: colors.primary.light }]}>
@@ -247,20 +259,9 @@ const NotificationsScreen = ({ navigation, route }) => {
                         <View style={{ width: 40 }} />
                     </View>
 
-                    {/* ── Next Notification Timer ── */}
-                    {/* {nextNotification && timeLeft ? (
-                        <View style={styles.timerCard}>
-                            <Text style={styles.timerLabel}>Next Notification In</Text>
-                            <Text style={styles.timerValue}>{timeLeft}</Text>
-                            <Text style={styles.timerPrayer}>
-                                {nextNotification.content?.title}
-                            </Text>
-                        </View>
-                    ) : null} */}
-
                     {/* ── Subtitle ── */}
                     <Text style={styles.subtitle}>
-                        Choose when you'd like to receive Athan notifications and reminders
+                        Choose which prayers to receive notifications for and customize the sound for each
                     </Text>
 
                     {/* ── Prayer Cards ── */}
@@ -281,43 +282,19 @@ const NotificationsScreen = ({ navigation, route }) => {
                         </View>
                     )}
 
-                    {/* ── Global Settings Box ── */}
-                    {anyPrayerEnabled && !loading && (
-                        <View style={styles.globalSettingsBox}>
-                            <Text style={styles.globalSettingsTitle}>Notification Settings</Text>
-
-                            <View style={styles.settingRow}>
-                                <Text style={styles.settingLabel}>Notification at the start of prayer</Text>
-                                <Switch
-                                    value={prayerSettings.fajr.athanEnabled}
-                                    onValueChange={(value) => handleGlobalSettingChange('athanEnabled', value)}
-                                    trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
-                                    thumbColor="#FFFFFF"
-                                    ios_backgroundColor="#E0E0E0"
-                                />
-                            </View>
-
-                            <View style={styles.soundModeContainer}>
-                                <View style={styles.soundModeHeader}>
-                                    <Text style={styles.soundModeTitle}>Current sound mode: {globalSoundModeDetails.label}</Text>
-                                    <TouchableOpacity
-                                        style={styles.soundIconBackground}
-                                        onPress={() => {
-                                            const currentIndex = SOUND_MODES.findIndex(m => m.id === prayerSettings.fajr.soundMode);
-                                            const nextIndex = (currentIndex + 1) % SOUND_MODES.length;
-                                            handleGlobalSettingChange('soundMode', SOUND_MODES[nextIndex].id);
-                                        }}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons
-                                            name={globalSoundModeDetails.icon}
-                                            size={19}
-                                            color="#FFFFFF"
-                                        />
-                                    </TouchableOpacity>
+                    {/* ── Sound Mode Legend ── */}
+                    {!loading && (
+                        <View style={styles.legendBox}>
+                            <Text style={styles.legendTitle}>Sound Modes</Text>
+                            {SOUND_MODES.map((mode) => (
+                                <View key={mode.id} style={styles.legendRow}>
+                                    <View style={styles.legendIconWrap}>
+                                        <Ionicons name={mode.icon} size={16} color={colors.primary.sage} />
+                                    </View>
+                                    <Text style={styles.legendLabel}>{mode.label}</Text>
+                                    <Text style={styles.legendDesc}> — {mode.description}</Text>
                                 </View>
-                                <Text style={styles.soundModeSubtext}>Tap the sound icon to cycle through options</Text>
-                            </View>
+                            ))}
                         </View>
                     )}
                 </ScrollView>
@@ -331,7 +308,6 @@ const NotificationsScreen = ({ navigation, route }) => {
         </View>
     );
 };
-
 
 
 const styles = StyleSheet.create({
@@ -370,9 +346,6 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
     },
-    savingIndicator: {
-        marginLeft: 4,
-    },
 
     subtitle: {
         fontSize: isSmallDevice ? 13 : 14,
@@ -387,35 +360,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 
-    // Cards container
     cardsContainer: {
         marginBottom: spacing.md,
     },
 
-    globalSettingsBox: {
-        backgroundColor: 'rgba(255,255,255,0.62)',
-        borderWidth: 1,
-        borderColor: '#ffffff',
-        borderRadius: borderRadius.lg,
-        padding: spacing.md,
-        marginBottom: spacing.xl,
-    },
-    globalSettingsTitle: {
-        fontSize: isSmallDevice ? 15 : 16,
-        fontWeight: typography.fontWeight.semibold,
-        color: colors.text.black,
-        marginBottom: spacing.sm,
-    },
-    soundModeHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-    },
-
-
-
-    // Prayer card
+    // ── Prayer card ──
     prayerCard: {
         backgroundColor: 'rgba(255,255,255,0.62)',
         borderWidth: 1,
@@ -444,27 +393,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    soundButton: {
-        marginRight: spacing.sm,
-    },
-    soundIconBackground: {
-        backgroundColor: colors.primary.sage,
-        borderRadius: borderRadius.sm,
-        padding: spacing.xs,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
 
-    // Expanded details
+    // ── Expanded details ──
     prayerDetails: {
         paddingHorizontal: spacing.md,
         paddingBottom: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.04)',
     },
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.sm + 2,
     },
     settingTextContainer: {
         flex: 1,
@@ -481,51 +422,59 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
 
-    // Sound mode info box
-    soundModeContainer: {
-        backgroundColor: 'rgba(0,0,0,0.03)',
+    // ── Sound mode button ──
+    soundModeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary.sage,
         borderRadius: borderRadius.md,
-        padding: spacing.md,
-        marginTop: spacing.sm,
+        paddingVertical: spacing.xs + 2,
+        paddingHorizontal: spacing.sm + 2,
+        gap: 6,
     },
-    soundModeTitle: {
-        fontSize: isSmallDevice ? 13 : 14,
+    soundModeButtonText: {
+        fontSize: 13,
         fontWeight: typography.fontWeight.semibold,
-        color: colors.text.black,
-        marginBottom: spacing.xs,
-    },
-    soundModeSubtext: {
-        fontSize: isSmallDevice ? 11 : 12,
-        color: colors.text.grey,
+        color: '#FFFFFF',
     },
 
-    // Timer Card
-    timerCard: {
-        backgroundColor: 'rgba(255,255,255,0.72)',
-        borderRadius: borderRadius.lg,
-        padding: spacing.lg,
-        marginBottom: spacing.md,
-        alignItems: 'center',
+    // ── Legend ──
+    legendBox: {
+        backgroundColor: 'rgba(255,255,255,0.5)',
         borderWidth: 1,
         borderColor: '#ffffff',
+        borderRadius: borderRadius.lg,
+        padding: spacing.md,
+        marginBottom: spacing.xl,
     },
-    timerLabel: {
+    legendTitle: {
+        fontSize: isSmallDevice ? 14 : 15,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
+        marginBottom: spacing.sm,
+    },
+    legendRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    legendIconWrap: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(122,158,127,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: spacing.sm,
+    },
+    legendLabel: {
         fontSize: 13,
-        fontWeight: typography.fontWeight.medium,
-        color: colors.text.grey,
-        marginBottom: 4,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
+        fontWeight: typography.fontWeight.semibold,
+        color: colors.text.black,
     },
-    timerValue: {
-        fontSize: 32,
-        fontWeight: typography.fontWeight.bold,
-        color: colors.primary.darkSage,
-    },
-    timerPrayer: {
-        fontSize: 12,
+    legendDesc: {
+        fontSize: 13,
         color: colors.text.grey,
-        marginTop: 6,
     },
 });
 

@@ -125,19 +125,12 @@ const MemberRow = ({ name, role, isCreator, onRemove }) => (
     </View>
 );
 
-// Legend Item Component - Tickable like HomeScreen
-const LegendItem = ({ color, label, completed = false, activity, onToggle, disabled }) => (
-    <TouchableOpacity
-        style={styles.legendItem}
-        onPress={() => onToggle && onToggle(activity)}
-        activeOpacity={0.7}
-        disabled={disabled}
-    >
-        <View style={[styles.legendCheck, { borderColor: color, backgroundColor: completed ? color : 'transparent' }]}>
-            {completed && <Ionicons name="checkmark" size={12} color="white" />}
-        </View>
-        <Text style={[styles.legendText, !completed && styles.legendTextInactive]}>{label}</Text>
-    </TouchableOpacity>
+// Legend Item Component - Just a key for the rings
+const LegendItem = ({ color, label }) => (
+    <View style={styles.legendItem}>
+        <View style={[styles.legendDot, { backgroundColor: color }]} />
+        <Text style={styles.legendText}>{label}</Text>
+    </View>
 );
 
 const CircleDetailScreen = ({ navigation, route }) => {
@@ -476,7 +469,16 @@ const CircleDetailScreen = ({ navigation, route }) => {
                         try {
                             await FirebaseService.removeMember(circleId, member.id);
                             setMembers(prev => prev.filter(m => m.id !== member.id));
+                            setChallengeParticipants(prev => prev.filter(uid => uid !== member.userId));
                             WidgetService.invalidateCircleCache();
+                            // Refresh group stats + ring averages so UI updates immediately
+                            Promise.all([
+                                FirebaseService.getCircleMemberActivityStats(circleId),
+                                FirebaseService.getCircleMemberRingAverages(circleId),
+                            ]).then(([stats, averages]) => {
+                                setMemberActivityStats(stats);
+                                setCircleRingAverages(averages);
+                            }).catch(() => { });
                         } catch (error) {
                             Alert.alert('Error', error.message || 'Failed to remove member.');
                         }
@@ -492,6 +494,14 @@ const CircleDetailScreen = ({ navigation, route }) => {
             setPendingMembers(prev => prev.filter(m => m.id !== member.id));
             setMembers(prev => [...prev, { ...member, status: 'approved' }]);
             WidgetService.invalidateCircleCache();
+            // Refresh group stats + ring averages so UI updates immediately
+            Promise.all([
+                FirebaseService.getCircleMemberActivityStats(circleId),
+                FirebaseService.getCircleMemberRingAverages(circleId),
+            ]).then(([stats, averages]) => {
+                setMemberActivityStats(stats);
+                setCircleRingAverages(averages);
+            }).catch(() => { });
         } catch (error) {
             Alert.alert('Error', error.message || 'Failed to approve request.');
         }
@@ -642,6 +652,41 @@ const CircleDetailScreen = ({ navigation, route }) => {
                     {/* <StatCard icon="checkmark-circle-outline" value={`${circle.progress}%`} label="Complete" /> */}
                 </View>
 
+                {/* Pending Requests (Creator only) */}
+                {isCreator && pendingMembers.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.memberCard}>
+                            <View style={styles.pendingHeaderRow}>
+                                <Text style={styles.sectionTitle}>Pending Requests</Text>
+                                <View style={styles.pendingBadge}>
+                                    <Text style={styles.pendingBadgeText}>{pendingMembers.length}</Text>
+                                </View>
+                            </View>
+                            <View style={styles.Divider} />
+                            {pendingMembers.map((member, index) => (
+                                <View key={member.id || index} style={styles.pendingRequestRow}>
+                                    <View style={styles.memberAvatar}>
+                                        <Ionicons name="person" size={16} color={colors.primary.sage} />
+                                    </View>
+                                    <Text style={styles.pendingMemberName}>{member.name}</Text>
+                                    <TouchableOpacity
+                                        style={styles.approveButton}
+                                        onPress={() => handleApproveRequest(member)}
+                                    >
+                                        <Ionicons name="checkmark" size={16} color="#fff" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.declineButton}
+                                        onPress={() => handleDeclineRequest(member)}
+                                    >
+                                        <Ionicons name="close" size={16} color={colors.text.grey} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
                 {/* AJR Rings */}
                 <View style={styles.section}>
                     <View style={styles.progressCard}>
@@ -667,34 +712,18 @@ const CircleDetailScreen = ({ navigation, route }) => {
                                 <LegendItem
                                     color={colors.rings.layer1}
                                     label="Prayers"
-                                    completed={isPrayerCompleted}
-                                    activity="prayers"
-                                    onToggle={handleToggleActivity}
-                                    disabled={!selectedActivities.prayers || togglingActivity === 'prayers' || isPrayerCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.layer2}
                                     label="Quran"
-                                    completed={isQuranCompleted}
-                                    activity="quran"
-                                    onToggle={handleToggleActivity}
-                                    disabled={!selectedActivities.quran || togglingActivity === 'quran' || isQuranCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.layer3}
                                     label="Dhikr"
-                                    completed={isDhikrCompleted}
-                                    activity="dhikr"
-                                    onToggle={handleToggleActivity}
-                                    disabled={!selectedActivities.dhikr || togglingActivity === 'dhikr' || isDhikrCompleted}
                                 />
                                 <LegendItem
                                     color={colors.rings.innerCircle}
                                     label="Journal"
-                                    completed={isJournalCompleted}
-                                    activity="journaling"
-                                    onToggle={handleToggleActivity}
-                                    disabled={!selectedActivities.journaling || togglingActivity === 'journaling' || isJournalCompleted}
                                 />
                             </View>
                         </View>
@@ -837,40 +866,7 @@ const CircleDetailScreen = ({ navigation, route }) => {
                     </View>
                 </View> */}
 
-                {/* Pending Requests (Creator only) */}
-                {isCreator && pendingMembers.length > 0 && (
-                    <View style={styles.section}>
-                        <View style={styles.memberCard}>
-                            <View style={styles.pendingHeaderRow}>
-                                <Text style={styles.sectionTitle}>Pending Requests</Text>
-                                <View style={styles.pendingBadge}>
-                                    <Text style={styles.pendingBadgeText}>{pendingMembers.length}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.Divider} />
-                            {pendingMembers.map((member, index) => (
-                                <View key={member.id || index} style={styles.pendingRequestRow}>
-                                    <View style={styles.memberAvatar}>
-                                        <Ionicons name="person" size={16} color={colors.primary.sage} />
-                                    </View>
-                                    <Text style={styles.pendingMemberName}>{member.name}</Text>
-                                    <TouchableOpacity
-                                        style={styles.approveButton}
-                                        onPress={() => handleApproveRequest(member)}
-                                    >
-                                        <Ionicons name="checkmark" size={16} color="#fff" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.declineButton}
-                                        onPress={() => handleDeclineRequest(member)}
-                                    >
-                                        <Ionicons name="close" size={16} color={colors.text.grey} />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </View>
-                    </View>
-                )}
+
 
                 {/* Member List */}
                 <View style={styles.section}>
@@ -1056,7 +1052,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: spacing.xs,
-        gap: spacing.xs,
+        gap: spacing.md,
     },
     legendContainer: {
         flex: 1,
@@ -1072,14 +1068,11 @@ const styles = StyleSheet.create({
         flexWrap: 'nowrap',
         width: '100%',
     },
-    legendCheck: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        borderWidth: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: spacing.xxs,
+    legendDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginRight: spacing.sm,
     },
     legendText: {
         fontSize: isSmallDevice ? 10 : 12,

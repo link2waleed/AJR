@@ -315,7 +315,7 @@ const ProfileScreen = ({ navigation }) => {
                         <View style={styles.profileInfo}>
                             <Text style={styles.profileName}>{userData.name}</Text>
                             <Text style={styles.profileEmail}>{userData.email}</Text>
-                            <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+                            {/* <Text style={styles.memberSince}>Member since {userData.memberSince}</Text> */}
                         </View>
                         {/* Logout Pill */}
                         <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>

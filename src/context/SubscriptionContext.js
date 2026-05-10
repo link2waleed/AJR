@@ -124,7 +124,14 @@ export const SubscriptionProvider = ({ children }) => {
                     const info = await RevenueCatService.getCustomerInfo();
                     handleCustomerInfoUpdate(info);
                 } else {
-                    await RevenueCatService.logOut();
+                    const isAnon = await RevenueCatService.isAnonymous();
+                    if (!isAnon) {
+                        try {
+                            await RevenueCatService.logOut();
+                        } catch (e) {
+                            // ignore logout errors
+                        }
+                    }
                     setIsProUser(false);
                     setCustomerInfo(null);
                 }

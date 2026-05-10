@@ -120,21 +120,38 @@ const SplashScreen = ({ navigation }) => {
             ensureFirebaseApp();
             const currentUser = auth().currentUser;
             if (currentUser) {
-                // User is logged in - check onboarding-process flag
-                FirebaseService.getUserRootData()
-                    .then((userData) => {
-                        if (userData['onboarding-process'] === true) {
-                            // Onboarding is incomplete - resume from Name screen
-                            navigation.replace('Name');
-                        } else {
-                            // Onboarding is complete - go to MainApp
+                // First check local storage for robust offline handling
+                const StorageService = require('../services/StorageService').default;
+                StorageService.getOnboardingCompleted(currentUser.uid)
+                    .then((isCompletedLocally) => {
+                        if (isCompletedLocally) {
                             navigation.replace('MainApp');
+                            return;
                         }
+
+                        // Local flag missing or false, check Firebase
+                        FirebaseService.getUserRootData()
+                            .then(async (userData) => {
+                                if (userData['onboarding-process'] === false) {
+                                    // Onboarding is verified complete - save locally for next time
+                                    await StorageService.setOnboardingCompleted(currentUser.uid, true);
+                                    navigation.replace('MainApp');
+                                } else {
+                                    // Onboarding is incomplete or missing
+                                    navigation.replace('Name');
+                                }
+                            })
+                            .catch((error) => {
+                                console.error('Error checking onboarding status:', error);
+                                // For any error (document not found, offline, etc), if we haven't
+                                // locally verified completion, do NOT allow them into MainApp.
+                                navigation.replace('Name');
+                            });
                     })
-                    .catch((error) => {
-                        console.error('Error checking onboarding status:', error);
-                        // Default to MainApp on error
-                        navigation.replace('MainApp');
+                    .catch((err) => {
+                        console.error('Local storage error:', err);
+                        // Fallback to Name if we can't even read local storage
+                        navigation.replace('Name');
                     });
             } else {
                 // User is not logged in - navigate to Welcome screen

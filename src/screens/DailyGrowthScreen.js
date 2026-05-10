@@ -228,31 +228,21 @@ const DailyGrowthScreen = ({ navigation }) => {
                     }));
                 }
 
-                // Fetch Dhikr stats
+                // Set Dhikr goals
                 if (data.dikar && Array.isArray(data.dikar)) {
                     const totalGoal = data.dikar.reduce((sum, dhikr) => sum + (dhikr.counter || 0), 0);
-
-                    // Fetch progress
-                    try {
-                        const dhikrProgress = await FirebaseService.getDhikrProgress();
-                        // Cap each dhikr at its own target to prevent overflow counting
+                    setDhikrStats(prev => {
+                        const dhikrProgress = prev.rawProgress || {};
                         const totalCompleted = data.dikar.reduce((sum, item) => {
                             return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
                         }, 0);
-
-                        setDhikrStats({
+                        return {
+                            ...prev,
                             totalGoal,
                             totalCompleted,
-                            streak: 0 // TODO: Implement dhikr streak if needed
-                        });
-                    } catch (error) {
-                        console.error('Error fetching dhikr progress:', error);
-                        setDhikrStats({
-                            totalGoal,
-                            totalCompleted: 0,
-                            streak: 0
-                        });
-                    }
+                            goals: data.dikar
+                        };
+                    });
                 }
 
                 // Fetch journaling stats
@@ -294,12 +284,28 @@ const DailyGrowthScreen = ({ navigation }) => {
             setJournalStats(stats);
         });
 
+        // Listen to daily Dhikr stats
+        const unsubscribeDhikr = FirebaseService.listenToDailyDhikr((progress) => {
+            setDhikrStats(prev => {
+                const goals = prev.goals || [];
+                const totalCompleted = goals.reduce((sum, item) => {
+                    return sum + Math.min(progress[item.word] || 0, item.counter || 0);
+                }, 0);
+                return {
+                    ...prev,
+                    rawProgress: progress,
+                    totalCompleted
+                };
+            });
+        });
+
         return () => {
             unsubscribePrayer();
             unsubscribeOnboarding();
             unsubscribeProgress();
             unsubscribeQuran();
             unsubscribeJournal();
+            unsubscribeDhikr();
         };
     }, []);
 
@@ -310,27 +316,11 @@ const DailyGrowthScreen = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             const refreshOnFocus = async () => {
-                try {
-                    // Re-fetch dhikr progress
-                    const info = await FirebaseService.getOnboardingInfo();
-                    if (info?.dikar && Array.isArray(info.dikar)) {
-                        const totalGoal = info.dikar.reduce((sum, d) => sum + (d.counter || 0), 0);
-                        const dhikrProgress = await FirebaseService.getDhikrProgress();
-                        const totalCompleted = info.dikar.reduce((sum, item) => {
-                            return sum + Math.min(dhikrProgress[item.word] || 0, item.counter || 0);
-                        }, 0);
-                        setDhikrStats({ totalGoal, totalCompleted, streak: 0 });
-                    }
+                // Removed manual Dhikr and Journal fetches as they are now fully tracked via real-time listeners.
+                // Listeners automatically push updates when screen is focused or data changes in the background.
 
-                    // Re-fetch journal stats
-                    const stats = await FirebaseService.getJournalStats();
-                    setJournalStats(stats);
-
-                    // Trigger widget refresh so home screen widgets reflect latest data
-                    WidgetService.reload();
-                } catch (err) {
-                    console.error('DailyGrowthScreen: refreshOnFocus error', err);
-                }
+                // Trigger widget refresh so home screen widgets reflect latest data
+                WidgetService.reload();
             };
             refreshOnFocus();
         }, [])
@@ -475,8 +465,22 @@ const DailyGrowthScreen = ({ navigation }) => {
                     />
                 ))}
 
-                {/* Personalized Message Card - Only show if not all activities completed */}
-                {weakestActivity.progress < 100 && (
+                {/* Personalized Message Card - Only show if not all activities completed or if no activities selected */}
+                {(!selectedActivities.prayers && !selectedActivities.quran && !selectedActivities.dhikr && !selectedActivities.journaling) ? (
+                    <View style={styles.messageCard}>
+                        <Text style={styles.messageGreeting}>Hey {userName},</Text>
+                        <Text style={styles.messageText}>
+                            You are not tracking anything. Click here to add new AJR activities.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.messageButton}
+                            onPress={() => navigation.navigate('SelectActivities', { fromSettings: true })}
+                        >
+                            <Text style={styles.messageButtonText}>My AJR Activities</Text>
+                            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    </View>
+                ) : weakestActivity.progress < 100 && (
                     <View style={styles.messageCard}>
                         <Text style={styles.messageGreeting}>Hey {userName},</Text>
                         <Text style={styles.messageText}>
@@ -493,12 +497,14 @@ const DailyGrowthScreen = ({ navigation }) => {
                 )}
 
                 {/* Bottom Inspiration */}
-                <View style={styles.inspirationSection}>
-                    <View style={styles.inspirationIconWrapper}>
-                        <Image source={note} style={styles.activityIcon} resizeMode="contain" />
+                {(!(!selectedActivities.prayers && !selectedActivities.quran && !selectedActivities.dhikr && !selectedActivities.journaling)) && (
+                    <View style={styles.inspirationSection}>
+                        <View style={styles.inspirationIconWrapper}>
+                            <Image source={note} style={styles.activityIcon} resizeMode="contain" />
+                        </View>
+                        <Text style={styles.inspirationText}>Growth happens one day at a time</Text>
                     </View>
-                    <Text style={styles.inspirationText}>Growth happens one day at a time</Text>
-                </View>
+                )}
             </ScrollView>
         </LinearGradient>
     );

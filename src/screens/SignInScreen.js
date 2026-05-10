@@ -63,23 +63,36 @@ const SignInScreen = ({ navigation }) => {
                 return;
             }
 
-            const userData = await FirebaseService.getUserRootData();
-            if (userData['onboarding-process'] === true) {
-                // Onboarding not finished – resume from Name screen
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Name' }],
-                });
-            } else {
-                // Onboarding complete – go to main app
+            const StorageService = require('../services/StorageService').default;
+            const uid = userCredential?.user?.uid || auth().currentUser?.uid;
+            
+            const isCompletedLocally = await StorageService.getOnboardingCompleted(uid);
+            if (isCompletedLocally) {
                 navigation.reset({
                     index: 0,
                     routes: [{ name: 'MainApp' }],
                 });
+                return;
+            }
+
+            const userData = await FirebaseService.getUserRootData();
+            if (userData['onboarding-process'] === false) {
+                // Onboarding complete – save locally and go to main app
+                await StorageService.setOnboardingCompleted(uid, true);
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainApp' }],
+                });
+            } else {
+                // Onboarding not finished or missing – resume from Name screen
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Name' }],
+                });
             }
         } catch (error) {
             console.error('Post-auth navigation error:', error);
-            // If user root document does not exist yet, treat as new user and start onboarding
+            // If any error occurs and we haven't locally verified completion, force onboarding
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'Name' }],

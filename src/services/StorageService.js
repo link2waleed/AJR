@@ -410,6 +410,36 @@ const StorageService = {
         }
     },
 
+    // ============ ONBOARDING ============
+
+    /**
+     * Save onboarding completion status per user
+     */
+    setOnboardingCompleted: async (uid, isCompleted) => {
+        try {
+            if (!uid) return false;
+            await AsyncStorage.setItem(`@ajr_onboarding_completed_${uid}`, isCompleted ? 'true' : 'false');
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving onboarding status:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Get onboarding completion status for a user
+     */
+    getOnboardingCompleted: async (uid) => {
+        try {
+            if (!uid) return false;
+            const data = await AsyncStorage.getItem(`@ajr_onboarding_completed_${uid}`);
+            return data === 'true';
+        } catch (error) {
+            console.error('StorageService: Error getting onboarding status:', error);
+            return false;
+        }
+    },
+
     // ============ UTILITIES ============
 
     /**

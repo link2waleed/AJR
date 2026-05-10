@@ -71,11 +71,11 @@ const PrayerCard = ({ prayer, settings, onSettingChange }) => {
 const PrayerSetupScreen = ({ navigation, route }) => {
     const activities = route?.params?.activities || {};
     const [prayerSettings, setPrayerSettings] = useState({
-        fajr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
-        duhur: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
-        asr: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
-        maghrib: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
-        isha: { enabled: false, athanEnabled: true, reminderEnabled: true, soundMode: 'athan' },
+        fajr: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+        duhur: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+        asr: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+        maghrib: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
+        isha: { enabled: false, reminderEnabled: false, soundMode: 'athan' },
     });
     const [trackPrayers, setTrackPrayers] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -94,12 +94,11 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                         if (val && typeof val === 'object') {
                             return {
                                 enabled: val.enabled ?? false,
-                                athanEnabled: val.athanEnabled ?? true,
-                                reminderEnabled: val.reminderEnabled ?? true,
+                                reminderEnabled: val.reminderEnabled ?? false,
                                 soundMode: val.soundMode || globalSound,
                             };
                         }
-                        return { enabled: !!val, athanEnabled: true, reminderEnabled: true, soundMode: globalSound };
+                        return { enabled: !!val, reminderEnabled: false, soundMode: globalSound };
                     };
                     setPrayerSettings({
                         fajr: parse(prayer.fajr),
@@ -148,11 +147,11 @@ const PrayerSetupScreen = ({ navigation, route }) => {
         try {
             // Save prayer settings to Firebase
             await FirebaseService.savePrayerSettings({
-                fajr: { enabled: prayerSettings.fajr.enabled, athanEnabled: prayerSettings.fajr.athanEnabled, reminderEnabled: prayerSettings.fajr.reminderEnabled, soundMode: prayerSettings.fajr.soundMode },
-                dhuhr: { enabled: prayerSettings.duhur.enabled, athanEnabled: prayerSettings.duhur.athanEnabled, reminderEnabled: prayerSettings.duhur.reminderEnabled, soundMode: prayerSettings.duhur.soundMode },
-                asr: { enabled: prayerSettings.asr.enabled, athanEnabled: prayerSettings.asr.athanEnabled, reminderEnabled: prayerSettings.asr.reminderEnabled, soundMode: prayerSettings.asr.soundMode },
-                maghrib: { enabled: prayerSettings.maghrib.enabled, athanEnabled: prayerSettings.maghrib.athanEnabled, reminderEnabled: prayerSettings.maghrib.reminderEnabled, soundMode: prayerSettings.maghrib.soundMode },
-                isha: { enabled: prayerSettings.isha.enabled, athanEnabled: prayerSettings.isha.athanEnabled, reminderEnabled: prayerSettings.isha.reminderEnabled, soundMode: prayerSettings.isha.soundMode },
+                fajr: { enabled: prayerSettings.fajr.enabled, reminderEnabled: prayerSettings.fajr.reminderEnabled, soundMode: prayerSettings.fajr.soundMode },
+                dhuhr: { enabled: prayerSettings.duhur.enabled, reminderEnabled: prayerSettings.duhur.reminderEnabled, soundMode: prayerSettings.duhur.soundMode },
+                asr: { enabled: prayerSettings.asr.enabled, reminderEnabled: prayerSettings.asr.reminderEnabled, soundMode: prayerSettings.asr.soundMode },
+                maghrib: { enabled: prayerSettings.maghrib.enabled, reminderEnabled: prayerSettings.maghrib.reminderEnabled, soundMode: prayerSettings.maghrib.soundMode },
+                isha: { enabled: prayerSettings.isha.enabled, reminderEnabled: prayerSettings.isha.reminderEnabled, soundMode: prayerSettings.isha.soundMode },
                 soundMode: prayerSettings.fajr.soundMode,
             });
             // Navigate to next selected activity
@@ -255,24 +254,13 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                 {/* Global Settings Box */}
                 {anyPrayerEnabled && (
                     <View style={styles.globalSettingsBox}>
-                        <Text style={styles.globalSettingsTitle}>Notification Settings</Text>
-
-                        <View style={styles.settingRow}>
-                            <Text style={styles.settingLabel}>Notification at the start of prayer</Text>
-                            <Switch
-                                value={prayerSettings.fajr.athanEnabled}
-                                onValueChange={(value) => handleGlobalSettingChange('athanEnabled', value)}
-                                trackColor={{ false: '#E0E0E0', true: colors.primary.sage }}
-                                thumbColor="#FFFFFF"
-                                ios_backgroundColor="#E0E0E0"
-                            />
-                        </View>
+                        <Text style={styles.globalSettingsTitle}>Quick Settings (applies to all)</Text>
 
                         <View style={styles.settingRow}>
                             <View style={styles.settingTextContainer}>
-                                <Text style={styles.settingLabel}>End-Time Reminder</Text>
+                                <Text style={styles.settingLabel}>20-min Reminder</Text>
                                 <Text style={styles.settingSubtext}>
-                                    Get a reminder 20 minutes before the prayer window closes
+                                    Alert 20 min before the next prayer starts
                                 </Text>
                             </View>
                             <Switch
@@ -286,7 +274,7 @@ const PrayerSetupScreen = ({ navigation, route }) => {
 
                         <View style={styles.soundModeContainer}>
                             <View style={styles.soundModeHeader}>
-                                <Text style={styles.soundModeTitle}>Current sound mode: {globalSoundModeDetails.label}</Text>
+                                <Text style={styles.soundModeTitle}>Sound mode: {globalSoundModeDetails.label}</Text>
                                 <TouchableOpacity
                                     style={styles.soundIconBackground}
                                     onPress={() => {
@@ -303,7 +291,7 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                                     />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.soundModeSubtext}>Tap the sound icon to cycle through options</Text>
+                            <Text style={styles.soundModeSubtext}>Tap the icon to cycle: Athan → Beep → Vibration → Silent</Text>
                         </View>
                     </View>
                 )}

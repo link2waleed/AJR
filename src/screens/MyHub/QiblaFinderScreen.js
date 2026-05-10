@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Magnetometer } from 'expo-sensors';
 import * as Location from 'expo-location';
+import StorageService from '../../services/StorageService';
 import HomeGradient from '../../components/HomeGradient';
 import { colors, spacing, typography } from '../../theme';
-
-import Svg, { Circle, Line, Text as SvgText, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Line, Text as SvgText, Path, Defs, LinearGradient, Stop, G } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
-const COMPASS_SIZE = width * 0.75;
-const CENTER = COMPASS_SIZE / 2;
+const COMPASS_SIZE = Math.floor(width * 0.75);
+const CENTER = Math.floor(COMPASS_SIZE / 2);
 
 // Kaaba coordinates
 const KAABA_LAT = 21.4225;
@@ -19,8 +18,10 @@ const KAABA_LNG = 39.8262;
 const QiblaFinderScreen = ({ navigation }) => {
     const [heading, setHeading] = useState(0);
     const [qiblaDirection, setQiblaDirection] = useState(0);
-    const [magnetometerSubscription, setMagnetometerSubscription] = useState(null);
     const [hasPermission, setHasPermission] = useState(false);
+
+    const headingAnim = useRef(new Animated.Value(0)).current;
+    const subscription = useRef(null);
 
     const handleBack = () => navigation.goBack();
 
@@ -46,53 +47,71 @@ const QiblaFinderScreen = ({ navigation }) => {
     };
 
     useEffect(() => {
-        // Request location permission and get user's location
-        const getLocation = async () => {
+        let isMounted = true;
+
+        const setupLocation = async () => {
             try {
                 const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') {
-                    console.log('Location permission denied');
-                    return;
+                if (status !== 'granted') return;
+
+                setHasPermission(true);
+
+                // 1. Try to get cached location from StorageService first (Instant)
+                const storedLoc = await StorageService.getLocation();
+                if (isMounted && storedLoc) {
+                    const qibla = calculateQiblaDirection(storedLoc.latitude, storedLoc.longitude);
+                    setQiblaDirection(qibla);
                 }
 
-                const location = await Location.getCurrentPositionAsync({});
-                const { latitude, longitude } = location.coords;
+                // 2. Try to get last known location from device (Very Fast)
+                const lastKnown = await Location.getLastKnownPositionAsync({});
+                if (isMounted && lastKnown) {
+                    const qibla = calculateQiblaDirection(lastKnown.coords.latitude, lastKnown.coords.longitude);
+                    setQiblaDirection(qibla);
+                }
 
-                // Calculate Qibla direction
-                const qibla = calculateQiblaDirection(latitude, longitude);
-                setQiblaDirection(qibla);
-                setHasPermission(true);
+                // Watch heading for compass rotation (True North)
+                subscription.current = await Location.watchHeadingAsync((data) => {
+                    if (isMounted) {
+                        const newHeading = data.trueHeading === -1 ? data.magHeading : data.trueHeading;
+                        setHeading(newHeading);
+
+                        Animated.timing(headingAnim, {
+                            toValue: newHeading,
+                            duration: 100,
+                            useNativeDriver: true,
+                        }).start();
+                    }
+                });
+
+                // 3. Get fresh location for maximum accuracy (Standard Speed)
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(location => {
+                    if (isMounted && location) {
+                        const qibla = calculateQiblaDirection(location.coords.latitude, location.coords.longitude);
+                        setQiblaDirection(qibla);
+                    }
+                }).catch(e => console.warn(e));
+
             } catch (error) {
-                console.error('Error getting location:', error);
+                console.error('Error setting up Qibla sensors:', error);
             }
         };
 
-        getLocation();
+        setupLocation();
 
-        // Subscribe to magnetometer updates
-        Magnetometer.setUpdateInterval(100);
-        const subscription = Magnetometer.addListener((data) => {
-            const { x, y } = data;
-            let angle = Math.atan2(y, x) * (180 / Math.PI);
-            angle = (angle + 360) % 360;
-
-            // Normalize heading
-            let normalizedHeading = 360 - angle;
-            setHeading(normalizedHeading);
-        });
-
-        setMagnetometerSubscription(subscription);
-
-        // Cleanup
         return () => {
-            if (magnetometerSubscription) {
-                magnetometerSubscription.remove();
+            isMounted = false;
+            if (subscription.current) {
+                subscription.current.remove();
             }
         };
     }, []);
 
-    // Calculate the rotation for the compass
-    const compassRotation = -heading;
+    // Interpolate rotation for smooth movement
+    const rotation = headingAnim.interpolate({
+        inputRange: [0, 360],
+        outputRange: ['0deg', '-360deg'],
+    });
 
     return (
         <HomeGradient>
@@ -109,12 +128,20 @@ const QiblaFinderScreen = ({ navigation }) => {
 
                     {/* Compass Container */}
                     <View style={styles.compassContainer}>
-                        <View style={{ transform: [{ rotate: `${compassRotation}deg` }], marginBottom: 60 }}>
+                        <Animated.View style={{
+                            width: COMPASS_SIZE,
+                            height: COMPASS_SIZE,
+                            transform: [{ rotate: rotation }],
+                            marginBottom: 60,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}>
                             {/* Static Cardinal Directions (Outside) */}
-                            <Text style={[styles.cardinalOutside, { color: '#D32F2F', top: -28, left: CENTER - 15 }]}>W</Text>
+                            {/* Fixed positions to be correct: N at top, E at right, S at bottom, W at left */}
+                            <Text style={[styles.cardinalOutside, { color: '#D32F2F', top: -28, left: CENTER - 15 }]}>N</Text>
                             <Text style={[styles.cardinalOutside, { color: '#7A8A7A', right: -28, top: CENTER - 15 }]}>E</Text>
                             <Text style={[styles.cardinalOutside, { color: '#7A8A7A', bottom: -28, left: CENTER - 15 }]}>S</Text>
-                            <Text style={[styles.cardinalOutside, { color: '#7A8A7A', left: -28, top: CENTER - 15 }]}>N</Text>
+                            <Text style={[styles.cardinalOutside, { color: '#7A8A7A', left: -28, top: CENTER - 15 }]}>W</Text>
 
                             <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
                                 <Defs>
@@ -179,29 +206,38 @@ const QiblaFinderScreen = ({ navigation }) => {
                                     );
                                 })}
 
-                                {/* The Fixed Pointer/Arrow as per Reference Image */}
-                                <Path
-                                    d={`M ${CENTER} 15 L ${CENTER - 20} ${CENTER} L ${CENTER + 20} ${CENTER} Z`}
-                                    fill="#D32F2F"
-                                />
-                                <Path
-                                    d={`M ${CENTER} ${COMPASS_SIZE - 15} L ${CENTER - 20} ${CENTER} L ${CENTER + 20} ${CENTER} Z`}
-                                    fill="#4EB6AC"
-                                />
-
-                                {/* Kaaba icon in center */}
-                                <SvgText
-                                    x={CENTER}
-                                    y={CENTER + 20}
-                                    fill="#000000"
-                                    fontSize="50"
-                                    textAnchor="middle"
-                                >
-                                    🕋
-                                </SvgText>
+                                {/* Red Needle pointing towards Qibla */}
+                                <G transform={`rotate(${qiblaDirection}, ${CENTER}, ${CENTER})`}>
+                                    <Path
+                                        d={`M ${CENTER - 3} ${CENTER} L ${CENTER + 3} ${CENTER} L ${CENTER} 25 Z`}
+                                        fill="#D32F2F"
+                                    />
+                                </G>
                             </Svg>
-                        </View>
 
+                            {/* Kaaba icon in center (Using View for perfect alignment) */}
+                            <View
+                                style={[
+                                    StyleSheet.absoluteFill,
+                                    { justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }
+                                ]}
+                            >
+                                <Text style={{
+                                    fontSize: 35,
+                                    transform: [{ rotate: '180deg' }],
+                                    marginTop: Platform.OS === 'ios' ? -12 : 0 // Significant nudge UP to align with needle base
+                                }}>
+                                    🕋
+                                </Text>
+                            </View>
+                        </Animated.View>
+
+                        {/* Direction Text */}
+                        <View style={styles.directionInfo}>
+                            <Text style={styles.directionText}>
+                                Qibla: {Math.round(qiblaDirection)}°
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </SafeAreaView>
@@ -232,7 +268,6 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text.black,
     },
-
     compassContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -247,8 +282,6 @@ const styles = StyleSheet.create({
         width: 30,
     },
     directionInfo: {
-        position: 'absolute',
-        bottom: 60,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         paddingHorizontal: 24,
         paddingVertical: 12,
@@ -258,6 +291,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 4,
         elevation: 3,
+        marginTop: 20,
     },
     directionText: {
         fontSize: 15,

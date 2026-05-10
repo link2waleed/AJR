@@ -227,17 +227,16 @@ struct CombinedAJREntryView: View {
 
     // Medium: Circle Progress ring + Next Salah side by side
     private var mediumCombinedView: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             CircleProgressView(data: entry.data.circleData, compact: false)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .widgetURL(URL(string: "ajr://mycircle"))
             
-            Spacer()
-
             NextSalahView(data: entry.data.nextSalah, compact: false)
-                .padding(.trailing, 8)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .widgetURL(URL(string: "ajr://salah"))
         }
         .padding(.horizontal, 12)
-        .widgetURL(URL(string: "ajr://salah"))
     }
 
     // Large: Next Salah + Circle Progress on top, Rings + Legend on bottom

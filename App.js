@@ -19,7 +19,13 @@ async function bootstrapNotifications() {
     // Clear any stale queued prayer notifications from older app logic/text.
     await NotificationService.cancelAllPrayerNotifications();
 
-    // Load prayer settings from DB
+    // Load prayer settings from DB (only if authenticated)
+    const currentUser = require('@react-native-firebase/auth').default().currentUser;
+    if (!currentUser) {
+      console.log('[APP] No authenticated user, skipping notification bootstrap');
+      return;
+    }
+    
     const info = await FirebaseService.getOnboardingInfo();
     const prayer = info?.prayer;
     if (!prayer) {
@@ -29,12 +35,29 @@ async function bootstrapNotifications() {
     console.log('[APP] Prayer settings loaded:', JSON.stringify(prayer, null, 2));
 
     // Load cached timings with timezone
-    const fullData = await StorageService.getFullTimings();
+    let fullData = await StorageService.getFullTimings();
+
+    // If cache is stale/empty, fetch fresh from API
     if (!fullData) {
-      console.warn('[APP] No cached timings found, notifications cannot be scheduled');
+      console.log('[APP] No cached timings — fetching fresh from API...');
+      const location = await StorageService.getLocation();
+      if (location?.latitude && location?.longitude) {
+        const PrayerTimeService = require('./src/services/PrayerTimeService').default;
+        const prayerData = await PrayerTimeService.getCompletePrayerData(
+          location.latitude, location.longitude
+        );
+        if (prayerData?.timings && prayerData?.timezone) {
+          fullData = { timings: prayerData.timings, timezone: prayerData.timezone };
+          console.log('[APP] Fresh timings fetched successfully');
+        }
+      }
+    }
+
+    if (!fullData) {
+      console.warn('[APP] Could not get prayer timings — notifications will be scheduled later');
       return;
     }
-    console.log('[APP] Cached timings loaded:', { timings: fullData.timings, timezone: fullData.timezone });
+    console.log('[APP] Timings loaded:', { timings: fullData.timings, timezone: fullData.timezone });
 
     const { timings, timezone } = fullData;
     const parsePrayer = (val) => {
@@ -45,9 +68,9 @@ async function bootstrapNotifications() {
     await NotificationService.schedulePrayerNotifications(
       {
         fajr: parsePrayer(prayer.fajr),
-        duhur: parsePrayer(prayer.dhuhr),
+        dhuhr: parsePrayer(prayer.dhuhr),
         asr: parsePrayer(prayer.asr),
-        mughrib: parsePrayer(prayer.maghrib),
+        maghrib: parsePrayer(prayer.maghrib),
         isha: parsePrayer(prayer.isha),
         soundMode: prayer.soundMode || 'athan',
       },

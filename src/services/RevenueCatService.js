@@ -40,7 +40,8 @@ class RevenueCatService {
 
         try {
             // Set log level — use DEBUG during development, INFO for production
-            Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+            //Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+            Purchases.setLogLevel(LOG_LEVEL.INFO);
 
             const apiKey = Platform.OS === 'ios'
                 ? REVENUECAT_API_KEY_IOS
@@ -205,6 +206,18 @@ class RevenueCatService {
                 console.error('[RevenueCat] Error logging out:', error.message);
             }
             // Non-critical — don't throw
+        }
+    }
+
+    /**
+     * Check if the current user is anonymous in RevenueCat.
+     */
+    async isAnonymous() {
+        try {
+            return await Purchases.isAnonymous();
+        } catch (error) {
+            console.error('[RevenueCat] Error checking anonymous status:', error.message);
+            return false;
         }
     }
 

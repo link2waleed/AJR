@@ -165,20 +165,24 @@ const parseTimeToDate = (timeString, baseDate = new Date()) => {
 
 /**
  * Parse prayer time with timezone awareness
- * Gets current time in the prayer location's timezone, then compares
- * This is more robust than trying to convert between timezones
+ * Converts a local time string (HH:MM) in the given IANA timezone to an absolute UTC Date.
+ *
+ * APPROACH: Calculate the timezone's UTC offset mathematically by comparing
+ * wall-clock components (from Intl.DateTimeFormat) against the actual UTC time
+ * of baseDate. This is 100% platform-independent — no string parsing of
+ * timezone abbreviations (BST, EDT, etc.) which vary across platforms/locales.
+ *
  * @param {string} timeString - Time in HH:MM format (in prayer location's timezone)
  * @param {string} timezone - IANA timezone (e.g., 'Europe/London', 'Asia/Karachi')
- * @returns {Date} - Absolute time that can be compared with new Date()
+ * @param {Date}   baseDate  - Reference date for determining day/month/year context
+ * @returns {Date} - Absolute UTC Date that can be compared with new Date()
  */
-const parseTimeToDateWithTimezone = (timeString, timezone = 'UTC') => {
+const parseTimeToDateWithTimezone = (timeString, timezone = 'UTC', baseDate = new Date()) => {
     if (!timeString) return null;
 
     const cleanTime = timeString.split(' ')[0];
     const [prayerHours, prayerMinutes] = cleanTime.split(':').map(Number);
 
-    // Get current time in the prayer location's timezone
-    const now = new Date();
     const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
         year: 'numeric',
@@ -190,49 +194,28 @@ const parseTimeToDateWithTimezone = (timeString, timezone = 'UTC') => {
         hour12: false,
     });
 
-    const parts = formatter.formatToParts(now);
+    const parts = formatter.formatToParts(baseDate);
     const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
     const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
     const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
     const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
     const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
+    const tzSeconds = parseInt(parts.find(p => p.type === 'second').value, 10);
 
-    console.log('TimeZone Debug - Current time in prayer location:', {
-        timezone,
-        currentTimeInPrayerTz: `${tzYear}-${tzMonth + 1}-${tzDay} ${tzHours}:${tzMinutes}`,
-        nowUTC: now.toISOString(),
-        nowDeviceTz: now.toLocaleString(),
-    });
+    // Calculate UTC offset mathematically:
+    // "asIfUtcMs" treats the wall-clock values as if they were UTC
+    // The difference between that and the actual UTC time (baseDate.getTime())
+    // gives us the timezone's offset in milliseconds.
+    const asIfUtcMs = Date.UTC(tzYear, tzMonth, tzDay, tzHours, tzMinutes, tzSeconds);
+    const offsetMs = asIfUtcMs - baseDate.getTime();
 
-    // Calculate the offset between device timezone and prayer location timezone
-    // The offset is: (now in device TZ) - (now in prayer location TZ)
-    const deviceDate = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, 0);
-    const offset = now.getTime() - deviceDate.getTime();
+    // Now build the prayer time: same date, but with the prayer's hours/minutes,
+    // then subtract the offset to get the true UTC instant.
+    const localPrayerUtcMs = Date.UTC(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0) - offsetMs;
 
-    console.log('TimeZone Debug - Offset calculation:', {
-        deviceDateCreated: deviceDate.toISOString(),
-        nowTime: now.getTime(),
-        deviceDateTime: deviceDate.getTime(),
-        offsetMs: offset,
-        offsetHours: offset / 3600000,
-    });
-
-    // Create prayer time in prayer location's timezone, then adjust to device timezone
-    const prayerDateInLocalTz = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
-    const prayerDateInDeviceTz = new Date(prayerDateInLocalTz.getTime() + offset);
-
-    console.log('Timezone-aware parse:', {
-        timezone,
-        timeString: cleanTime,
-        tzCurrentTime: `${tzHours}:${tzMinutes}`,
-        prayerTimeInTz: `${prayerHours}:${prayerMinutes}`,
-        prayerDateLocalTz: prayerDateInLocalTz.toISOString(),
-        offset: `${offset / 3600000} hours`,
-        result: prayerDateInDeviceTz.toISOString(),
-        resultDeviceTz: prayerDateInDeviceTz.toLocaleString(),
-    });
-
-    return prayerDateInDeviceTz;
+    const result = new Date(localPrayerUtcMs);
+    console.log(`[TZ-PARSE] ${timeString} in ${timezone} => ${result.toISOString()} (offset=${Math.round(offsetMs/3600000)}h)`);
+    return result;
 };
 
 /**
@@ -318,10 +301,10 @@ const isBetweenMaghribAndIsha = async (latitude, longitude) => {
 
 const PrayerTimeService = {
 
-    fetchLondonPrayerTimes: async (school = DEFAULT_SCHOOL) => {
+    fetchLondonPrayerTimes: async (school = DEFAULT_SCHOOL, date = new Date()) => {
         try {
-            // Get today's date in London timezone
-            const londonDate = new Date().toLocaleDateString('en-GB', {
+            // Get the requested date in London timezone
+            const londonDate = date.toLocaleDateString('en-GB', {
                 timeZone: 'Europe/London',
                 year: 'numeric',
                 month: '2-digit',
@@ -493,10 +476,7 @@ const PrayerTimeService = {
     fetchPrayerTimes: async (latitude, longitude, date = new Date(), school = DEFAULT_SCHOOL) => {
         if (isInLondon(latitude, longitude)) {
             console.log('[PRAYER TIMES] Using London Prayer Times API');
-            const londonData = await PrayerTimeService.fetchLondonPrayerTimes(school);
-            // Note: fetchLondonPrayerTimes currently only fetches today's. 
-            // If date is not today, we might need to adjust it there too, 
-            // but for now let's focus on the main API for multi-day support if needed.
+            const londonData = await PrayerTimeService.fetchLondonPrayerTimes(school, date);
             if (londonData) {
                 console.log('[PRAYER TIMES] London API successful - using it');
                 return londonData;
@@ -681,14 +661,14 @@ const PrayerTimeService = {
         });
 
         const parts = formatter.formatToParts(baseDate);
-        const tzYear = parseInt(parts.find(p => p.type === 'year').value, 10);
-        const tzMonth = parseInt(parts.find(p => p.type === 'month').value, 10) - 1;
-        const tzDay = parseInt(parts.find(p => p.type === 'day').value, 10);
         const tzHours = parseInt(parts.find(p => p.type === 'hour').value, 10);
         const tzMinutes = parseInt(parts.find(p => p.type === 'minute').value, 10);
 
-        // Current time in prayer location's timezone (for comparison)
-        const nowInLocationTz = new Date(tzYear, tzMonth, tzDay, tzHours, tzMinutes, 0);
+        const nowInLocationTz = parseTimeToDateWithTimezone(
+            `${tzHours.toString().padStart(2, '0')}:${tzMinutes.toString().padStart(2, '0')}`,
+            timezone,
+            baseDate
+        );
 
         console.log('calculateNextPrayer - Current time in location timezone:', {
             timezone,
@@ -700,9 +680,7 @@ const PrayerTimeService = {
             const prayerTime = timings[prayerName];
             if (!prayerTime) continue;
 
-            // Parse prayer time in same timezone context (just HH:MM)
-            const [prayerHours, prayerMinutes] = prayerTime.split(':').map(Number);
-            const prayerDateInLocationTz = new Date(tzYear, tzMonth, tzDay, prayerHours, prayerMinutes, 0);
+            const prayerDateInLocationTz = parseTimeToDateWithTimezone(prayerTime, timezone, baseDate);
 
             console.log(`Prayer comparison - ${prayerName}: ${prayerTime} (location tz ${timezone}) vs current ${tzHours}:${tzMinutes}`);
 
