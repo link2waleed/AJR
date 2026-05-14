@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AJR Widget Colors - Matching iOS AJRColors -->
+    <color name="widget_salah_ring">#FF8FAF9A</color>
+    <color name="widget_quran_ring">#FFE3C27A</color>
+    <color name="widget_dhikr_ring">#FFD1AD73</color>
+    <color name="widget_circle_ring">#FF9ECED1</color>
+
+    <color name="widget_sage">#FF7A9E7F</color>
+    <color name="widget_dark_sage">#FF5A7A5F</color>
+    <color name="widget_cream">#FFF5F3E8</color>
+    <color name="widget_card_mint">#FFD4E4D1</color>
+
+    <color name="widget_text_black">#FF202020</color>
+    <color name="widget_text_grey">#FF757575</color>
+
+    <color name="widget_bg_top">#FFC0E5E2</color>
+    <color name="widget_bg_bottom">#FFECE3C9</color>
+
+    <!-- Widget background -->
+    <color name="widget_background">#FFF5F3E8</color>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_daily_rings_description">Track your Salah, Qur\'an &amp; Dhikr progress</string>
+    <string name="widget_next_salah_description">See your next prayer time at a glance</string>
+    <string name="widget_circle_progress_description">See your circle\'s overall completion</string>
+    <string name="widget_combined_description">Daily rings, next salah, and circle progress</string>
+    <string name="widget_loading">Loading...</string>
+</resources>

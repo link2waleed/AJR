@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape
+            android:innerRadiusRatio="2.5"
+            android:shape="ring"
+            android:thicknessRatio="35"
+            android:useLevel="false">
+            <solid android:color="@color/widget_dhikr_ring"
+                android:alpha="0.2" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <shape
+            android:innerRadiusRatio="2.5"
+            android:shape="ring"
+            android:thicknessRatio="35"
+            android:useLevel="true">
+            <solid android:color="@color/widget_dhikr_ring" />
+        </shape>
+    </item>
+</layer-list>

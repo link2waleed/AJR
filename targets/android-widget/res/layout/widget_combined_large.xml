@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Top Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <!-- Next Salah (Left) -->
+        <LinearLayout
+            android:id="@+id/container_salah"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <ImageView
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_moon"
+                    android:tint="@color/widget_sage"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Next Salah"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/salah_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fajr"
+                android:textColor="@color/widget_text_black"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/time_remaining"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="in 2h 15m"
+                android:textColor="@color/widget_dark_sage"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/time_string"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:00 PM"
+                android:textColor="@color/widget_text_grey"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Circle Progress (Right) -->
+        <LinearLayout
+            android:id="@+id/container_circle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_group"
+                android:tint="@color/widget_sage"
+                android:layout_marginEnd="12dp" />
+
+            <ImageView
+                android:layout_width="1dp"
+                android:layout_height="60dp"
+                android:background="#1A000000"
+                android:layout_marginEnd="12dp" />
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <!-- No Circles -->
+                <LinearLayout
+                    android:id="@+id/no_circles_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <FrameLayout
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_marginBottom="6dp">
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/dotted_circle_background" />
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_group"
+                            android:tint="@color/widget_sage" />
+                    </FrameLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="No Circles"
+                        android:textColor="@color/widget_text_black"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Active Circle -->
+                <LinearLayout
+                    android:id="@+id/active_circle_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_marginBottom="6dp">
+                        <ProgressBar
+                            android:id="@+id/progress_ring"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:indeterminate="false"
+                            android:max="100"
+                            android:progress="0"
+                            android:progressDrawable="@drawable/circular_progress_circle" />
+                        <TextView
+                            android:id="@+id/circle_percentage"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="0%"
+                            android:textColor="@color/widget_text_black"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/circle_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Name"
+                        android:textColor="@color/widget_text_black"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:id="@+id/more_circles"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+0 more"
+                        android:textColor="@color/widget_text_grey"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Horizontal Divider -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1A000000"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Bottom Section: Daily Rings + Legend -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <!-- Rings -->
+        <FrameLayout
+            android:id="@+id/container_rings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <ProgressBar
+                android:id="@+id/ring_salah"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="110dp"
+                android:layout_height="110dp"
+                android:layout_gravity="center"
+                android:indeterminate="false"
+                android:max="100"
+                android:progressDrawable="@drawable/ring_salah" />
+
+            <ProgressBar
+                android:id="@+id/ring_quran"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:layout_gravity="center"
+                android:indeterminate="false"
+                android:max="100"
+                android:progressDrawable="@drawable/ring_quran" />
+
+            <ProgressBar
+                android:id="@+id/ring_dhikr"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:layout_gravity="center"
+                android:indeterminate="false"
+                android:max="100"
+                android:progressDrawable="@drawable/ring_dhikr" />
+
+            <ProgressBar
+                android:id="@+id/ring_journal"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"
+                android:indeterminate="false"
+                android:max="100"
+                android:progressDrawable="@drawable/ring_journal" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/overall_percentage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Complete"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Spacer -->
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.1" />
+
+        <!-- Legend List -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
+            android:orientation="vertical">
+
+            <!-- Salah -->
+            <LinearLayout
+                android:id="@+id/legend_salah"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+                <ImageView
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/circle_salah"
+                    android:layout_marginEnd="12dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Salah"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+                <FrameLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/salah_percentage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageView android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D000000" android:layout_marginBottom="6dp" />
+
+            <!-- Quran -->
+            <LinearLayout
+                android:id="@+id/legend_quran"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+                <ImageView
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/circle_quran"
+                    android:layout_marginEnd="12dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Qur'an"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+                <FrameLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/quran_percentage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageView android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D000000" android:layout_marginBottom="6dp" />
+
+            <!-- Dhikr -->
+            <LinearLayout
+                android:id="@+id/legend_dhikr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+                <ImageView
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/circle_dhikr"
+                    android:layout_marginEnd="12dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Dhikr"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+                <FrameLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/dhikr_percentage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageView android:layout_width="match_parent" android:layout_height="1dp" android:background="#0D000000" android:layout_marginBottom="6dp" />
+
+            <!-- Journal Legend -->
+            <LinearLayout
+                android:id="@+id/legend_journal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/circle_journal"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Journal"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/journal_indicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

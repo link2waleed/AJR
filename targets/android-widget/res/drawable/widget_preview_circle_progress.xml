@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder preview for Circle Progress Widget - replace with actual screenshot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <path
+        android:fillColor="#F5F3E8"
+        android:pathData="M0,0h200v200h-200z"/>
+    <path
+        android:fillColor="#9ECED1"
+        android:pathData="M100,40c33.14,0 60,26.86 60,60s-26.86,60 -60,60s-60,-26.86 -60,-60s26.86,-60 60,-60zM100,55c24.85,0 45,20.15 45,45s-20.15,45 -45,45s-45,-20.15 -45,-45s20.15,-45 45,-45z"/>
+    <path
+        android:fillColor="#202020"
+        android:pathData="M85,95h30v10h-30z"/>
+    <path
+        android:fillColor="#757575"
+        android:pathData="M70,140h60v15h-60z"/>
+</vector>

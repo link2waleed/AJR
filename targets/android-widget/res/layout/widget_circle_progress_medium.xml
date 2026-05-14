@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <!-- Left Icon Area -->
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_group"
+        android:tint="@color/widget_sage"
+        android:layout_marginStart="12dp" />
+
+    <!-- Separator -->
+    <ImageView
+        android:layout_width="1dp"
+        android:layout_height="60dp"
+        android:background="#1A000000"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- No Circles Container -->
+        <FrameLayout
+            android:id="@+id/no_circles_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_gravity="center"
+                android:background="@drawable/dotted_circle_background" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_group"
+                    android:tint="@color/widget_sage"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No Circles Yet"
+                    android:textColor="@color/widget_text_black"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Join a circle"
+                    android:textColor="@color/widget_text_grey"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Active Circle Container -->
+        <LinearLayout
+            android:id="@+id/active_circle_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginBottom="12dp">
+
+                <ProgressBar
+                    android:id="@+id/progress_ring"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/circular_progress_circle_large" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/circle_percentage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="@color/widget_text_black"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Overall"
+                        android:textColor="@color/widget_text_grey"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/circle_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Name"
+                android:textColor="@color/widget_text_black"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/more_circles"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+0 more"
+                android:textColor="@color/widget_sage"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

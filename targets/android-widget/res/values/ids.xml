@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="active_circle_container" />
+    <item type="id" name="circle_name" />
+    <item type="id" name="circle_percentage" />
+    <item type="id" name="circle_progress" />
+    <item type="id" name="dhikr_percentage" />
+    <item type="id" name="journal_indicator" />
+    <item type="id" name="legend_dhikr" />
+    <item type="id" name="legend_quran" />
+    <item type="id" name="legend_salah" />
+    <item type="id" name="more_circles" />
+    <item type="id" name="no_circles_container" />
+    <item type="id" name="overall_percentage" />
+    <item type="id" name="progress_ring" />
+    <item type="id" name="quran_percentage" />
+    <item type="id" name="salah_name" />
+    <item type="id" name="salah_percentage" />
+    <item type="id" name="time_remaining" />
+    <item type="id" name="time_string" />
+    <item type="id" name="widget_container" />
+</resources>

@@ -1,0 +1,226 @@
+# Android Paywall — Diagnostic & Production Checklist
+
+## 🔴 Root Cause Analysis
+
+Your symptoms (money deducted → transaction not in RevenueCat → not recognized as pro → "already subscribed" error) point to **Google Play processing the purchase natively, but RevenueCat never receiving/validating it**. This is almost certainly a **server-side credential issue** — RevenueCat can't talk to Google Play to verify the purchase.
+
+Here's every issue I found, ranked by severity:
+
+---
+
+## Issue #1 (CRITICAL): RevenueCat Cannot Validate Google Play Purchases
+
+**This is your main problem.** For RevenueCat to receive Android transactions, you need to configure a **Google Play Service Account** in the RevenueCat dashboard. Without this, Google Play processes the purchase directly but RevenueCat never knows about it.
+
+### What happens without it:
+1. User taps Subscribe → Google Play payment sheet appears → money is charged ✅
+2. `Purchases.purchasePackage()` returns customer info, BUT RevenueCat backend can't verify the purchase token with Google → entitlement is **not** granted ❌
+3. RevenueCat dashboard shows no transaction ❌
+4. Google Play remembers the subscription → "already subscribed" error on retry ✅
+
+### Fix (RevenueCat Dashboard):
+1. Go to [RevenueCat Dashboard](https://app.revenuecat.com) → Your Project → **Apps**
+2. You should have a **Google Play Store** app entry. If not, create one:
+   - Platform: **Google Play Store**
+   - Package Name: `com.my.AJR.android`
+3. In the Google Play app settings, you need to provide:
+   - **Service Account credentials JSON** (from Google Cloud Console)
+   
+> [!IMPORTANT]
+> **Google Cloud Service Account Setup:**
+> 1. Go to [Google Cloud Console](https://console.cloud.google.com) → **IAM & Admin** → **Service Accounts**
+> 2. Create a new service account (or use existing one)
+> 3. Grant it the role: **Pub/Sub Admin** (for real-time notifications)
+> 4. Create a **JSON key** and download it
+> 5. Go to [Google Play Console](https://play.google.com/console) → **Settings** → **API access**
+> 6. Link the Google Cloud project
+> 7. Grant the service account **"Financial data"** permission (View financial data, orders, and cancellation survey responses) AND **"Manage orders and subscriptions"**
+> 8. Upload the JSON key to RevenueCat Dashboard → Google Play App → **Service Account credentials**
+
+> [!WARNING]
+> After granting permissions in Play Console, it can take **up to 24-36 hours** for Google to propagate the permissions. RevenueCat won't be able to validate purchases until this propagation is complete.
+
+---
+
+## Issue #2 (CRITICAL): Product ID Mismatch
+
+In your code ([RevenueCatService.js](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/services/RevenueCatService.js#L22-L26)):
+
+```javascript
+const PRODUCT_IDS = {
+    weekly: 'com.my.ajr.weekly',        // ← lowercase
+    yearly: 'com.my.ajr.annually',      // ← lowercase, "annually"
+};
+```
+
+But your implementation plan says the Apple products were set up as:
+- `com.my.AJR.ajrplus.weekly`
+- `com.my.AJR.ajrplus.yearly`
+
+**For Android, you need to verify**: What are the **exact product IDs** you created in Google Play Console → Monetization → Subscriptions? They must match **exactly** (case-sensitive) in:
+1. Google Play Console subscription configuration
+2. RevenueCat Dashboard → Products (with store = Google Play)
+3. RevenueCat Dashboard → Offerings → Packages (mapped to the Google Play products)
+
+> [!NOTE]
+> The `PRODUCT_IDS` constant in code is **not actually used** for purchasing — RevenueCat uses the offerings/packages you configure in the dashboard. However, the products in the RevenueCat dashboard must exactly match Google Play Console product IDs.
+
+**Action Required:**
+- Confirm the exact product IDs in Google Play Console
+- Create matching products in RevenueCat with store = **Google Play**  
+- Attach those Google Play products to the **same entitlement** (`ajr_plus`)
+- Attach those Google Play products to the **same offering** packages (`$rc_weekly`, `$rc_annual`)
+
+---
+
+## Issue #3 (MODERATE): Missing BILLING Permission
+
+Your [AndroidManifest.xml](file:///Users/ahmed/Desktop/AJR_APP_V2_3/android/app/src/main/AndroidManifest.xml) does **not** include the billing permission:
+
+```xml
+<uses-permission android:name="com.android.vending.BILLING" />
+```
+
+While `react-native-purchases` typically adds this automatically via its own manifest, it's best practice to declare it explicitly to avoid merge issues. **This alone won't cause your current symptom** (Google Play still charged you), but it could cause issues on some devices.
+
+---
+
+## Issue #4 (MODERATE): Hardcoded Apple-Only Text & Links
+
+Your [SubscriptionScreen.js](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/screens/SubscriptionScreen.js) has iOS-only content shown to Android users:
+
+1. **Line 115**: "Manage Subscription" links to `https://apps.apple.com/account/subscriptions` — Android users should go to Play Store subscriptions
+2. **Line 318**: "Payment will be charged to your Apple ID account..." — Wrong store text for Android
+
+---
+
+## Issue #5 (MODERATE): RedeemCodeScreen Blocks Android
+
+[RedeemCodeScreen.js](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/screens/RedeemCodeScreen.js#L33-L39) shows "Not Available" for non-iOS, and uses `Purchases.presentCodeRedemptionSheet()` which is iOS-only. Android users who navigate here get blocked. Consider either hiding the navigation entry on Android or providing a Google Play promo code alternative.
+
+---
+
+## Issue #6 (MINOR): Debug Logging Disabled
+
+[RevenueCatService.js line 42](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/services/RevenueCatService.js#L42) has `LOG_LEVEL.DEBUG` commented out. **Enable it during testing** to see exactly what RevenueCat is doing:
+
+```javascript
+Purchases.setLogLevel(LOG_LEVEL.DEBUG); // ENABLE THIS FOR TESTING
+```
+
+---
+
+## Code Fixes
+
+### Fix 1: Enable Debug Logging (for testing)
+
+In [RevenueCatService.js](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/services/RevenueCatService.js):
+
+```diff
+-            //Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+-            Purchases.setLogLevel(LOG_LEVEL.INFO);
++            Purchases.setLogLevel(LOG_LEVEL.DEBUG);
++            //Purchases.setLogLevel(LOG_LEVEL.INFO);
+```
+
+### Fix 2: Platform-Aware Subscription Management Link
+
+In [SubscriptionScreen.js](file:///Users/ahmed/Desktop/AJR_APP_V2_3/src/screens/SubscriptionScreen.js), the "Manage Subscription" button and legal text:
+
+```diff
+ // Add Platform import at the top
+-import { ... } from 'react-native';
++import { ..., Platform } from 'react-native';
+
+ // Line 115 - Manage Subscription link
+-Linking.openURL('https://apps.apple.com/account/subscriptions');
++Linking.openURL(
++    Platform.OS === 'ios'
++        ? 'https://apps.apple.com/account/subscriptions'
++        : 'https://play.google.com/store/account/subscriptions'
++);
+
+ // Line 316-318 - Legal text
+-'Payment will be charged to your Apple ID account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'
++Platform.OS === 'ios'
++    ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'
++    : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'
+```
+
+### Fix 3: Add BILLING Permission
+
+In [AndroidManifest.xml](file:///Users/ahmed/Desktop/AJR_APP_V2_3/android/app/src/main/AndroidManifest.xml):
+
+```diff
+ <uses-permission android:name="android.permission.INTERNET"/>
++<uses-permission android:name="com.android.vending.BILLING"/>
+```
+
+---
+
+## ✅ Complete Android Production Checklist
+
+### Google Play Console
+- [ ] **Subscription products created** in Play Console → Monetization → Subscriptions
+  - [ ] Weekly subscription with correct product ID (note exact ID: _____________)
+  - [ ] Yearly subscription with correct product ID (note exact ID: _____________)
+  - [ ] Both products have pricing set
+  - [ ] Both products have localizations (title + description)
+  - [ ] Both products are in **Active** status
+- [ ] **App uploaded** to at least Internal Testing track ✅ (you've done this)
+- [ ] **Licensing testing** configured: Play Console → Settings → License testing → Add your test email addresses
+- [ ] **Test account email** added to the internal testing track testers list
+
+### Google Cloud Console
+- [ ] **Service Account created** with JSON key downloaded
+- [ ] **Google Cloud project linked** to Play Console (Settings → API access)
+- [ ] **Service Account granted** "Financial data" + "Manage orders and subscriptions" permissions in Play Console
+
+### RevenueCat Dashboard
+- [ ] **Google Play Store app created** in RevenueCat project
+  - [ ] Package name: `com.my.AJR.android`
+  - [ ] Service Account credentials JSON uploaded
+  - [ ] Credentials validated (green checkmark)
+- [ ] **Google Play products created** in Product Catalog
+  - [ ] Weekly product (matching Play Console product ID, Store = Google Play)
+  - [ ] Yearly product (matching Play Console product ID, Store = Google Play)
+- [ ] **Products attached to entitlement** `ajr_plus` (both iOS + Android products)
+- [ ] **Products attached to offering packages**
+  - [ ] `$rc_weekly` → has both Apple + Google Play weekly products
+  - [ ] `$rc_annual` → has both Apple + Google Play yearly products
+- [ ] **Offering set as "Current"** (default)
+- [ ] **Google Real-Time Developer Notifications (RTDN)** configured:
+  - [ ] In RevenueCat → Google Play app → copy the Google Cloud Pub/Sub topic
+  - [ ] In Play Console → Monetization Setup → paste the Pub/Sub topic URL
+  - [ ] This ensures RevenueCat gets instant updates on subscription status changes
+
+### Code Changes
+- [ ] Debug logging enabled during testing
+- [ ] `BILLING` permission added to AndroidManifest
+- [ ] Platform-aware "Manage Subscription" link
+- [ ] Platform-aware legal text (Apple ID → Google Play)
+- [ ] `PRODUCT_IDS` constants updated to match actual product IDs (cosmetic, not functional)
+- [ ] `RedeemCodeScreen` navigation hidden or adapted for Android
+
+### Before Production Launch
+- [ ] Test full purchase flow on Android device with license tester account
+- [ ] Verify transaction appears in RevenueCat dashboard
+- [ ] Verify `isProUser` becomes `true` after purchase
+- [ ] Verify "Restore Purchases" works on Android
+- [ ] Test subscription cancellation (via Play Store → Subscriptions)
+- [ ] Switch log level back to `LOG_LEVEL.INFO` for production
+- [ ] Increment `versionCode` in `app.json` for production build
+
+---
+
+## 🚀 Immediate Recovery: Restore Your Test Purchase
+
+Since money was already deducted, after fixing the RevenueCat configuration:
+
+1. Open the app on your test device
+2. Go to the subscription screen
+3. Tap **"Restore Purchases"** — this should now work once RevenueCat can talk to Google Play
+4. If restore doesn't work, you can also:
+   - Cancel the subscription from Google Play Store → Subscriptions
+   - Request a refund via Google Play (Order History)
+   - Re-subscribe after the fix

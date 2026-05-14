@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:maxResizeWidth="250dp"
+    android:maxResizeHeight="250dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="900000"
+    android:initialLayout="@layout/widget_circle_progress_small"
+    android:previewLayout="@layout/widget_circle_progress_small"
+    android:previewImage="@drawable/widget_preview_circle_progress"
+    android:description="@string/widget_circle_progress_description"
+    android:widgetCategory="home_screen"
+    android:resizeMode="none">
+</appwidget-provider>

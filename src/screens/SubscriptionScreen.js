@@ -8,6 +8,7 @@ import {
     Dimensions,
     ActivityIndicator,
     Linking,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -112,7 +113,11 @@ const SubscriptionScreen = ({ navigation, route }) => {
                     <TouchableOpacity
                         style={styles.manageButton}
                         onPress={() => {
-                            Linking.openURL('https://apps.apple.com/account/subscriptions');
+                            Linking.openURL(
+                                Platform.OS === 'ios'
+                                    ? 'https://apps.apple.com/account/subscriptions'
+                                    : 'https://play.google.com/store/account/subscriptions'
+                            );
                         }}
                     >
                         <Text style={styles.manageButtonText}>Manage Subscription</Text>
@@ -157,7 +162,7 @@ const SubscriptionScreen = ({ navigation, route }) => {
                 {/* Title */}
                 <Text style={styles.title}>{isCircleVariant ? 'Grow Your Circles' : 'Elevate Your Journey'}</Text>
                 <Text style={styles.subtitle}>
-                    {isCircleVariant 
+                    {isCircleVariant
                         ? 'You’ve reached your free limits. Upgrade to keep building, organizing, and growing your communities with ease.'
                         : 'Unlock the full AJR experience with premium features designed to deepen your spiritual growth.'}
                 </Text>
@@ -303,19 +308,21 @@ const SubscriptionScreen = ({ navigation, route }) => {
                 )}
 
                 {/* Referral Link */}
-                <TouchableOpacity
+                {/* <TouchableOpacity
                     style={styles.referralButton}
                     onPress={() => navigation.navigate('RedeemCode')}
                 >
                     <Text style={styles.referralText}>Got a referral code?</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
 
                 {/* Legal Links */}
                 <View style={styles.legalContainer}>
                     <Text style={styles.legalText}>
-                        {isCircleVariant 
+                        {isCircleVariant
                             ? 'Small consistent actions are beloved.'
-                            : 'Payment will be charged to your Apple ID account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'}
+                            : Platform.OS === 'ios'
+                                ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'
+                                : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.'}
                     </Text>
                     <View style={styles.legalLinks}>
                         <TouchableOpacity

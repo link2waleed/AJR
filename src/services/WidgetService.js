@@ -1,15 +1,14 @@
 /**
  * WidgetService.js
- * Bridge between React Native app and iOS WidgetKit widgets.
+ * Bridge between React Native app and iOS/Android home screen widgets.
  *
  * Collects widget-relevant data from existing services, serialises it
- * into a JSON payload, writes it to shared UserDefaults via App Group,
- * and requests a widget timeline reload.
+ * into a JSON payload, writes it to shared storage, and requests widget updates.
  *
- * Flow: RN App → WidgetService → UserDefaults (App Group) → SwiftUI Widget
+ * Flow: RN App → WidgetService → Shared Storage → iOS WidgetKit / Android AppWidget
  */
 
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import FirebaseService from './FirebaseService';
 
 const APP_GROUP = 'group.com.my.AJR';
@@ -37,11 +36,22 @@ function getStorage() {
 }
 
 function reloadWidgets() {
-    try {
-        const { ExtensionStorage } = require('@bacons/apple-targets');
-        ExtensionStorage.reloadWidget();
-    } catch (e) {
-        console.warn('WidgetService: Could not reload widgets', e.message);
+    if (Platform.OS === 'ios') {
+        try {
+            const { ExtensionStorage } = require('@bacons/apple-targets');
+            ExtensionStorage.reloadWidget();
+        } catch (e) {
+            console.warn('WidgetService: Could not reload iOS widgets', e.message);
+        }
+    } else if (Platform.OS === 'android') {
+        try {
+            const { AJRWidgetBridge } = NativeModules;
+            if (AJRWidgetBridge) {
+                AJRWidgetBridge.reloadWidgets();
+            }
+        } catch (e) {
+            console.warn('WidgetService: Could not reload Android widgets', e.message);
+        }
     }
 }
 
@@ -101,7 +111,8 @@ const WidgetService = {
 
     /**
      * Main entry point. Collects all relevant data and pushes it to the
-     * widget extension via the shared App Group UserDefaults.
+     * widget extension via the shared App Group UserDefaults (iOS) or
+     * SharedPreferences (Android).
      *
      * @param {Object} params
      * @param {Object} params.prayerStats      - { completed, total }
@@ -111,7 +122,6 @@ const WidgetService = {
      * @param {Object} params.selectedActivities - { prayers, quran, dhikr, journaling }
      * @param {Object} params.nextSalah        - { name, timeString } (from PrayerTimeService)
      * @param {Object} params.prayerTimings    - full timings object with Fajr, Dhuhr, etc.
-     * @param {string} params.timezone         - IANA timezone
      * @param {string} params.timezone         - IANA timezone
      */
     async updateWidgetData({
@@ -124,7 +134,8 @@ const WidgetService = {
         prayerTimings = null,
         timezone = null,
     } = {}) {
-        if (Platform.OS !== 'ios') return;
+        // Support both iOS and Android
+        if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
 
         try {
             // ── Salah ring percentage ──
@@ -268,11 +279,25 @@ const WidgetService = {
                 lastUpdated: new Date().toISOString(),
             };
 
-            const storage = getStorage();
-            if (storage) {
-                storage.set(WIDGET_DATA_KEY, JSON.stringify(payload));
-                reloadWidgets();
-                console.log('WidgetService: Widget data updated', JSON.stringify(payload));
+            const payloadJson = JSON.stringify(payload);
+
+            if (Platform.OS === 'ios') {
+                const storage = getStorage();
+                if (storage) {
+                    storage.set(WIDGET_DATA_KEY, payloadJson);
+                    reloadWidgets();
+                    console.log('WidgetService: iOS widget data updated', payloadJson);
+                }
+            } else if (Platform.OS === 'android') {
+                try {
+                    const { AJRWidgetBridge } = NativeModules;
+                    if (AJRWidgetBridge) {
+                        AJRWidgetBridge.setWidgetData(payloadJson);
+                        console.log('WidgetService: Android widget data updated', payloadJson);
+                    }
+                } catch (e) {
+                    console.warn('WidgetService: Failed to update Android widgets', e.message);
+                }
             }
         } catch (error) {
             console.error('WidgetService: Error updating widget data', error);
@@ -285,7 +310,7 @@ const WidgetService = {
      * but don't have all the parameters handy.
      */
     reload() {
-        if (Platform.OS !== 'ios') return;
+        if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
         reloadWidgets();
     },
 };

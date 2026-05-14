@@ -14,17 +14,18 @@ import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 // ── Configuration ──────────────────────────────────────────────────────────
 // TODO: Replace with your actual RevenueCat Public API Key (starts with 'appl_')
 const REVENUECAT_API_KEY_IOS = 'appl_FVtciaeupgyZtFpCfbojIrgZcZD';
-const REVENUECAT_API_KEY_ANDROID = 'YOUR_REVENUECAT_ANDROID_API_KEY';
+const REVENUECAT_API_KEY_ANDROID = 'goog_rvDbrXDRBmMHmiCfljqSXBTlYcF';
 
 // Entitlement identifier — must match what you create in RevenueCat dashboard
 const ENTITLEMENT_ID = 'ajr_plus';
 
-// Product identifiers — must match App Store Connect & RevenueCat
+// Product identifiers — must match store configuration & RevenueCat
+// iOS: com.my.ajr.weekly / com.my.ajr.annually
+// Android: com.my.ajr.weekly:wk299 / com.my.ajr.annually:an3199
 const PRODUCT_IDS = {
-    weekly: 'com.my.AJR.ajrplus.weekly',
-    yearly: 'com.my.AJR.ajrplus.annually',
+    weekly: 'com.my.ajr.weekly',
+    yearly: 'com.my.ajr.annually',
 };
-
 class RevenueCatService {
     _initialized = false;
 
@@ -39,6 +40,7 @@ class RevenueCatService {
         }
 
         try {
+            // Set log level — use DEBUG during development, INFO for production
             // Set log level — use DEBUG during development, INFO for production
             //Purchases.setLogLevel(LOG_LEVEL.DEBUG);
             Purchases.setLogLevel(LOG_LEVEL.INFO);

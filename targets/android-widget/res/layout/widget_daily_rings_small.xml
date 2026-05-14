@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <FrameLayout
+        android:id="@+id/rings_container"
+        android:layout_width="110dp"
+        android:layout_height="110dp"
+        android:layout_gravity="center">
+
+        <!-- Salah Ring (Outer) -->
+        <ProgressBar
+            android:id="@+id/ring_salah"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:layout_gravity="center"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/ring_salah" />
+
+        <!-- Quran Ring (Middle) -->
+        <ProgressBar
+            android:id="@+id/ring_quran"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_gravity="center"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/ring_quran" />
+
+        <!-- Dhikr Ring (Inner) -->
+        <ProgressBar
+            android:id="@+id/ring_dhikr"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_gravity="center"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/ring_dhikr" />
+
+        <!-- Journal Ring (Innermost) -->
+        <ProgressBar
+            android:id="@+id/ring_journal"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_gravity="center"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/ring_journal" />
+
+        <!-- Overall Percentage -->
+        <TextView
+            android:id="@+id/overall_percentage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="0%"
+            android:textColor="@color/widget_text_black"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+</LinearLayout>

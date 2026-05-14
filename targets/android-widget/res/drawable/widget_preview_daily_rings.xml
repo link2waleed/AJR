@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder preview for Daily Rings Widget - replace with actual screenshot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <path
+        android:fillColor="#F5F3E8"
+        android:pathData="M0,0h200v200h-200z"/>
+    <path
+        android:fillColor="#8FAF9A"
+        android:pathData="M100,30c38.66,0 70,31.34 70,70s-31.34,70 -70,70s-70,-31.34 -70,-70s31.34,-70 70,-70zM100,45c30.38,0 55,24.62 55,55s-24.62,55 -55,55s-55,-24.62 -55,-55s24.62,-55 55,-55z"/>
+    <path
+        android:fillColor="#E3C27A"
+        android:pathData="M100,55c24.85,0 45,20.15 45,45s-20.15,45 -45,45s-45,-20.15 -45,-45s20.15,-45 45,-45zM100,70c16.57,0 30,13.43 30,30s-13.43,30 -30,30s-30,-13.43 -30,-30s13.43,-30 30,-30z"/>
+    <path
+        android:fillColor="#D1AD73"
+        android:pathData="M100,80c11.05,0 20,8.95 20,20s-8.95,20 -20,20s-20,-8.95 -20,-20s8.95,-20 20,-20z"/>
+    <path
+        android:fillColor="#202020"
+        android:pathData="M85,95h30v10h-30z"/>
+</vector>
