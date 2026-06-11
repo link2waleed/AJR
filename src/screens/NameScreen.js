@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GradientBackground, Button, Input } from '../components';
 import { colors, typography, spacing } from '../theme';
 import FirebaseService from '../services/FirebaseService';
+import auth from '@react-native-firebase/auth';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -34,6 +35,14 @@ const NameScreen = ({ navigation }) => {
         try {
             // Initialize Firebase user profile with name
             await FirebaseService.initializeUserProfile(name.trim());
+
+            // Save name locally for robust offline handling and avoiding display lag/flicker
+            const user = auth().currentUser;
+            if (user) {
+                const StorageService = require('../services/StorageService').default;
+                await StorageService.saveUserName(user.uid, name.trim());
+            }
+
             navigation.navigate('LocationPermission', { userName: name });
         } catch (error) {
             console.error('Error saving name:', error);

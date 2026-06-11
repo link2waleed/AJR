@@ -31,6 +31,7 @@ struct AJRColors {
     static let salahRing = Color(hex: "8FAF9A")      // Sage green — rings.layer1
     static let quranRing = Color(hex: "E3C27A")       // Gold — rings.layer2
     static let dhikrRing = Color(hex: "D1AD73")       // Warm brown — rings.layer3
+    static let journalRing = Color(hex: "9ECED1")     // Light blue/mint — rings.innerCircle
     static let sage = Color(hex: "7A9E7F")            // primary.sage
     static let darkSage = Color(hex: "5A7A5F")        // primary.darkSage
     static let cream = Color(hex: "F5F3E8")           // cards.cream
@@ -86,7 +87,8 @@ struct DailyRingsView: View {
         let activeRings: [(progress: Double, color: Color)] = [
             (data.salah.isActive ?? true) ? (Double(data.salah.percentage) / 100.0, AJRColors.salahRing) : nil,
             (data.quran.isActive ?? true) ? (Double(data.quran.percentage) / 100.0, AJRColors.quranRing) : nil,
-            (data.dhikr.isActive ?? true) ? (Double(data.dhikr.percentage) / 100.0, AJRColors.dhikrRing) : nil
+            (data.dhikr.isActive ?? true) ? (Double(data.dhikr.percentage) / 100.0, AJRColors.dhikrRing) : nil,
+            (data.journal?.isActive ?? false) ? (Double(data.journal?.percentage ?? 0) / 100.0, AJRColors.journalRing) : nil
         ].compactMap { $0 }
 
         ZStack {
@@ -104,11 +106,6 @@ struct DailyRingsView: View {
                 Text("\(overallPct)%")
                     .font(.system(size: compact ? 14 : 18, weight: .bold, design: .rounded))
                     .foregroundColor(AJRColors.textBlack)
-                if !compact {
-                    Text("Complete")
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundColor(AJRColors.textGrey)
-                }
             }
         }
     }

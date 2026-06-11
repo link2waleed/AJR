@@ -254,7 +254,7 @@ const PrayerSetupScreen = ({ navigation, route }) => {
                 {/* Global Settings Box */}
                 {anyPrayerEnabled && (
                     <View style={styles.globalSettingsBox}>
-                        <Text style={styles.globalSettingsTitle}>Quick Settings (applies to all)</Text>
+                        <Text style={styles.globalSettingsTitle}>Prayer Ending Reminder (applies to all)</Text>
 
                         <View style={styles.settingRow}>
                             <View style={styles.settingTextContainer}>

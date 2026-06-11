@@ -31,6 +31,7 @@ const BrandLogo = ({ size }) => {
                     source={require('../../assets/images/moon.png')}
                     style={[
                         styles.image,
+                        styles.absoluteImage,
                         {
                             width: moonSize,
                             height: moonSize,
@@ -43,6 +44,7 @@ const BrandLogo = ({ size }) => {
                     source={require('../../assets/images/leaf.png')}
                     style={[
                         styles.image,
+                        styles.absoluteImage,
                         {
                             width: leafSize,
                             height: leafSize,
@@ -96,14 +98,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     image: {
-        position: 'absolute',
-
         // 🔥 Key for sharpness during animation
         shouldRasterizeIOS: true,
         renderToHardwareTextureAndroid: true,
 
         // Prevent subtle blur from transforms
         transform: [{ translateX: 0 }, { translateY: 0 }],
+    },
+    absoluteImage: {
+        position: 'absolute',
     },
 });
 

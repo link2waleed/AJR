@@ -1,0 +1,18 @@
+{
+  "hardUpdate": {
+    "enabled": false,
+    "minVersion": "1.0.3",
+    "title": "Update Required",
+    "message": "A critical update is available. Please update the app to continue using AJR.",
+    "androidUrl": "https://play.google.com/store/apps/details?id=com.my.AJR.android",
+    "iosUrl": "https://apps.apple.com/pk/app/ajr-deen-accountability/id6758246710"
+  },
+  "softUpdate": {
+    "enabled": false,
+    "minVersion": "1.0.3",
+    "title": "New Update Available",
+    "message": "We've added new features to enhance your spiritual journey. Update now!",
+    "androidUrl": "https://play.google.com/store/apps/details?id=com.my.AJR.android",
+    "iosUrl": "https://apps.apple.com/pk/app/ajr-deen-accountability/id6758246710"
+  }
+}

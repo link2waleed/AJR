@@ -5,3 +5,4 @@
 
 export { ThemeProvider, useTheme } from './ThemeContext';
 export { SubscriptionProvider, useSubscription } from './SubscriptionContext';
+export { UpdateProvider, useUpdate } from '../update-screens/UpdateContext';

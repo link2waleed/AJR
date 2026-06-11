@@ -516,8 +516,29 @@ const StorageService = {
             console.log(`StorageService: Country changed from '${lastCountry}' to '${currentCountry}', weather unit reset`);
             return { countryChanged: true, wasManuallySet };
         } catch (error) {
-            console.error('StorageService: Error checking country change:', error);
+            console.error('StorageService: Error in checkAndResetWeatherUnitIfCountryChanged:', error);
             return { countryChanged: false, wasManuallySet: false };
+        }
+    },
+
+    saveUserName: async (uid, name) => {
+        try {
+            if (!uid || !name) return false;
+            await AsyncStorage.setItem(`@ajr_user_name_${uid}`, name);
+            return true;
+        } catch (error) {
+            console.error('StorageService: Error saving user name:', error);
+            return false;
+        }
+    },
+
+    getUserName: async (uid) => {
+        try {
+            if (!uid) return null;
+            return await AsyncStorage.getItem(`@ajr_user_name_${uid}`);
+        } catch (error) {
+            console.error('StorageService: Error getting user name:', error);
+            return null;
         }
     },
 };

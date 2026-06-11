@@ -87,6 +87,13 @@ class FirebaseService {
 
             await firestore().collection('users').doc(user.uid).set(userData, { merge: true });
 
+            // Also update Auth profile display name
+            try {
+                await user.updateProfile({ displayName: name.trim() });
+            } catch (authError) {
+                console.warn('FirebaseService: Error updating auth profile display name:', authError);
+            }
+
             // Initialize onboarding-info subcollection with single document (using uid as doc id)
             const onboardingData = {
                 prayer: {

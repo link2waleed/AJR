@@ -14,10 +14,13 @@ import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
 import firebase from '@react-native-firebase/app';
 import { ensureFirebaseApp } from '../services/FirebaseInit';
+import { useUpdate } from '../context';
+import { UPDATE_STATE } from '../update-screens/UpdateService';
 
 const { width } = Dimensions.get('window');
 
 const SplashScreen = ({ navigation }) => {
+    const { checkForUpdates } = useUpdate();
     // Animation values for AJR letters
     const letterAOpacity = useRef(new Animated.Value(0)).current;
     const letterJOpacity = useRef(new Animated.Value(0)).current;
@@ -116,7 +119,17 @@ const SplashScreen = ({ navigation }) => {
         ]).start();
 
         // Check auth state and navigate after animation completes
-        const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
+            // ── Check for updates first (runs concurrently with animation) ──
+            const updateResult = await checkForUpdates();
+
+            if (updateResult.state === UPDATE_STATE.HARD) {
+                // Hard update — replace entire navigation stack with update screen
+                navigation.replace('HardUpdate', { config: updateResult.config });
+                return;
+            }
+
+            // Soft update is handled by HomeScreen via context — proceed normally
             ensureFirebaseApp();
             const currentUser = auth().currentUser;
             if (currentUser) {

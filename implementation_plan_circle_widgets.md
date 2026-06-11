@@ -11,7 +11,7 @@ Currently, `WidgetService` expects a simplistic `circleProgress` integer but the
   ```json
   "circleData": {
     "hasCircles": true/false,
-    "name": "Qur'an Circle",
+    "name": "Quran Circle",
     "percentage": 65,
     "otherCirclesCount": 2
   }

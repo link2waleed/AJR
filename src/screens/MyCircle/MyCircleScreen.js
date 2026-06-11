@@ -390,8 +390,8 @@ const MyCircleScreen = ({ navigation, route }) => {
                             <Ionicons name="copy-outline" size={18} color={colors.text.grey} />
                             <TextInput
                                 style={styles.modalInput}
-                                placeholder="GRW-2K9X"
-                                placeholderTextColor={colors.text.grey}
+                                placeholder="Paste code here"
+                                placeholderTextColor={colors.text.grey[100]}
                                 value={joinCode}
                                 onChangeText={setJoinCode}
                                 autoCapitalize="characters"

@@ -1,6 +1,10 @@
 package com.my.AJR.android.widget
 
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Data model matching iOS AJRWidgetData structure exactly.
@@ -58,7 +62,7 @@ data class WidgetData(
             ),
             circleData = CircleData(
                 hasCircles = true,
-                name = "Qur'an Circle",
+                name = "Quran Circle",
                 percentage = 65,
                 otherCirclesCount = 2
             ),
@@ -70,7 +74,7 @@ data class WidgetData(
         fun fromJson(jsonString: String?): WidgetData {
             if (jsonString.isNullOrEmpty()) return DEFAULT
 
-            return try {
+            val rawData = try {
                 val json = JSONObject(jsonString)
 
                 WidgetData(
@@ -82,11 +86,50 @@ data class WidgetData(
                     circleData = parseCircleData(json.optJSONObject("circleData")),
                     journal = parseRingData(json.optJSONObject("journal")),
                     hasJournalActive = json.optBoolean("hasJournalActive", false),
-                    lastUpdated = json.optString("lastUpdated", null)
+                    lastUpdated = json.optString("lastUpdated").takeIf { json.has("lastUpdated") && !json.isNull("lastUpdated") }
                 )
             } catch (e: Exception) {
                 DEFAULT
             }
+
+            return checkAndResetForCurrentDate(rawData)
+        }
+
+        private fun checkAndResetForCurrentDate(data: WidgetData): WidgetData {
+            val lastUpdatedString = data.lastUpdated ?: return data
+            try {
+                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val lastUpdatedTime = isoFormat.parse(lastUpdatedString)?.time ?: return data
+                val now = System.currentTimeMillis()
+
+                val calLast = Calendar.getInstance()
+                calLast.timeInMillis = lastUpdatedTime
+
+                val calNow = Calendar.getInstance()
+                calNow.timeInMillis = now
+
+                val sameDay = calLast.get(Calendar.YEAR) == calNow.get(Calendar.YEAR) &&
+                              calLast.get(Calendar.DAY_OF_YEAR) == calNow.get(Calendar.DAY_OF_YEAR)
+
+                if (!sameDay && now > lastUpdatedTime) {
+                    val resetSalah = data.salah.copy(percentage = 0, completed = 0)
+                    val resetQuran = data.quran.copy(percentage = 0, completed = 0)
+                    val resetDhikr = data.dhikr.copy(percentage = 0, completed = 0)
+                    val resetJournal = data.journal.copy(percentage = 0, completed = 0)
+                    return data.copy(
+                        salah = resetSalah,
+                        quran = resetQuran,
+                        dhikr = resetDhikr,
+                        journal = resetJournal,
+                        overallProgress = 0
+                    )
+                }
+            } catch (e: Exception) {
+                // Fallback to original data if parsing fails
+            }
+            return data
         }
 
         private fun parseRingData(json: JSONObject?): RingData {

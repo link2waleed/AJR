@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
     View,
     Text,
@@ -21,19 +21,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Asset } from 'expo-asset';
 import Svg, { Circle, G } from 'react-native-svg';
 import { colors, typography, spacing, borderRadius } from '../theme';
-import { useTheme, useSubscription } from '../context';
+import { useTheme, useSubscription, useUpdate } from '../context';
 import auth from '@react-native-firebase/auth';
 import FirebaseService from '../services/FirebaseService';
 import PrayerTimeService from '../services/PrayerTimeService';
 import StorageService from '../services/StorageService';
 import WidgetService from '../services/WidgetService';
 import NotificationService from '../services/NotificationService';
-import hadithsData from '../data/hadiths_with_references.json';
+import hadithsData from '../data/UpdatedHadits.json';
 import AJRRings from '../components/AJRRings';
 import { Audio } from 'expo-av';
 import whiteClock from '../../assets/images/white-clock.png';
 import themeChange from '../../assets/images/theme-change.png';
 import darkBackground from '../../assets/images/dark.png';
+import SoftUpdateModal from '../update-screens/SoftUpdateModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallDevice = screenWidth < 375;
@@ -64,7 +65,7 @@ const AdhkarItem = ({ title, subtitle, onPress, isLast }) => (
         activeOpacity={0.7}
     >
         <View style={styles.adhkarPlayButton}>
-            <Ionicons name="play" size={14} color="#FFFFFF" />
+            <Ionicons name="play" size={12} color="#FFFFFF" />
         </View>
         <View style={styles.adhkarContent}>
             <Text style={styles.adhkarTitle}>{title}</Text>
@@ -323,6 +324,33 @@ const AudioPlayerModal = ({ visible, title, onClose }) => {
 
 import { filterJihad } from '../utils/textFilter';
 
+const renderArabicTextWithSimpleFullStop = (text) => {
+    if (!text) return null;
+    
+    // Check if the text ends with a period/full stop character (standard or RTL-wrapped)
+    const trailingPeriodRegex = /[\u200f]*\.[\u200f]*\s*$/;
+    const cleanText = text.replace(trailingPeriodRegex, '');
+    
+    // Split by either Arabic comma '،' or standard comma ','
+    const parts = cleanText.split(/,|،/);
+    
+    return (
+        <>
+            {parts.map((part, index) => (
+                <React.Fragment key={index}>
+                    {part}
+                    {index < parts.length - 1 && (
+                        <Text style={{ fontFamily: 'System', fontSize: 12 }}> ○ </Text>
+                    )}
+                </React.Fragment>
+            ))}
+            {trailingPeriodRegex.test(text) && (
+                <Text style={{ fontFamily: 'System' }}>.</Text>
+            )}
+        </>
+    );
+};
+
 const HomeScreen = ({ navigation }) => {
     const [adhkarExpanded, setAdhkarExpanded] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -458,6 +486,7 @@ const HomeScreen = ({ navigation }) => {
     // Use theme context for dynamic Day/Evening switching, prayer data, city, and weather
     const { isEvening, isLoading, isLocationEnabled, hasNoData, location, maghribTime, prayerData, cityName, countryName, weather, isManualPreview, refreshTheme, toggleThemePreview } = useTheme();
     const { isProUser } = useSubscription();
+    const { softUpdateVisible, updateConfig, dismissSoftUpdate } = useUpdate();
 
     // Derived completion status
     // Derived completion status based on toggle
@@ -591,28 +620,63 @@ const HomeScreen = ({ navigation }) => {
         };
     }, [calculatedProgress, overallProgress, currentRingPercentages]);
 
-    // ── Push data to iOS Home Screen Widgets ──
+    // ── Push data to iOS/Android Home Screen Widgets ──
+    const lastWidgetDataRef = useRef(null);
+
+    const performWidgetUpdate = useCallback((force = false) => {
+        const payload = {
+            prayerStats,
+            quranStats,
+            dhikrStats,
+            journalStats,
+            activityCompletion,
+            selectedActivities,
+            nextSalah: prayerData ? { name: prayerData.nextPrayer, timeString: prayerData.nextPrayerTime } : null,
+            prayerTimings: prayerData?.timings || null,
+            timezone: prayerData?.timezone || null,
+        };
+
+        const serialized = JSON.stringify(payload);
+        if (!force && lastWidgetDataRef.current === serialized) {
+            return;
+        }
+        lastWidgetDataRef.current = serialized;
+
+        WidgetService.updateWidgetData(payload);
+    }, [
+        prayerStats,
+        quranStats,
+        dhikrStats,
+        journalStats,
+        activityCompletion,
+        selectedActivities,
+        prayerData,
+    ]);
+
     const widgetUpdateTimeoutRef = useRef(null);
     useEffect(() => {
         if (widgetUpdateTimeoutRef.current) {
             clearTimeout(widgetUpdateTimeoutRef.current);
         }
         widgetUpdateTimeoutRef.current = setTimeout(() => {
-            WidgetService.updateWidgetData({
-                prayerStats,
-                quranStats,
-                dhikrStats,
-                activityCompletion,
-                selectedActivities,
-                nextSalah: prayerData ? { name: prayerData.nextPrayer, timeString: prayerData.nextPrayerTime } : null,
-                prayerTimings: prayerData?.timings || null,
-                timezone: prayerData?.timezone || null,
-            });
-        }, 1500);
+            performWidgetUpdate();
+        }, 100);
         return () => {
             if (widgetUpdateTimeoutRef.current) clearTimeout(widgetUpdateTimeoutRef.current);
         };
-    }, [calculatedProgress, currentRingPercentages, prayerData, overallProgress]);
+    }, [calculatedProgress, currentRingPercentages, prayerData, overallProgress, journalStats, performWidgetUpdate]);
+
+    // Flush widget update immediately on background transitions
+    useEffect(() => {
+        const appStateWidgetListener = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'background' || nextAppState === 'inactive') {
+                performWidgetUpdate(true);
+            }
+        });
+        return () => {
+            appStateWidgetListener.remove();
+        };
+    }, [performWidgetUpdate]);
 
     // Use the calculated progress for real-time updates
     const progress = calculatedProgress;
@@ -679,18 +743,21 @@ const HomeScreen = ({ navigation }) => {
             const dateString = FirebaseService.getLocalDateKey(today);
             const dateHash = dateString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-            // Circular loop: each day at 12am shows a different hadith from 50 hadiths
-            const hadithIndex = dateHash % hadithsData.hadiths.length;
-            const hadithItem = hadithsData.hadiths[hadithIndex];
+            // Filter valid hadiths that have both arabic and translation
+            const validHadiths = hadithsData.filter(item => item && item.arabic && item.translation);
 
-            if (hadithItem && hadithItem.arabic) {
+            // Circular loop: each day at 12am shows a different hadith
+            const hadithIndex = dateHash % validHadiths.length;
+            const hadithItem = validHadiths[hadithIndex];
+
+            if (hadithItem) {
                 setTodayDua({
-                    english: hadithItem.english,
+                    english: hadithItem.translation,
                     arabic: filterJihad(hadithItem.arabic), // Apply jihad filter
-                    transliteration: hadithItem.transliteration,
+                    transliteration: '',
                     id: hadithItem.id,
                     source: hadithItem.source,
-                    narrator: hadithItem.narrator,
+                    narrator: '',
                 });
             }
         } catch (error) {
@@ -762,15 +829,35 @@ const HomeScreen = ({ navigation }) => {
     useEffect(() => {
         const user = auth().currentUser;
         if (user) {
+            const StorageService = require('../services/StorageService').default;
+            // First load from local storage cache
+            StorageService.getUserName(user.uid)
+                .then((cachedName) => {
+                    if (cachedName) {
+                        setUserName(cachedName);
+                    } else if (user.displayName) {
+                        setUserName(user.displayName);
+                    }
+                })
+                .catch(() => {});
+
+            // Fetch fresh data from Firestore
             FirebaseService.getUserRootData()
                 .then((firestoreData) => {
-                    const displayName = firestoreData.name || user.displayName || user.email?.split('@')[0] || 'User';
-                    setUserName(displayName);
+                    if (firestoreData.name) {
+                        setUserName(firestoreData.name);
+                        StorageService.saveUserName(user.uid, firestoreData.name);
+                        
+                        // Sync Firebase Auth profile if it differs (e.g. after login on a new device)
+                        if (user.displayName !== firestoreData.name) {
+                            user.updateProfile({ displayName: firestoreData.name }).catch(() => {});
+                        }
+                    } else if (user.displayName) {
+                        setUserName(user.displayName);
+                    }
                 })
                 .catch((error) => {
                     console.error('Error fetching user data:', error);
-                    const displayName = user.displayName || user.email?.split('@')[0] || 'User';
-                    setUserName(displayName);
                 });
         }
 
@@ -1342,7 +1429,7 @@ const HomeScreen = ({ navigation }) => {
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <Text style={[styles.greeting, { color: themeColors.greeting }]}>{getGreeting()}, </Text>
+                    <Text style={[styles.greeting, { color: themeColors.greeting }]}>{getGreeting()}</Text>
                     <View style={styles.userNameContainer}>
                         <Text
                             style={[styles.userName, { color: themeColors.userName }]}
@@ -1382,12 +1469,12 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
                 style={styles.locationCard}
                 onPress={() => {
-                    if (!isLocationEnabled) {
+                    if (!isLocationEnabled || !prayerData) {
                         navigation.navigate('LocationPermission', { fromSettings: true });
                     }
                 }}
-                activeOpacity={isLocationEnabled ? 1 : 0.7}
-                disabled={isLocationEnabled}
+                activeOpacity={isLocationEnabled && !!prayerData ? 1 : 0.7}
+                disabled={isLocationEnabled && !!prayerData}
             >
                 <View style={styles.locationCardContent}>
                     <View style={styles.locationLeft}>
@@ -1402,10 +1489,16 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.gregorianDate}>{displayData.gregorianDate}</Text>
                     </View>
                 </View>
-                {!isLocationEnabled && (
+                {(!isLocationEnabled || !prayerData) && (
                     <View style={styles.locationTapHint}>
                         <Ionicons name="location-outline" size={14} color={colors.primary.sage} />
-                        <Text style={styles.locationTapHintText}>Tap to enable location</Text>
+                        <Text style={styles.locationTapHintText}>
+                            {!isLocationEnabled
+                                ? 'Tap to enable location'
+                                : isLoading
+                                ? 'Fetching location data...'
+                                : 'Tap to retry location'}
+                        </Text>
                     </View>
                 )}
             </TouchableOpacity>
@@ -1413,13 +1506,15 @@ const HomeScreen = ({ navigation }) => {
             {/* Next Prayer Card with Refresh Button */}
             <View style={styles.nextPrayerCard}>
                 <View style={styles.nextPrayerLeft}>
-                    <Image
+                    {/* <Image
                         source={whiteClock}
                         style={styles.clockIcon}
-                    />
+                        resizeMode='contain'
+                        tintColor='white'
+                    /> */}
                     <View style={styles.nextPrayerTextContainer}>
                         <Text style={styles.nextPrayerText}>
-                            Upcoming: {displayData.nextPrayer} • {convertTo24Hour(displayData.nextPrayerTime)}
+                            Upcoming Prayer : {displayData.nextPrayer} • {convertTo24Hour(displayData.nextPrayerTime)}
                         </Text>
                         {/* {displayData.timezone && displayData.timezone !== 'UTC' && (
                             <Text style={styles.nextPrayerTimezone}>
@@ -1478,7 +1573,7 @@ const HomeScreen = ({ navigation }) => {
                         }}>
                         <Ionicons
                             name={isDuaSaved ? "heart" : "heart-outline"}
-                            size={24}
+                            size={22}
                             color={isDuaSaved ? colors.primary.darkSage : colors.text.grey}
                             style={{ opacity: isSavingHadith ? 0.5 : 1 }}
                         />
@@ -1488,58 +1583,55 @@ const HomeScreen = ({ navigation }) => {
                     <>
                         {duaExpanded ? (
                             <>
-                                <Text style={[styles.duaArabicExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                    {todayDua.arabic}
-                                </Text>
-                                <Text style={[styles.duaTransliterationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                    {todayDua.transliteration || ''}
-                                </Text>
                                 <Text style={[styles.duaTranslationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
                                     {todayDua.english || ''}
                                 </Text>
-                                {(todayDua.narrator || todayDua.source) && (
+                                <Text style={[styles.duaArabicExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                    {renderArabicTextWithSimpleFullStop(todayDua.arabic)}
+                                </Text>
+                                {todayDua.transliteration ? (
+                                    <Text style={[styles.duaTransliterationExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                        {todayDua.transliteration}
+                                    </Text>
+                                ) : null}
+                                {todayDua.source ? (
                                     <View style={[styles.referenceContainer, { backgroundColor: isEvening ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.6)' }]}>
-                                        {todayDua.narrator && (
-                                            <View style={styles.referenceRow}>
-                                                <Ionicons name="person-outline" size={14} color={isEvening ? colors.text.black : colors.text.grey} style={styles.referenceIcon} />
-                                                <Text style={[styles.duaReferenceExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                                    <Text style={{ fontWeight: '600' }}>Narrator: </Text>{todayDua.narrator}
-                                                </Text>
-                                            </View>
-                                        )}
-                                        {todayDua.source && (
-                                            <View style={[styles.referenceRow, todayDua.narrator && { marginTop: spacing.xs }]}>
-                                                <Ionicons name="book-outline" size={14} color={isEvening ? colors.text.black : colors.text.grey} style={styles.referenceIcon} />
-                                                <Text style={[styles.duaReferenceExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
-                                                    <Text style={{ fontWeight: '600' }}>Source: </Text>{todayDua.source}
-                                                </Text>
-                                            </View>
-                                        )}
+                                        <View style={styles.referenceRow}>
+                                            <Ionicons name="book-outline" size={14} color={isEvening ? colors.text.black : colors.text.grey} style={styles.referenceIcon} />
+                                            <Text style={[styles.duaReferenceExpanded, { color: isEvening ? colors.text.black : colors.text.grey }]}>
+                                                <Text style={{ fontWeight: '600' }}>Source: </Text>{todayDua.source}
+                                            </Text>
+                                        </View>
                                     </View>
-                                )}
+                                ) : null}
                             </>
                         ) : (
                             <>
+                                <Text style={[styles.duaTranslation, { color: isEvening ? colors.text.black : colors.text.grey, marginBottom: spacing.xs }]} numberOfLines={2}>
+                                    {todayDua.english || ''}
+                                </Text>
                                 <Text style={[styles.duaArabic, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={2}>
-                                    {todayDua.arabic}
+                                    {renderArabicTextWithSimpleFullStop(todayDua.arabic)}
                                 </Text>
-                                <Text style={[styles.duaTransliteration, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={1}>
-                                    {todayDua.transliteration || ''}
-                                </Text>
+                                {todayDua.transliteration ? (
+                                    <Text style={[styles.duaTransliteration, { color: isEvening ? colors.text.black : colors.text.grey }]} numberOfLines={1}>
+                                        {todayDua.transliteration}
+                                    </Text>
+                                ) : null}
                             </>
                         )}
-                        <View style={styles.ringsDivider} />
-                        {duaExpanded && (
-                            <>
-                            </>
-                        )}
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0, 0, 0, 0.08)']}
+                            style={styles.duaCardInnerShadow}
+                            pointerEvents="none"
+                        />
                         <TouchableOpacity
                             style={styles.duaFooter}
                             onPress={() => setDuaExpanded(!duaExpanded)}
                         >
                             <Ionicons
-                                name={duaExpanded ? "chevron-up" : "chevron-down"}
-                                size={20}
+                                name={duaExpanded ? "chevron-down" : "chevron-up"}
+                                size={22}
                                 color={colors.text.grey}
                             />
                         </TouchableOpacity>
@@ -1556,7 +1648,7 @@ const HomeScreen = ({ navigation }) => {
                 >
                     <Text style={styles.adhkarSectionTitle}>Daily Adhkar</Text>
                     <Ionicons
-                        name={adhkarExpanded ? "chevron-up" : "chevron-down"}
+                        name={adhkarExpanded ? "chevron-down" : "chevron-up"}
                         size={22}
                         color={colors.text.grey}
                     />
@@ -1720,6 +1812,12 @@ const HomeScreen = ({ navigation }) => {
                 title={ytModalTitle}
                 onClose={() => setYtModalVisible(false)}
             />
+            {/* ── Soft Update Modal — shown once per session ── */}
+            <SoftUpdateModal
+                visible={softUpdateVisible}
+                config={updateConfig}
+                onDismiss={dismissSoftUpdate}
+            />
         </>
     );
 };
@@ -1744,13 +1842,12 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
     },
     headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
         flex: 1,
         marginRight: spacing.sm,
+        justifyContent: 'center',
     },
     greeting: {
-        fontSize: isSmallDevice ? 20 : 24,
+        fontSize: isSmallDevice ? 22 : 26,
         fontWeight: typography.fontWeight.medium,
         color: colors.text.grey,
     },
@@ -1758,10 +1855,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         flexShrink: 1,
+        marginTop: 2,
     },
     userName: {
-        fontSize: isSmallDevice ? 20 : 24,
-        fontWeight: typography.fontWeight.semibold,
+        fontSize: isSmallDevice ? 18 : 20,
+        fontWeight: typography.fontWeight.medium,
         color: colors.text.black,
     },
     premiumPlusContainer: {
@@ -1872,10 +1970,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: colors.button.prayer,
-        borderRadius: borderRadius.lg,
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
         marginBottom: spacing.lg,
+        borderRadius: borderRadius.lg,
     },
     nextPrayerLeft: {
         flexDirection: 'row',
@@ -1898,12 +1996,13 @@ const styles = StyleSheet.create({
     },
     nextPrayerTextContainer: {
         flex: 1,
-        marginLeft: spacing.sm,
+        marginLeft: spacing.xxs,
+        
     },
     nextPrayerText: {
         fontSize: isSmallDevice ? 14 : 16,
-        fontWeight: typography.fontWeight.medium,
-        color: '#FFFFFF',
+        fontWeight: typography.fontWeight.regular,
+        color: "#FFFFFF"
     },
     nextPrayerTimezone: {
         fontSize: isSmallDevice ? 11 : 12,
@@ -1994,9 +2093,19 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary.light,
         borderRadius: borderRadius.lg,
         padding: spacing.md,
+        paddingBottom: 40,
         marginBottom: spacing.md,
         borderWidth: 1.5,
         borderColor: '#fff',
+    },
+    duaCardInnerShadow: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 35,
+        borderBottomLeftRadius: borderRadius.lg,
+        borderBottomRightRadius: borderRadius.lg,
     },
     duaHeader: {
         flexDirection: 'row',
@@ -2012,10 +2121,10 @@ const styles = StyleSheet.create({
         fontSize: isSmallDevice ? 16 : 18,
         fontWeight: typography.fontWeight.semibold,
         color: colors.text.black,
+        marginBottom:8
     },
     duaArabic: {
         fontSize: isSmallDevice ? 16 : 18,
-        fontWeight: typography.fontWeight.medium,
         color: colors.text.grey,
         textAlign: 'right',
         marginBottom: spacing.sm,
@@ -2024,7 +2133,6 @@ const styles = StyleSheet.create({
     },
     duaArabicExpanded: {
         fontSize: isSmallDevice ? 16 : 18,
-        fontWeight: typography.fontWeight.medium,
         color: colors.text.grey,
         textAlign: 'right',
         marginBottom: spacing.md,
@@ -2046,11 +2154,11 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     duaTranslationExpanded: {
-        fontSize: isSmallDevice ? 13 : 14,
+        fontSize: isSmallDevice ? 15 : 16,
         color: colors.text.grey,
         marginBottom: spacing.md,
         flexWrap: 'wrap',
-        lineHeight: 20,
+        lineHeight: 22,
         textAlign: 'left',
     },
     duaReferenceExpanded: {
@@ -2078,9 +2186,10 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     duaTranslation: {
-        fontSize: isSmallDevice ? 13 : 14,
+        fontSize: isSmallDevice ? 15 : 16,
         color: colors.text.grey,
         fontStyle: 'italic',
+        lineHeight: 22,
     },
     // Adhkar Card
     adhkarCard: {
@@ -2096,7 +2205,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: spacing.md,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'transparent',
     },
     adhkarSectionTitle: {
         fontSize: isSmallDevice ? 16 : 18,
@@ -2104,12 +2213,12 @@ const styles = StyleSheet.create({
         color: colors.text.black,
     },
     adhkarList: {
-        backgroundColor: colors.primary.light,
+        backgroundColor: 'transparent',
     },
     adhkarItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.md,
+        padding: spacing.xs,
         paddingHorizontal: spacing.lg,
     },
     adhkarItemBorder: {
@@ -2220,9 +2329,14 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
     duaFooter: {
-        flexDirection: 'row',
+        position: 'absolute',
+        bottom: 4,
+        alignSelf: 'center',
+        width: 36,
+        height: 36,
+        backgroundColor: 'transparent',
         justifyContent: 'center',
-        paddingTop: spacing.sm,
+        alignItems: 'center',
     },
     // Audio Player Modal Styles
     audioModalOverlay: {

@@ -8,7 +8,7 @@
  * Flow: RN App → WidgetService → Shared Storage → iOS WidgetKit / Android AppWidget
  */
 
-import { Platform, NativeModules } from 'react-native';
+import { Platform, NativeModules, AppState } from 'react-native';
 import FirebaseService from './FirebaseService';
 
 const APP_GROUP = 'group.com.my.AJR';
@@ -17,6 +17,16 @@ const WIDGET_DATA_KEY = 'ajr_widget_data';
 // ── Circle Widget Caching (Quota Protection) ──
 let cachedCircleData = { hasCircles: false, name: '', percentage: 0, otherCirclesCount: 0 };
 let lastCircleFetchTimestamp = 0;
+let lastUserPercentages = { salah: -1, quran: -1, dhikr: -1, journal: -1 };
+
+// Invalidate cache when app is foregrounded so widgets get fresh group data
+if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    AppState.addEventListener('change', (nextAppState) => {
+        if (nextAppState === 'active') {
+            lastCircleFetchTimestamp = 0;
+        }
+    });
+}
 
 /**
  * Lazy-load ExtensionStorage to avoid crashes on Android or when
@@ -118,6 +128,7 @@ const WidgetService = {
      * @param {Object} params.prayerStats      - { completed, total }
      * @param {Object} params.quranStats       - { seconds, goalMinutes }
      * @param {Object} params.dhikrStats       - { totalCompleted, totalGoal }
+     * @param {Object} params.journalStats     - { completedToday }
      * @param {Object} params.activityCompletion - { prayers, quran, dhikr, journaling }
      * @param {Object} params.selectedActivities - { prayers, quran, dhikr, journaling }
      * @param {Object} params.nextSalah        - { name, timeString } (from PrayerTimeService)
@@ -128,6 +139,7 @@ const WidgetService = {
         prayerStats = { completed: 0, total: 5 },
         quranStats = { seconds: 0, goalMinutes: 15 },
         dhikrStats = { totalCompleted: 0, totalGoal: 0 },
+        journalStats = { completedToday: false },
         activityCompletion = {},
         selectedActivities = {},
         nextSalah = null,
@@ -158,12 +170,18 @@ const WidgetService = {
                     ? Math.min(Math.round((dhikrStats.totalCompleted / dhikrStats.totalGoal) * 100), 100)
                     : 0);
 
+            // ── Journal ring percentage ──
+            const journalPct = activityCompletion.journaling
+                ? 100
+                : (journalStats && journalStats.completedToday ? 100 : 0);
+
             // ── Overall progress (only selected activities) ──
             let totalPct = 0;
             let count = 0;
             if (selectedActivities.prayers) { totalPct += salahPct; count++; }
             if (selectedActivities.quran) { totalPct += quranPct; count++; }
             if (selectedActivities.dhikr) { totalPct += dhikrPct; count++; }
+            if (selectedActivities.journaling) { totalPct += journalPct; count++; }
             const overallProgress = count > 0 ? Math.round(totalPct / count) : 0;
 
             // ── Next Salah calculation & Schedule ──
@@ -261,12 +279,25 @@ const WidgetService = {
                 };
             }
 
+            // Invalidate circle cache if user's own progress has changed
+            const percentagesChanged = 
+                lastUserPercentages.salah !== salahPct ||
+                lastUserPercentages.quran !== quranPct ||
+                lastUserPercentages.dhikr !== dhikrPct ||
+                lastUserPercentages.journal !== journalPct;
+            
+            if (percentagesChanged) {
+                lastCircleFetchTimestamp = 0;
+                lastUserPercentages = { salah: salahPct, quran: quranPct, dhikr: dhikrPct, journal: journalPct };
+            }
+
             const circleData = await this.getCircleWidgetData();
 
             const payload = {
                 salah: { percentage: salahPct, completed: prayerStats.completed, total: prayerStats.total || 5, isActive: !!selectedActivities.prayers },
                 quran: { percentage: quranPct, isActive: !!selectedActivities.quran },
                 dhikr: { percentage: dhikrPct, isActive: !!selectedActivities.dhikr },
+                journal: { percentage: journalPct, isActive: !!selectedActivities.journaling },
                 hasJournalActive: !!selectedActivities.journaling,
                 overallProgress,
                 nextSalah: nextSalahData,
@@ -301,6 +332,112 @@ const WidgetService = {
             }
         } catch (error) {
             console.error('WidgetService: Error updating widget data', error);
+        }
+    },
+
+    /**
+     * Updates widget data by fetching all statistics directly from Firestore.
+     * Useful for background fetches or silent push notification handlers.
+     */
+    async updateWidgetDataFromFirestore() {
+        try {
+            const currentUser = require('@react-native-firebase/auth').default().currentUser;
+            if (!currentUser) {
+                console.log('WidgetService: No authenticated user, skipping background update');
+                return;
+            }
+
+            this.invalidateCircleCache();
+
+            // Load onboarding info (selectedActivities, goals)
+            const info = await FirebaseService.getOnboardingInfo();
+            const selectedActivities = info?.selectedActivities || {};
+            const quranGoalMinutes = info?.quran?.minutesDay || 15;
+            let quranSeconds = info?.quran?.actualSecondsDay || 0;
+            const dhikrGoals = info?.dikar || [];
+            const dhikrTotalGoal = dhikrGoals.reduce((sum, item) => sum + (item.counter || 0), 0);
+
+            // Load activity progress
+            const activityCompletion = await FirebaseService.getActivityProgress();
+
+            // Get today's local date key
+            const todayStr = FirebaseService.getLocalDateKey();
+
+            // Fetch stats using FirebaseService helpers
+            let prayerCompletedCount = 0;
+            try {
+                const prayerCompletionData = await FirebaseService.getPrayerCompletion();
+                prayerCompletedCount = Object.values(prayerCompletionData).filter(v => v === true).length;
+            } catch (e) {
+                console.warn('WidgetService: Error fetching prayer progress for background:', e);
+            }
+
+            try {
+                const dailyReadingTime = await FirebaseService.getDailyReadingTime();
+                if (dailyReadingTime > 0) {
+                    quranSeconds = dailyReadingTime;
+                }
+            } catch (e) {
+                console.warn('WidgetService: Error fetching quran reading time for background:', e);
+            }
+
+            let dhikrTotalCompleted = 0;
+            try {
+                const dhikrProgressData = await FirebaseService.getDhikrProgress();
+                dhikrTotalCompleted = Object.values(dhikrProgressData).reduce((sum, val) => sum + (val || 0), 0);
+            } catch (e) {
+                console.warn('WidgetService: Error fetching dhikr progress for background:', e);
+            }
+
+            let journalCompletedToday = false;
+            try {
+                const journalStatsResult = await FirebaseService.getJournalStats();
+                journalCompletedToday = journalStatsResult.completedToday;
+            } catch (e) {
+                console.warn('WidgetService: Error fetching journal stats for background:', e);
+            }
+
+            // Fetch cached timings and next salah
+            let prayerTimings = null;
+            let timezone = null;
+            let nextSalah = null;
+            try {
+                const StorageService = require('./StorageService').default;
+                const fullData = await StorageService.getFullTimings();
+                if (fullData?.timings && fullData?.timezone) {
+                    prayerTimings = fullData.timings;
+                    timezone = fullData.timezone;
+                    
+                    const location = await StorageService.getLocation();
+                    if (location?.latitude && location?.longitude) {
+                        const PrayerTimeService = require('./PrayerTimeService').default;
+                        const prayerData = await PrayerTimeService.getCompletePrayerData(
+                            location.latitude, location.longitude
+                        );
+                        if (prayerData) {
+                            nextSalah = { name: prayerData.nextPrayer, timeString: prayerData.nextPrayerTime };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('WidgetService: Error calculating next salah in background', e);
+            }
+
+            await this.updateWidgetData({
+                prayerStats: { completed: prayerCompletedCount, total: 5 },
+                quranStats: { seconds: quranSeconds, goalMinutes: quranGoalMinutes },
+                dhikrStats: { totalCompleted: dhikrTotalCompleted, totalGoal: dhikrTotalGoal },
+                journalStats: { completedToday: journalCompletedToday },
+                activityCompletion,
+                selectedActivities,
+                nextSalah,
+                prayerTimings,
+                timezone,
+            });
+
+            console.log('WidgetService: Widget updated successfully from Firestore in background');
+        } catch (error) {
+            console.error('WidgetService: Failed to update widget data from Firestore', error);
         }
     },
 

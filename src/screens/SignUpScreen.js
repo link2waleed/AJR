@@ -10,6 +10,7 @@ import {
     Image,
     Dimensions,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import {
     GradientBackground,
@@ -333,13 +334,15 @@ const SignUpScreen = ({ navigation }) => {
                     </View>
 
                     {/* Social Buttons */}
-                    <SocialButton
-                        provider="apple"
-                        onPress={handleAppleSignUp}
-                        isSignIn={false}
-                        style={styles.socialButton}
-                        disabled={loading}
-                    />
+                    {Platform.OS === 'ios' && (
+                        <SocialButton
+                            provider="apple"
+                            onPress={handleAppleSignUp}
+                            isSignIn={false}
+                            style={styles.socialButton}
+                            disabled={loading}
+                        />
+                    )}
 
                     <SocialButton
                         provider="google"
@@ -358,6 +361,11 @@ const SignUpScreen = ({ navigation }) => {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+            {loading && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#ffffff" />
+                </View>
+            )}
         </GradientBackground>
     );
 };
@@ -432,8 +440,21 @@ const styles = StyleSheet.create({
     },
     linkAction: {
         color: colors.text.primary,
-        fontSize: isSmallDevice ? 13 : 14,
+        fontSize: isSmallDevice ? 13 : 14, 
         fontWeight: typography.fontWeight.bold,
+        textDecorationLine: 'underline',
+        textDecorationColor: colors.text.primary,
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
     },
 });
 

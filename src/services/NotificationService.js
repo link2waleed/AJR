@@ -9,7 +9,7 @@ import messaging from '@react-native-firebase/messaging';
 // Android: file lives in android/app/src/main/res/raw/  — SoundResolver strips extension
 // iOS:     file lives in the app bundle root (copied by expo-notifications config plugin)
 const ANDROID_SOUND = 'azan_android.mp3';
-const IOS_SOUND     = 'azan_ios.wav';
+const IOS_SOUND = 'azan_ios.wav';
 
 // ─── Android Notification Channels ───────────────────────────────────────────
 // IMPORTANT: Android does NOT allow modifying a channel's sound after creation.
@@ -255,6 +255,7 @@ const NotificationService = {
 
         const channel = CHANNELS[soundMode] ?? CHANNELS.beep;
         const noSound = soundMode === 'vibration' || soundMode === 'silent';
+        const isDefaultSound = soundMode === 'alerts';
 
         // ── Resolve sound per platform ──────────────────────────────────────
         // iOS:     string filename → UNNotificationSound(named:) in native
@@ -266,6 +267,8 @@ const NotificationService = {
         let soundValue;
         if (noSound) {
             soundValue = false;                                     // explicitly no sound
+        } else if (isDefaultSound) {
+            soundValue = true;                                      // default system notification sound
         } else {
             soundValue = Platform.OS === 'ios' ? IOS_SOUND : ANDROID_SOUND;
         }
@@ -511,11 +514,14 @@ const NotificationService = {
                 if (nextPrayerDate && nextPrayerLabel) {
                     const reminderDate = new Date(nextPrayerDate.getTime() - 20 * 60 * 1000);
                     if (reminderDate > new Date()) {
+                        // Reminder plays the default system sound unless the prayer is set to silent or vibrate
+                        const reminderSoundMode = (soundMode === 'silent' || soundMode === 'vibration') ? soundMode : 'alerts';
+
                         const remId = await this.scheduleAt({
                             title: `⏰ ${label} Reminder`,
                             body: `20 minutes left in ${label} prayer time`,
                             date: reminderDate,
-                            soundMode,
+                            soundMode: reminderSoundMode,
                             data: { prayer: local, notifType: 'reminder' },
                         });
                         if (remId) scheduledCount++;

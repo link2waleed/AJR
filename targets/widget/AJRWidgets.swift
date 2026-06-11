@@ -35,7 +35,7 @@ struct DailyAJRRingsWidget: Widget {
                 .ajrWidgetBackground()
         }
         .configurationDisplayName("Daily AJR")
-        .description("Track your Salah, Qur'an & Dhikr progress.")
+        .description("Track your Salah, Quran & Dhikr progress.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -84,8 +84,9 @@ struct DailyAJRRingsEntryView: View {
     private func legendListView(withDividers: Bool) -> some View {
         let activeLegends: [(id: Int, color: Color, label: String, pct: Int)] = [
             (entry.data.salah.isActive ?? true) ? (0, AJRColors.salahRing, "Salah", entry.data.salah.percentage) : nil,
-            (entry.data.quran.isActive ?? true) ? (1, AJRColors.quranRing, "Qur'an", entry.data.quran.percentage) : nil,
-            (entry.data.dhikr.isActive ?? true) ? (2, AJRColors.dhikrRing, "Dhikr", entry.data.dhikr.percentage) : nil
+            (entry.data.quran.isActive ?? true) ? (1, AJRColors.quranRing, "Quran", entry.data.quran.percentage) : nil,
+            (entry.data.dhikr.isActive ?? true) ? (2, AJRColors.dhikrRing, "Dhikr", entry.data.dhikr.percentage) : nil,
+            (entry.data.journal?.isActive ?? false) ? (3, AJRColors.journalRing, "Journal", entry.data.journal?.percentage ?? 0) : nil
         ].compactMap { $0 }
 
         VStack(alignment: .leading, spacing: withDividers ? 14 : 15) {
@@ -94,12 +95,6 @@ struct DailyAJRRingsEntryView: View {
                 if withDividers && index < activeLegends.count - 1 {
                     Divider().background(Color.black.opacity(0.05))
                 }
-            }
-            if entry.data.hasJournalActive ?? false {
-                Text("+1 more")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(AJRColors.textGrey)
-                    .padding(.top, 2)
             }
         }
     }
@@ -273,8 +268,9 @@ struct CombinedAJREntryView: View {
     private func legendListView(withDividers: Bool) -> some View {
         let activeLegends: [(id: Int, color: Color, label: String, pct: Int)] = [
             (entry.data.salah.isActive ?? true) ? (0, AJRColors.salahRing, "Salah", entry.data.salah.percentage) : nil,
-            (entry.data.quran.isActive ?? true) ? (1, AJRColors.quranRing, "Qur'an", entry.data.quran.percentage) : nil,
-            (entry.data.dhikr.isActive ?? true) ? (2, AJRColors.dhikrRing, "Dhikr", entry.data.dhikr.percentage) : nil
+            (entry.data.quran.isActive ?? true) ? (1, AJRColors.quranRing, "Quran", entry.data.quran.percentage) : nil,
+            (entry.data.dhikr.isActive ?? true) ? (2, AJRColors.dhikrRing, "Dhikr", entry.data.dhikr.percentage) : nil,
+            (entry.data.journal?.isActive ?? false) ? (3, AJRColors.journalRing, "Journal", entry.data.journal?.percentage ?? 0) : nil
         ].compactMap { $0 }
 
         VStack(alignment: .leading, spacing: withDividers ? 14 : 15) {
@@ -283,12 +279,6 @@ struct CombinedAJREntryView: View {
                 if withDividers && index < activeLegends.count - 1 {
                     Divider().background(Color.black.opacity(0.05))
                 }
-            }
-            if entry.data.hasJournalActive ?? false {
-                Text("+1 more")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(AJRColors.textGrey)
-                    .padding(.top, 2)
             }
         }
     }

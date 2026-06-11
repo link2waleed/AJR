@@ -264,13 +264,6 @@
                     android:textColor="@color/widget_text_black"
                     android:textSize="18sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Complete"
-                    android:textColor="@color/widget_text_grey"
-                    android:textSize="8sp"
-                    android:textStyle="bold" />
             </LinearLayout>
         </FrameLayout>
 
@@ -337,7 +330,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Qur'an"
+                    android:text="Quran"
                     android:textColor="@color/widget_text_black"
                     android:textSize="13sp"
                     android:textStyle="bold" />

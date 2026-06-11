@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Dimensions,
     Image,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components';
@@ -24,6 +25,25 @@ const QuranGoalScreen = ({ navigation, route }) => {
     const activities = route?.params?.activities || {};
     const [minutesPerDay, setMinutesPerDay] = useState('');
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    // Load saved Quran goals on mount
+    useEffect(() => {
+        const loadSavedGoals = async () => {
+            try {
+                const info = await FirebaseService.getOnboardingInfo();
+                const quran = info?.quran;
+                if (quran && quran.minutesDay !== undefined && quran.minutesDay !== null) {
+                    setMinutesPerDay(String(quran.minutesDay));
+                }
+            } catch (e) {
+                console.warn('QuranGoalScreen: could not load saved Quran goals', e);
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        loadSavedGoals();
+    }, []);
 
     /**
      * Validate input: only numbers, max 500
@@ -95,6 +115,17 @@ const QuranGoalScreen = ({ navigation, route }) => {
     const handleBack = () => {
         navigation.goBack();
     };
+
+    if (initialLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary.darkSage} />
+                <Text style={{ marginTop: spacing.md, fontSize: 14, color: colors.text.grey }}>
+                    Loading your Quran settings...
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

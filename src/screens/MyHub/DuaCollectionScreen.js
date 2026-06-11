@@ -85,7 +85,7 @@ const DuaCollectionScreen = ({ navigation }) => {
                         <TouchableOpacity onPress={handleBack} style={styles.headerIcon}>
                             <Ionicons name="arrow-back" size={24} color={colors.text.black} />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Hadith Collection</Text>
+                        <Text style={styles.headerTitle}>Saved Hadiths</Text>
                         <View style={{ width: 40 }} />
                     </View>
 

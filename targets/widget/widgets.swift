@@ -7,6 +7,7 @@ struct AJRWidgetData: Codable {
     let salah: RingData
     let quran: RingData
     let dhikr: RingData
+    let journal: RingData?
     let overallProgress: Int
     var nextSalah: NextSalahData
     let circleData: CircleData
@@ -61,9 +62,10 @@ struct AJRWidgetData: Codable {
         salah: RingData(percentage: 60, completed: 3, total: 5, isActive: true),
         quran: RingData(percentage: 45, isActive: true),
         dhikr: RingData(percentage: 80, isActive: true),
+        journal: RingData(percentage: 30, isActive: true),
         overallProgress: 62,
         nextSalah: NextSalahData(name: "Maghrib", timeRemaining: "2h 15m", timeString: "7:32 PM"),
-        circleData: CircleData(hasCircles: true, name: "Qur'an Circle", percentage: 65, otherCirclesCount: 2),
+        circleData: CircleData(hasCircles: true, name: "Quran Circle", percentage: 65, otherCirclesCount: 2),
         hasJournalActive: true,
         lastUpdated: nil
     )
@@ -98,6 +100,42 @@ struct AJREntry: TimelineEntry {
     let data: AJRWidgetData
 }
 
+// MARK: - Extension for Date Rollover Reset
+
+extension AJRWidgetData {
+    func checkAndResetForDate(_ checkDate: Date) -> AJRWidgetData {
+        guard let lastUpdatedString = lastUpdated else { return self }
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let lastUpdatedDate = formatter.date(from: lastUpdatedString) ?? ISO8601DateFormatter().date(from: lastUpdatedString) else {
+            return self
+        }
+        
+        let calendar = Calendar.current
+        if !calendar.isDate(lastUpdatedDate, inSameDayAs: checkDate) && checkDate > lastUpdatedDate {
+            let resetSalah = RingData(percentage: 0, completed: 0, total: salah.total, isActive: salah.isActive)
+            let resetQuran = RingData(percentage: 0, completed: 0, total: quran.total, isActive: quran.isActive)
+            let resetDhikr = RingData(percentage: 0, completed: 0, total: dhikr.total, isActive: dhikr.isActive)
+            let resetJournal = journal != nil ? RingData(percentage: 0, completed: 0, total: journal?.total, isActive: journal?.isActive) : nil
+            
+            return AJRWidgetData(
+                salah: resetSalah,
+                quran: resetQuran,
+                dhikr: resetDhikr,
+                journal: resetJournal,
+                overallProgress: 0,
+                nextSalah: nextSalah,
+                circleData: circleData,
+                hasJournalActive: hasJournalActive,
+                lastUpdated: lastUpdated
+            )
+        }
+        
+        return self
+    }
+}
+
 // MARK: - Timeline Provider
 
 struct AJRTimelineProvider: TimelineProvider {
@@ -106,23 +144,23 @@ struct AJRTimelineProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (AJREntry) -> Void) {
-        let entry = AJREntry(date: .now, data: SharedDataReader.read())
+        let entry = AJREntry(date: .now, data: SharedDataReader.read().checkAndResetForDate(.now))
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<AJREntry>) -> Void) {
-        let data = SharedDataReader.read()
+        let rawData = SharedDataReader.read()
         let now = Date()
-        var entries: [AJREntry] = []
         
-        // Add current entry
-        entries.append(AJREntry(date: now, data: data))
+        // Add current entry checked for date rollover
+        let currentData = rawData.checkAndResetForDate(now)
+        var entries: [AJREntry] = [AJREntry(date: now, data: currentData)]
 
         // Create future entries from the schedule
-        if let schedule = data.nextSalah.schedule {
+        if let schedule = currentData.nextSalah.schedule {
             for item in schedule {
                 if let targetDate = item.targetDate, targetDate > now {
-                    var nextData = data
+                    var nextData = currentData
                     nextData.nextSalah = AJRWidgetData.NextSalahData(
                         name: item.name,
                         timeRemaining: "—",
@@ -130,10 +168,22 @@ struct AJRTimelineProvider: TimelineProvider {
                         targetDateString: item.targetDateString,
                         schedule: schedule
                     )
-                    entries.append(AJREntry(date: targetDate, data: nextData))
+                    // Check and reset this future entry if it crosses midnight relative to lastUpdated
+                    let nextDataChecked = nextData.checkAndResetForDate(targetDate)
+                    entries.append(AJREntry(date: targetDate, data: nextDataChecked))
                 }
             }
         }
+
+        // Schedule an entry precisely at midnight local time to reset progress dynamically
+        let calendar = Calendar.current
+        if let nextMidnight = calendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) {
+            let midnightData = rawData.checkAndResetForDate(nextMidnight)
+            entries.append(AJREntry(date: nextMidnight, data: midnightData))
+        }
+
+        // Sort entries chronologically for WidgetKit
+        entries.sort { $0.date < $1.date }
 
         // Refresh every 15 minutes as a fallback
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: now)!

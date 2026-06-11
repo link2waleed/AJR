@@ -90,7 +90,7 @@ This will contain the full native SwiftUI widget implementation:
 - `SharedDataReader.swift` — Reads UserDefaults from App Group, parses JSON
 
 ##### Widget Views (SwiftUI)
-- **`DailyRingsView.swift`** — 3 concentric Apple-style activity rings for Salah (green/sage), Qur'an (gold), Dhikr (warm brown). Uses SwiftUI `Circle` with `trim()` and `stroke(style: .init(lineCap: .round))`. Shows "% Complete" in center.
+- **`DailyRingsView.swift`** — 3 concentric Apple-style activity rings for Salah (green/sage), Quran (gold), Dhikr (warm brown). Uses SwiftUI `Circle` with `trim()` and `stroke(style: .init(lineCap: .round))`. Shows "% Complete" in center.
 - **`NextSalahView.swift`** — Clean card showing next prayer name (e.g., "Maghrib") and countdown ("2h 15m"). Minimal typography, no clutter.
 - **`CircleProgressView.swift`** — Single ring showing group overall completion %. No member breakdown.
 

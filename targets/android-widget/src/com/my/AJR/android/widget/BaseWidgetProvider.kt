@@ -1,5 +1,6 @@
 package com.my.AJR.android.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -26,6 +27,9 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
         const val DEEP_LINK_DAILY_GROWTH = "ajr://dailygrowth"
         const val DEEP_LINK_SALAH = "ajr://salah"
         const val DEEP_LINK_CIRCLE = "ajr://mycircle"
+
+        const val ACTION_MINUTE_UPDATE = "com.my.AJR.android.widget.ACTION_MINUTE_UPDATE"
+        private const val ALARM_REQUEST_CODE = 9912
 
         /**
          * Trigger update for all widgets across all providers.
@@ -55,6 +59,63 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
                 }
             }
         }
+
+        fun scheduleMinuteUpdate(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NextSalahWidgetProvider::class.java).apply {
+                    action = ACTION_MINUTE_UPDATE
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    ALARM_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val triggerAt = System.currentTimeMillis() + 60000
+                alarmManager.setRepeating(
+                    AlarmManager.RTC,
+                    triggerAt,
+                    60000,
+                    pendingIntent
+                )
+                android.util.Log.d("AJRWidgetAlarm", "Scheduled repeating minute update alarm")
+            } catch (e: Exception) {
+                android.util.Log.e("AJRWidgetAlarm", "Failed to schedule minute update", e)
+            }
+        }
+
+        fun cancelMinuteUpdate(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NextSalahWidgetProvider::class.java).apply {
+                    action = ACTION_MINUTE_UPDATE
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    ALARM_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (pendingIntent != null) {
+                    alarmManager.cancel(pendingIntent)
+                    pendingIntent.cancel()
+                    android.util.Log.d("AJRWidgetAlarm", "Cancelled minute update alarm")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AJRWidgetAlarm", "Failed to cancel minute update", e)
+            }
+        }
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_MINUTE_UPDATE) {
+            android.util.Log.d("AJRWidgetAlarm", "Received minute update broadcast in Provider")
+            updateAllWidgets(context)
+        } else {
+            super.onReceive(context, intent)
+        }
     }
 
     override fun onUpdate(
@@ -67,6 +128,8 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
         appWidgetIds.forEach { appWidgetId ->
             updateWidget(context, appWidgetManager, appWidgetId, widgetData)
         }
+
+        scheduleMinuteUpdate(context)
     }
 
     override fun onAppWidgetOptionsChanged(

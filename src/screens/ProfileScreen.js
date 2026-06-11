@@ -72,14 +72,35 @@ const ProfileScreen = ({ navigation }) => {
     useEffect(() => {
         const unsubscribe = auth().onAuthStateChanged(async (user) => {
             if (user) {
+                const StorageService = require('../services/StorageService').default;
+                
+                // 1. Try to read cached username for immediate zero-lag display
+                try {
+                    const cachedName = await StorageService.getUserName(user.uid);
+                    const initialName = cachedName || user.displayName || user.email.split('@')[0];
+                    const nameParts = initialName.split(' ');
+                    const firstName = nameParts[0] || '';
+                    const lastName = nameParts[1] || '';
+                    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+                    setUserData(prev => ({
+                        ...prev,
+                        name: initialName,
+                        email: user.email,
+                        avatarInitials: initials.length > 0 ? initials : 'U',
+                    }));
+                } catch (e) {
+                    console.warn('ProfileScreen: Error fetching cached name:', e);
+                }
+
                 try {
                     // Fetch user data from Firestore
                     const firestoreData = await FirebaseService.getUserRootData();
 
-                    // Extract name from Firestore or Firebase Auth
+                    // Extract name from Firestore
                     const displayName = firestoreData.name || user.displayName || user.email.split('@')[0];
                     const nameParts = displayName.split(' ');
-                    const firstName = nameParts[0];
+                    const firstName = nameParts[0] || '';
                     const lastName = nameParts[1] || '';
 
                     // Create initials
@@ -102,23 +123,19 @@ const ProfileScreen = ({ navigation }) => {
                         streak: streak,
                         totalDays: daysSince,
                     });
-                } catch (error) {
-                    console.error('Error fetching user data:', error);
-                    // Fallback to basic info if Firestore fails
-                    const displayName = user.displayName || user.email.split('@')[0];
-                    const nameParts = displayName.split(' ');
-                    const firstName = nameParts[0];
-                    const lastName = nameParts[1] || '';
-                    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
 
-                    setUserData({
-                        name: displayName,
-                        email: user.email,
-                        avatarInitials: initials.length > 0 ? initials : 'U',
-                        memberSince: 'January 2026',
-                        streak: 15,
-                        totalDays: 45,
-                    });
+                    // Save to local cache
+                    if (firestoreData.name) {
+                        await StorageService.saveUserName(user.uid, firestoreData.name);
+                        
+                        // Sync Firebase Auth profile display name if different
+                        if (user.displayName !== firestoreData.name) {
+                            await user.updateProfile({ displayName: firestoreData.name });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching user data from Firestore:', error);
+                    // Keep using the cached / auth fallback state
                 }
             } else {
                 // Don't navigate during account deletion — the deletion handler controls navigation
@@ -316,12 +333,12 @@ const ProfileScreen = ({ navigation }) => {
                             <Text style={styles.profileName}>{userData.name}</Text>
                             <Text style={styles.profileEmail}>{userData.email}</Text>
                             {/* <Text style={styles.memberSince}>Member since {userData.memberSince}</Text> */}
+                            {/* Logout Pill */}
+                            <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>
+                                <Ionicons name="log-out-outline" size={16} color="#E57373" />
+                                <Text style={styles.logoutPillText}>Logout</Text>
+                            </TouchableOpacity>
                         </View>
-                        {/* Logout Pill */}
-                        <TouchableOpacity style={styles.logoutPill} onPress={handleLogout}>
-                            <Ionicons name="log-out-outline" size={16} color="#E57373" />
-                            <Text style={styles.logoutPillText}>Logout</Text>
-                        </TouchableOpacity>
                     </View>
                 ) : null}
 
@@ -800,7 +817,8 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 20,
-        marginLeft: 'auto',
+        alignSelf: 'flex-start',
+        marginTop: 6,
     },
     logoutPillText: {
         fontSize: 13,

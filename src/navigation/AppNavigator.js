@@ -3,6 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import {
+    // Update
+    HardUpdateScreen,
+
     // Auth
     SplashScreen,
     WelcomeScreen,
@@ -80,6 +83,13 @@ const AppNavigator = () => {
                     animation: 'fade',
                 }}
             >
+                {/* ================= UPDATE SCREENS ================= */}
+                <Stack.Screen
+                    name="HardUpdate"
+                    component={HardUpdateScreen}
+                    options={{ gestureEnabled: false }}
+                />
+
                 {/* ================= AUTH FLOW ================= */}
                 <Stack.Screen name="Splash" component={SplashScreen} />
                 <Stack.Screen name="Welcome" component={WelcomeScreen} />

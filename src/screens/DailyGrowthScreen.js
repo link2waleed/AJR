@@ -87,13 +87,28 @@ const DailyGrowthScreen = ({ navigation }) => {
     useEffect(() => {
         const fetchUserName = async () => {
             if (user) {
+                const StorageService = require('../services/StorageService').default;
+                try {
+                    const cachedName = await StorageService.getUserName(user.uid);
+                    if (cachedName) {
+                        setUserName(cachedName.split(' ')[0]);
+                    }
+                } catch (e) {
+                    console.warn(e);
+                }
+
                 try {
                     const firestoreData = await FirebaseService.getUserRootData();
-                    const name = firestoreData?.name?.split(' ')[0] || 'Friend';
-                    setUserName(name);
+                    const name = firestoreData?.name?.split(' ')[0];
+                    if (name) {
+                        setUserName(name);
+                        if (firestoreData.name) {
+                            await StorageService.saveUserName(user.uid, firestoreData.name);
+                        }
+                    }
                 } catch (error) {
                     console.error('Error fetching Firestore user name:', error);
-                    setUserName('Friend');
+                    // Keep using the cached name or default Friend if not loaded
                 }
             }
         };

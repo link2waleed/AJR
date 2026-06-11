@@ -1,3 +1,7 @@
+// ================= UPDATE SCREENS =================
+export { default as HardUpdateScreen } from '../update-screens/HardUpdateScreen';
+export { default as SoftUpdateModal }  from '../update-screens/SoftUpdateModal';
+
 // ================= AUTH SCREENS =================
 export { default as SplashScreen } from './SplashScreen';
 export { default as WelcomeScreen } from './WelcomeScreen';
